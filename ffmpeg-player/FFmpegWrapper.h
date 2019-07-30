@@ -24,7 +24,7 @@ private:
 	atomic<bool> keepRunning;
 	string inputCodec;
 	bool useTranscoding;
-	std::thread thread;
+	//std::thread thread;
 
 public:
 	static CallbackFunction callback;
@@ -34,6 +34,17 @@ public:
 		keepRunning = true;
 		url = std::move(_url);
 		useTranscoding = _useTranscoding;
+	}
+
+	static int interrupt_cb(void *ctx)
+	{
+		//AVFormatContext* formatContext = reinterpret_cast<AVFormatContext*>(ctx);
+
+		//timeout after 5 seconds of no activity
+		/*if (formatContext->timestamp>0 && (GetTickCount() - formatContext->timestamp >5000))
+			return 1;*/
+		cout << "called";
+		return 0;
 	}
 
 	static int ReadFunc(void* ptr, uint8_t* buf, int buf_size)
@@ -95,7 +106,7 @@ public:
 
 	int Start() {
 		//cout << id << endl;
-		AVFormatContext *pFormatCtx = NULL;
+		AVFormatContext *pFormatCtx = avformat_alloc_context();;
 
 		std::cout << "url is: " << this->url << std::endl;
 		std::cout << "url is: " << url << std::endl;
@@ -122,6 +133,8 @@ public:
 
 		}*/
 		cout << "Reached 2";
+		//pFormatCtx->interrupt_callback.callback = interrupt_cb;
+		//pFormatCtx->interrupt_callback.opaque = formatContext;
 
 		if (avformat_open_input(&pFormatCtx, fileName, NULL, &options1) != 0)
 		{
@@ -131,8 +144,9 @@ public:
 
 			if (avformat_open_input(&pFormatCtx, fileName, NULL, &options1) != 0)
 			{
+				AVDictionary* options1 = nullptr;
 				cout << "Reached 4";
-				if (avformat_open_input(&pFormatCtx, fileName, NULL, NULL) != 0) {
+				if (avformat_open_input(&pFormatCtx, fileName, NULL, &options1) != 0) {
 					cout << "Reached 5";
 
 					return -1;
@@ -272,7 +286,7 @@ public:
 						// Did we get a video frame?
 						if (frameFinished) {
 							/*if (++i <= 10)*/
-							cout << i << endl;
+							//cout << i << endl;
 							if (i == 1)
 								save_frame_as_jpeg(pCodecCtx, pFrame);
 							if (i++ >= interval)
