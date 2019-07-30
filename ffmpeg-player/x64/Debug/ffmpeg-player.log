@@ -1,0 +1,9 @@
+﻿  FFmpegRtspToMp4.cpp
+d:\ffmpeg-player\ffmpeg-player\mp4frag.h(69): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+d:\vcpkg\installed\x64-windows\include\websocketpp\frame.hpp(834): warning C4267: '=': conversion from 'size_t' to 'uint32_t', possible loss of data
+d:\vcpkg\installed\x64-windows\include\websocketpp\common\md5.hpp(367): warning C4267: '+=': conversion from 'size_t' to 'websocketpp::md5::md5_word_t', possible loss of data
+d:\vcpkg\installed\x64-windows\include\websocketpp\sha1\sha1.hpp(176): warning C4267: '=': conversion from 'size_t' to 'unsigned int', possible loss of data
+d:\ffmpeg-player\ffmpeg-player\ffmpegwrapper.h(236): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+d:\ffmpeg-player\ffmpeg-player\ffmpegwrapper.h(57): warning C4715: 'FFmpegWrapper::ReadFunc': not all control paths return a value
+  ffmpeg-player.vcxproj -> D:\ffmpeg-player\x64\Debug\ffmpeg-player.exe
+  ffmpeg-player.vcxproj -> D:\ffmpeg-player\x64\Debug\ffmpeg-player.pdb (Partial PDB)

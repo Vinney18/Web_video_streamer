@@ -1,0 +1,23 @@
+﻿  pch.cpp
+  Mp4frag.cpp
+c:\users\i2v\documents\visual studio 2015\projects\ffmpeg-player\ffmpeg-player\mp4frag.cpp(110): warning C4244: '=': conversion from 'time_t' to 'long', possible loss of data
+c:\users\i2v\documents\visual studio 2015\projects\ffmpeg-player\ffmpeg-player\mp4frag.cpp(134): warning C4018: '>': signed/unsigned mismatch
+c:\users\i2v\documents\visual studio 2015\projects\ffmpeg-player\ffmpeg-player\mp4frag.cpp(154): warning C4018: '>': signed/unsigned mismatch
+c:\users\i2v\documents\visual studio 2015\projects\ffmpeg-player\ffmpeg-player\mp4frag.cpp(195): warning C4018: '<': signed/unsigned mismatch
+c:\users\i2v\documents\visual studio 2015\projects\ffmpeg-player\ffmpeg-player\mp4frag.cpp(224): warning C4018: '>': signed/unsigned mismatch
+c:\users\i2v\documents\visual studio 2015\projects\ffmpeg-player\ffmpeg-player\mp4frag.cpp(256): warning C4018: '>': signed/unsigned mismatch
+c:\users\i2v\documents\visual studio 2015\projects\ffmpeg-player\ffmpeg-player\mp4frag.cpp(279): warning C4018: '>': signed/unsigned mismatch
+c:\users\i2v\documents\visual studio 2015\projects\ffmpeg-player\ffmpeg-player\mp4frag.cpp(307): warning C4018: '>': signed/unsigned mismatch
+c:\users\i2v\documents\visual studio 2015\projects\ffmpeg-player\ffmpeg-player\mp4frag.cpp(344): warning C4244: '=': conversion from 'const time_t' to 'long', possible loss of data
+c:\users\i2v\documents\visual studio 2015\projects\ffmpeg-player\ffmpeg-player\mp4frag.cpp(345): warning C4244: '=': conversion from 'time_t' to 'long', possible loss of data
+c:\users\i2v\documents\visual studio 2015\projects\ffmpeg-player\ffmpeg-player\mp4frag.cpp(350): warning C4018: '>': signed/unsigned mismatch
+  MjpegServer.cpp
+c:\users\i2v\documents\visual studio 2015\projects\ffmpeg-player\ffmpeg-player\mjpegserver.h(21): fatal error C1083: Cannot open include file: 'Poco/Net/HTTPServer.h': No such file or directory
+  FFmpegWrapper.cpp
+c:\users\i2v\documents\visual studio 2015\projects\ffmpeg-player\ffmpeg-player\ffmpegwrapper.h(5): fatal error C1083: Cannot open include file: 'libavformat/avformat.h': No such file or directory
+  FFmpegRtspToMp4.cpp
+c:\users\i2v\documents\visual studio 2015\projects\ffmpeg-player\ffmpeg-player\mjpegserver.h(21): fatal error C1083: Cannot open include file: 'Poco/Net/HTTPServer.h': No such file or directory
+  base64.cpp
+c:\users\i2v\documents\visual studio 2015\projects\ffmpeg-player\ffmpeg-player\base64.cpp(100): warning C4267: '=': conversion from 'size_t' to 'unsigned char', possible loss of data
+c:\users\i2v\documents\visual studio 2015\projects\ffmpeg-player\ffmpeg-player\base64.cpp(114): warning C4267: '=': conversion from 'size_t' to 'unsigned char', possible loss of data
+  Generating Code...

@@ -1,0 +1,7 @@
+﻿  Generating code
+  44 of 9350 functions ( 0.5%) were compiled, the rest were copied from previous compilation.
+    39 functions were new in current compilation
+    3 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+  ffmpeg-player.vcxproj -> D:\ffmpeg-player\x64\Release\ffmpeg-player.exe
+  ffmpeg-player.vcxproj -> D:\ffmpeg-player\x64\Release\ffmpeg-player.pdb (Full PDB)

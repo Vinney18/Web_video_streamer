@@ -1,0 +1,9 @@
+C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\i2v-player\bin\Release\i2v_player.msi
+C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\i2v-player\bin\Release\i2v_player.wixpdb
+obj\Release\Product.wixobj
+obj\Release\i2v-player.wixproj.BindContentsFileListnull.txt
+obj\Release\i2v-player.wixproj.BindOutputsFileListnull.txt
+obj\Release\i2v-player.wixproj.BindBuiltOutputsFileListnull.txt
+obj\Release\MyInstallDirDlg.wixobj
+obj\Release\MyWixUI_InstallDir.wixobj
+obj\Release\HeatGeneratedFileList.wixobj
