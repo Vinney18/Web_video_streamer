@@ -2,9 +2,8 @@
 
 using namespace std::placeholders;
 
-Mp4frag::Mp4frag(string path, SendSegmentCallback callback) 
+Mp4frag::Mp4frag(SendSegmentCallback callback) 
 {
-	Id = path;
 	sendSegment = callback;
 	_parseChunk = std::bind(&Mp4frag::_findFtyp, this, _1); // &this->_findFtyp;
 }
@@ -111,7 +110,7 @@ void Mp4frag::_parseMoov(vector<uint8_t> value)
 	//raise initialized event
 	//this.emit('initialized', { mime: this._mime, initialization: this._initialization, m3u8: this._m3u8 || null});
 	//onInit ? .Invoke(initialization, Id);
-	sendSegment(initialization, Id);
+	sendSegment(initialization);
 }
 
 void Mp4frag::_findMoof(vector<uint8_t> chunk)
@@ -351,7 +350,7 @@ void Mp4frag::_setSegment(vector<uint8_t> chunk)
 			bufferList.erase(bufferList.begin());
 		}
 	}
-	sendSegment(segment, Id);
+	sendSegment(segment);
 }
 
 

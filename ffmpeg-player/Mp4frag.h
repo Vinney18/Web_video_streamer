@@ -8,7 +8,7 @@
 #include <functional>
 
 using namespace std;
-typedef function<void(vector<uint8_t>, string)> SendSegmentCallback;
+typedef function<void(vector<uint8_t>)> SendSegmentCallback;
 
 #pragma once
 class Mp4frag
@@ -20,8 +20,6 @@ public:
 
 	typedef std::function<void(vector<uint8_t>)> ParseChunkCallback;
 	ParseChunkCallback _parseChunk;
-
-	string Id;
 
 	vector<uint8_t> _FTYP{ 102, 116, 121, 112 };// ftyp
 	vector<uint8_t> _MOOV{ 109, 111, 111, 118 };// moov
@@ -37,7 +35,7 @@ public:
 	long timestamp;
 	long duration;
 
-	Mp4frag(string path, SendSegmentCallback sendSegment);
+	Mp4frag(SendSegmentCallback sendSegment);
 	void _findFtyp(vector<uint8_t> chunk);
 	void _findMoov(vector<uint8_t> chunk);
 	void _parseMoov(vector<uint8_t> value);

@@ -128,6 +128,7 @@
     <ClInclude Include="MjpegServer.h" />
     <ClInclude Include="Mp4frag.h" />
     <ClInclude Include="safe_ptr.h" />
+    <ClInclude Include="Thread.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="base64.cpp" />
@@ -135,6 +136,7 @@
     <ClCompile Include="FFmpegWrapper.cpp" />
     <ClCompile Include="MjpegServer.cpp" />
     <ClCompile Include="Mp4frag.cpp" />
+    <ClCompile Include="Thread.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
