@@ -1,2 +1,2 @@
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\i2v-player\bin\Release\i2v_player.msi
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\i2v-player\bin\Release\i2v_player.wixpdb
+D:\ffmpeg-player\i2v-player\bin\Release\i2v_player.msi
+D:\ffmpeg-player\i2v-player\bin\Release\i2v_player.wixpdb

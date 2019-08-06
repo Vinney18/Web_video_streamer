@@ -4,10 +4,18 @@ int FFmpegWrapper::run()
 {
 	while (!mStop)
 	{
+		params.isRunning = false;
 		auto opened = openInput();
 		if (opened)
 		{
+			for (auto connHdl : connections[mjpeg])
+			{
+				websocketSCallback(connHdl, "connected");
+			}
+			params.isRunning = true;
 			GetInputCodecInfo();
+			createMp4Output();
+			createMjpegOutput();
 			if (!tempConnections.empty()) {
 				for (auto el : tempConnections) {
 					addConnection(el.first, el.second);
@@ -15,15 +23,21 @@ int FFmpegWrapper::run()
 				tempConnections.clear();
 			}
 			readInput();
+			freeMp4OutMemory();
+			freeMjpegOutMemory();
 			closeInput();
 		}
 
 		if (!mStop) {
+			for (auto connHdl : connections[mjpeg])
+			{
+				websocketSCallback(connHdl, "retrying");
+			}
 			// wait for some time before retry
 			std::unique_lock<std::mutex> lk(mThreadMutex);
-			cv.wait_for(lk, std::chrono::seconds(5));
+			cv.wait_for(lk, std::chrono::seconds(1));
 		}
-	}	
+	}
 	return 0;
 }
 
@@ -33,11 +47,13 @@ void FFmpegWrapper::addConnection(websocketpp::connection_hdl connHdl, bool useT
 		tempConnections.push_back(std::make_pair(connHdl, useTranscoding));
 	}
 	else {
-		
+
 		if (inputCodecID != AV_CODEC_ID_H264 || useTranscoding) {
+			websocketSCallback(connHdl, "mjpeg");
 			addConnToList(connHdl, mjpeg);
 		}
 		else {
+			websocketSCallback(connHdl, "mp4");
 			addConnToList(connHdl, mp4);
 		}
 	}
@@ -72,12 +88,13 @@ bool FFmpegWrapper::removeConnection(websocketpp::connection_hdl connHdl)
 
 	if (isFound)
 	{
+		//std::unique_lock<std::mutex> lock(connectionlock);
 		connections[type].erase(connHdl);
-		if (connections[type].empty()) {		
+		/*if (connections[type].empty()) {
 			removeOutput(type);
-		}
+		}*/
 
-		if (connections[mp4].empty() && connections[mjpeg].empty()){
+		if (connections[mp4].empty() && connections[mjpeg].empty()) {
 			// no more connections so tell 
 			return true;
 		}
@@ -141,7 +158,9 @@ bool FFmpegWrapper::createMp4Output()
 	if (!(outStrm = avformat_new_stream(this->mp4OutContext, 0))) {
 		return -1;
 	}
-	this->mp4OutContext->metadata = this->inputFormatCtx->metadata;
+	AVDictionary* metadata = nullptr;
+	av_dict_copy(&metadata, this->inputFormatCtx->metadata, 0);
+	this->mp4OutContext->metadata = metadata;
 	AVCodec * codec = NULL;
 	avcodec_get_context_defaults3(outStrm->codec, codec);
 
@@ -162,7 +181,7 @@ bool FFmpegWrapper::createMp4Output()
 	AVDictionary* options = nullptr;
 	av_dict_set(&options, "movflags", "+frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset", 0);
 	//av_dict_set(&options, "reset_timestamps", "1", 0);
-	av_dict_set(&options, "b:v", "1024k", 0);
+	//av_dict_set(&options, "b:v", "1024k", 0);
 
 	uint8_t *buffer2 = NULL;
 	int numBytes2 = 320 * 1024;
@@ -219,12 +238,28 @@ bool FFmpegWrapper::createOutput(OutputType outType)
 
 void FFmpegWrapper::addConnToList(websocketpp::connection_hdl connHdl, OutputType outType)
 {
+	//std::unique_lock<std::mutex> lock(connectionlock);	
 	if (connections[outType].empty())
 	{
-		createOutput(outType);
+		//createOutput(outType);
+		connections[outType].insert(connHdl);
+		// write header
+		if (outType == mp4) {
+			//AVDictionary* options = nullptr;
+			//av_dict_set(&options, "movflags", "+frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset", 0);
+			////av_dict_set(&options, "reset_timestamps", "1", 0);
+			//av_dict_set(&options, "b:v", "1024k", 0);
+			//avformat_write_header(this->mp4OutContext, &options);
+			websocketCallback(connHdl, mp4FragCreator->initialization);
+		}
 	}
-	connections[outType].insert(connHdl);
+	else {
 
+		if (outType == mp4) {
+			websocketCallback(connHdl, mp4FragCreator->initialization);
+		}
+		connections[outType].insert(connHdl);
+	}
 }
 
 void FFmpegWrapper::readInput()
@@ -232,13 +267,10 @@ void FFmpegWrapper::readInput()
 	int frameFinished;
 	AVPacket packet;
 
-
-	int videoFPS = 0;
-
 	int interval = 1;
-	if (videoFPS > 7) {
-		interval = videoFPS / 5;
-		if (videoFPS % 5 != 0)
+	if (inputFPS > 7) {
+		interval = inputFPS / 5;
+		if (inputFPS % 5 != 0)
 			interval++;
 	}
 	cout << "interval" << interval << endl;
@@ -251,6 +283,7 @@ void FFmpegWrapper::readInput()
 			// Is this a packet from the video stream?
 			if (packet.stream_index == videoStream) {
 				//av_write_frame(outFmtCtx, &packet);
+				//std::unique_lock<std::mutex> lock(connectionlock);
 				if (!connections[mjpeg].empty())
 				{
 					avcodec_decode_video2(decoderCodecContext, pFrame, &frameFinished, &packet);
@@ -272,7 +305,6 @@ void FFmpegWrapper::readInput()
 			// Free the packet that was allocated by av_read_frame
 			av_free_packet(&packet);
 		}
-
 	}
 	catch (const exception& ex) {
 
@@ -297,11 +329,21 @@ bool FFmpegWrapper::removeOutput(OutputType outType)
 
 void FFmpegWrapper::freeMp4OutMemory()
 {
-	//For mp4
+	try
+	{
+		//For mp4
 	//av_write_trailer(outFmtCtx);
-	avio_context_free(&mp4OutContext->pb);
-	//avio_close(outFmtCtx->pb);
-	avformat_free_context(mp4OutContext);
+		av_free(mp4OutContext->pb->buffer);
+		avio_context_free(&mp4OutContext->pb);
+		mp4OutContext->pb = NULL;
+		//avio_close(outFmtCtx->pb);
+		//avcodec_close(mp4OutContext->streams[0]->codec);
+		avformat_free_context(mp4OutContext);
+		mp4OutContext = NULL;
+	}
+	catch (const std::exception& ex) {
+		std::cout << ex.what() << std::endl;
+	}
 }
 
 void FFmpegWrapper::freeMjpegOutMemory()
@@ -315,15 +357,24 @@ void FFmpegWrapper::freeMjpegOutMemory()
 
 void FFmpegWrapper::closeInput()
 {
-	avcodec_close(inputCodecCtx);
-
-	// Close the video file
-	avformat_close_input(&this->inputFormatCtx);
+	try {
+		avcodec_close(inputCodecCtx);
+		inputCodecCtx = NULL;
+		// Close the video file
+		avformat_close_input(&this->inputFormatCtx);
+		inputFormatCtx = NULL;
+		inputCodecID = AV_CODEC_ID_NONE;
+	}
+	catch (const std::exception& ex) {
+		std::cout << ex.what() << std::endl;
+	}
 }
 
 bool FFmpegWrapper::openInput()
 {
-	this->inputFormatCtx = avformat_alloc_context();;
+	this->inputFormatCtx = avformat_alloc_context();
+	this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
+	this->inputFormatCtx->interrupt_callback.opaque = &params;
 	const char *fileName = this->url.c_str();
 	// Open file
 	AVDictionary* options1 = nullptr;
@@ -332,17 +383,25 @@ bool FFmpegWrapper::openInput()
 	//av_dict_set(&options1, "reorder_queue_size", "0", 0);
 	av_dict_set(&options1, "rtsp_transport", "tcp", 0);
 
-	this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
-	//this->inputFormatCtx->interrupt_callback.opaque = formatContext;
+	params.lastStopped = GetTickCount();
 
 	if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
 	{
+		this->inputFormatCtx = avformat_alloc_context();
+		this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
+		this->inputFormatCtx->interrupt_callback.opaque = &params;
 		AVDictionary* options1 = nullptr;
 		av_dict_set(&options1, "rtsp_transport", "udp", 0);
 
+		params.lastStopped = GetTickCount();
 		if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
 		{
+			this->inputFormatCtx = avformat_alloc_context();
+			this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
+			this->inputFormatCtx->interrupt_callback.opaque = &params;
 			AVDictionary* options1 = nullptr;
+
+			params.lastStopped = GetTickCount();
 			if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0) {
 				return false;
 			}
@@ -351,7 +410,6 @@ bool FFmpegWrapper::openInput()
 
 	// Dump information about file onto standard error
 	av_dump_format(this->inputFormatCtx, 0, fileName, 0);
-
 	return true;
 }
 

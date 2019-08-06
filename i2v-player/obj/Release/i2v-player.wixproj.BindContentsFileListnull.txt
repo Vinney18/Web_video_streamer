@@ -1,16 +1,20 @@
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\x64\Release\nssm.exe
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\x64\Release\avfilter-7.dll
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\x64\Release\avdevice-58.dll
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\x64\Release\avcodec-58.dll
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\x64\Release\ffmpeg-player.pdb
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\x64\Release\pcred.dll
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\x64\Release\swscale-5.dll
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\x64\Release\ffmpeg-player.exe
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\x64\Release\avutil-56.dll
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\x64\Release\ffmpeg-player.ipdb
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\x64\Release\swresample-3.dll
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\x64\Release\avformat-58.dll
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\x64\Release\run_service.bat
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\x64\Release\postproc-55.dll
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\x64\Release\boost_regex-vc141-mt-x64-1_70.dll
-C:\Users\i2v\Documents\Visual Studio 2015\Projects\ffmpeg-player\x64\Release\ffmpeg-player.iobj
+D:\ffmpeg-player\x64\Release\nssm.exe
+D:\ffmpeg-player\x64\Release\avfilter-7.dll
+D:\ffmpeg-player\x64\Release\avdevice-58.dll
+D:\ffmpeg-player\x64\Release\avcodec-58.dll
+D:\ffmpeg-player\x64\Release\ffmpeg-player.pdb
+D:\ffmpeg-player\x64\Release\pcred.dll
+D:\ffmpeg-player\x64\Release\swscale-5.dll
+D:\ffmpeg-player\x64\Release\ffmpeg-player.exe
+D:\ffmpeg-player\x64\Release\PocoNet.dll
+D:\ffmpeg-player\x64\Release\avutil-56.dll
+D:\ffmpeg-player\x64\Release\ffmpeg-player.ipdb
+D:\ffmpeg-player\x64\Release\swresample-3.dll
+D:\ffmpeg-player\x64\Release\avformat-58.dll
+D:\ffmpeg-player\x64\Release\boost_regex-vc142-mt-x64-1_70.dll
+D:\ffmpeg-player\x64\Release\run_service.bat
+D:\ffmpeg-player\x64\Release\postproc-55.dll
+D:\ffmpeg-player\x64\Release\zlib1.dll
+D:\ffmpeg-player\x64\Release\PocoFoundation.dll
+D:\ffmpeg-player\x64\Release\boost_regex-vc141-mt-x64-1_70.dll
+D:\ffmpeg-player\x64\Release\ffmpeg-player.iobj

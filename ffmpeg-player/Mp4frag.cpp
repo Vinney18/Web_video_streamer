@@ -110,7 +110,7 @@ void Mp4frag::_parseMoov(vector<uint8_t> value)
 	//raise initialized event
 	//this.emit('initialized', { mime: this._mime, initialization: this._initialization, m3u8: this._m3u8 || null});
 	//onInit ? .Invoke(initialization, Id);
-	sendSegment(initialization);
+	//sendSegment(initialization);
 }
 
 void Mp4frag::_findMoof(vector<uint8_t> chunk)

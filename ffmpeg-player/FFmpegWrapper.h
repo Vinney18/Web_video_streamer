@@ -26,6 +26,12 @@ using namespace std;
 
 typedef std::set<websocketpp::connection_hdl, std::owner_less<websocketpp::connection_hdl>> con_list;
 typedef std::function<void(websocketpp::connection_hdl& con_hndl, vector<uint8_t>& data)> WebsocketDataCallback;
+typedef std::function<void(websocketpp::connection_hdl& con_hndl, string sdata)> WebsocketSDataCallback;
+
+struct InterruptParams {
+	int lastStopped;
+	bool isRunning;
+};
 
 enum OutputType {
 	mp4,
@@ -38,10 +44,13 @@ private:
 	string id;
 	string url;
 	WebsocketDataCallback websocketCallback;
+	WebsocketSDataCallback websocketSCallback;
 
 	std::unique_ptr<Mp4frag> mp4FragCreator;
 	std::map<OutputType, con_list> connections; //keys mp4 and mjpeg
 	std::vector<std::pair<websocketpp::connection_hdl, bool>> tempConnections;
+
+	//std::mutex connectionlock;
 
 	AVFormatContext* inputFormatCtx = NULL;
 	AVCodecContext* inputCodecCtx = NULL;
@@ -56,24 +65,33 @@ private:
 
 public:
 
-	FFmpegWrapper(string _url, string _id, WebsocketDataCallback _websocketCallback) : Thread(), i2v::MjpegRoute(_id) {
+	FFmpegWrapper(string _url, string _id, WebsocketDataCallback _websocketCallback, WebsocketSDataCallback _websocketSCallback) : Thread(), i2v::MjpegRoute(_id) {
 		id = std::move(_id);
 		url = std::move(_url);
 		websocketCallback = _websocketCallback;
-		
-		connections = { {mp4, con_list()}, { mjpeg , con_list ()} };		
+		websocketSCallback = _websocketSCallback;
+
+		connections = { {mp4, con_list()}, { mjpeg , con_list()} };
 	}
 
 	~FFmpegWrapper();
 
 	static int interrupt_cb(void *ctx)
 	{
-		//AVFormatContext* formatContext = reinterpret_cast<AVFormatContext*>(ctx);
+		InterruptParams* params = reinterpret_cast<InterruptParams*>(ctx);
+		/*if (params->fmtCtx->start_time < 0) {
+			params->num++;
+		}
+		else {
+			params->num = 0;
+		}*/
 
+		//cout << params->num << std::endl;
 		//timeout after 5 seconds of no activity
-		/*if (formatContext->timestamp>0 && (GetTickCount() - formatContext->timestamp >5000))
-			return 1;*/
-		//cout << "called";
+		if (!params->isRunning && (GetTickCount() - params->lastStopped >5000))
+			return 1;
+			//cout << "called";
+
 		return 0;
 	}
 
@@ -91,6 +109,7 @@ public:
 
 	void addConnection(websocketpp::connection_hdl connHdl, bool useTranscoding);
 	bool removeConnection(websocketpp::connection_hdl connHdl);
+	InterruptParams params;
 
 protected:
 	virtual int run() override;
@@ -109,7 +128,7 @@ private:
 	bool removeOutput(OutputType outType);
 	void freeMp4OutMemory();
 	void freeMjpegOutMemory();
-	
+
 	int save_frame_as_jpeg(AVCodecContext *pCodecCtx, AVFrame *pFrame);
 	void receiveMp4Chunk(vector<uint8_t> data);
 };

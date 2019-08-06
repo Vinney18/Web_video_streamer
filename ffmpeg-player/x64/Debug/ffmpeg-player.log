@@ -3,19 +3,11 @@ d:\ffmpeg-player\ffmpeg-player\mp4frag.h(67): warning C4267: 'initializing': con
 d:\vcpkg\installed\x64-windows\include\websocketpp\frame.hpp(834): warning C4267: '=': conversion from 'size_t' to 'uint32_t', possible loss of data
 d:\vcpkg\installed\x64-windows\include\websocketpp\common\md5.hpp(367): warning C4267: '+=': conversion from 'size_t' to 'websocketpp::md5::md5_word_t', possible loss of data
 d:\vcpkg\installed\x64-windows\include\websocketpp\sha1\sha1.hpp(176): warning C4267: '=': conversion from 'size_t' to 'unsigned int', possible loss of data
-d:\ffmpeg-player\ffmpeg-player\ffmpegwrapper.cpp(142): warning C4305: 'return': truncation from 'int' to 'bool'
-d:\ffmpeg-player\ffmpeg-player\ffmpegwrapper.cpp(185): warning C4305: 'return': truncation from 'int' to 'bool'
-d:\ffmpeg-player\ffmpeg-player\ffmpegwrapper.cpp(192): warning C4305: 'return': truncation from 'int' to 'bool'
-d:\ffmpeg-player\ffmpeg-player\ffmpegwrapper.cpp(197): warning C4305: 'return': truncation from 'int' to 'bool'
-d:\ffmpeg-player\ffmpeg-player\ffmpegwrapper.cpp(277): warning C4101: 'ex': unreferenced local variable
-d:\ffmpeg-player\ffmpeg-player\ffmpegwrapper.cpp(378): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
-  Generating Code...
-  Compiling...
-  FFmpegRtspToMp4.cpp
-d:\ffmpeg-player\ffmpeg-player\mp4frag.h(67): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-d:\vcpkg\installed\x64-windows\include\websocketpp\frame.hpp(834): warning C4267: '=': conversion from 'size_t' to 'uint32_t', possible loss of data
-d:\vcpkg\installed\x64-windows\include\websocketpp\common\md5.hpp(367): warning C4267: '+=': conversion from 'size_t' to 'websocketpp::md5::md5_word_t', possible loss of data
-d:\vcpkg\installed\x64-windows\include\websocketpp\sha1\sha1.hpp(176): warning C4267: '=': conversion from 'size_t' to 'unsigned int', possible loss of data
-  Generating Code...
+d:\ffmpeg-player\ffmpeg-player\ffmpegwrapper.cpp(151): warning C4305: 'return': truncation from 'int' to 'bool'
+d:\ffmpeg-player\ffmpeg-player\ffmpegwrapper.cpp(196): warning C4305: 'return': truncation from 'int' to 'bool'
+d:\ffmpeg-player\ffmpeg-player\ffmpegwrapper.cpp(203): warning C4305: 'return': truncation from 'int' to 'bool'
+d:\ffmpeg-player\ffmpeg-player\ffmpegwrapper.cpp(208): warning C4305: 'return': truncation from 'int' to 'bool'
+d:\ffmpeg-player\ffmpeg-player\ffmpegwrapper.cpp(300): warning C4101: 'ex': unreferenced local variable
+d:\ffmpeg-player\ffmpeg-player\ffmpegwrapper.cpp(427): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
   ffmpeg-player.vcxproj -> D:\ffmpeg-player\x64\Debug\ffmpeg-player.exe
   ffmpeg-player.vcxproj -> D:\ffmpeg-player\x64\Debug\ffmpeg-player.pdb (Partial PDB)

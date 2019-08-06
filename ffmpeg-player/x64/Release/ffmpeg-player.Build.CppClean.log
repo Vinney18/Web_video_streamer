@@ -1,10 +1,10 @@
 d:\ffmpeg-player\ffmpeg-player\x64\release\vc140.pdb
-d:\ffmpeg-player\ffmpeg-player\x64\release\pch.obj
 d:\ffmpeg-player\ffmpeg-player\x64\release\mp4frag.obj
 d:\ffmpeg-player\ffmpeg-player\x64\release\mjpegserver.obj
 d:\ffmpeg-player\ffmpeg-player\x64\release\ffmpegwrapper.obj
 d:\ffmpeg-player\ffmpeg-player\x64\release\ffmpegrtsptomp4.obj
 d:\ffmpeg-player\ffmpeg-player\x64\release\base64.obj
+d:\ffmpeg-player\ffmpeg-player\x64\release\thread.obj
 d:\ffmpeg-player\ffmpeg-player\x64\release\vcpkg.applocal.log
 d:\ffmpeg-player\x64\release\boost_regex-vc142-mt-x64-1_70.dll
 d:\ffmpeg-player\x64\release\pocofoundation.dll

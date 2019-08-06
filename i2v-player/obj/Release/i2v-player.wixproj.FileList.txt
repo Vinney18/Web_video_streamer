@@ -7,3 +7,5 @@ obj\Release\i2v-player.wixproj.BindBuiltOutputsFileListnull.txt
 obj\Release\MyInstallDirDlg.wixobj
 obj\Release\MyWixUI_InstallDir.wixobj
 obj\Release\HeatGeneratedFileList.wixobj
+D:\ffmpeg-player\i2v-player\bin\Release\i2v_player.msi
+D:\ffmpeg-player\i2v-player\bin\Release\i2v_player.wixpdb

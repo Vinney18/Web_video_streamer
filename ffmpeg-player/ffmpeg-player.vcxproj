@@ -123,7 +123,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="base64.h" />
-    <ClInclude Include="FFmpegRtspToMp4.h" />
     <ClInclude Include="FFmpegWrapper.h" />
     <ClInclude Include="MjpegServer.h" />
     <ClInclude Include="Mp4frag.h" />
@@ -132,7 +131,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="base64.cpp" />
-    <ClCompile Include="FFmpegRtspToMp4.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="FFmpegWrapper.cpp" />
     <ClCompile Include="MjpegServer.cpp" />
     <ClCompile Include="Mp4frag.cpp" />
