@@ -33,9 +33,14 @@ int FFmpegWrapper::run()
 			{
 				websocketSCallback(connHdl, "retrying");
 			}
+			for (auto connHdl : connections[mp4])
+			{
+				websocketSCallback(connHdl, "retrying");
+			}
 			// wait for some time before retry
-			std::unique_lock<std::mutex> lk(mThreadMutex);
-			cv.wait_for(lk, std::chrono::seconds(1));
+			/*std::unique_lock<std::mutex> lk(mThreadMutex, std::defer_lock);
+			cv.wait_for(lk, std::chrono::seconds(1));*/
+			this_thread::sleep_for(std::chrono::seconds(1));
 		}
 	}
 	return 0;
@@ -61,6 +66,27 @@ void FFmpegWrapper::addConnection(websocketpp::connection_hdl connHdl, bool useT
 
 bool FFmpegWrapper::removeConnection(websocketpp::connection_hdl connHdl)
 {
+	if (!tempConnections.empty()) {
+		auto foundInTemp = false;
+		std::vector<std::pair<websocketpp::connection_hdl, bool>>::iterator foundPair;
+
+		for (std::vector<std::pair<websocketpp::connection_hdl, bool>>::iterator it = tempConnections.begin(); it != tempConnections.end(); ++it) {
+			if (it->first.lock() == connHdl.lock())
+			{
+				foundInTemp = true;
+				foundPair = it;
+			}
+		}
+		if (foundInTemp)
+		{
+			tempConnections.erase(foundPair);
+		}
+		if (connections[mp4].empty() && connections[mjpeg].empty()) {
+			// no more connections so tell 
+			return true;
+		}
+	}
+
 	bool isFound = false;
 	OutputType type;
 	if (!connections[mp4].empty())
@@ -102,8 +128,8 @@ bool FFmpegWrapper::removeConnection(websocketpp::connection_hdl connHdl)
 	return false;
 }
 
-int FFmpegWrapper::save_frame_as_jpeg(AVCodecContext *pCodecCtx, AVFrame *pFrame) {
-	AVCodec *jpegCodec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
+int FFmpegWrapper::save_frame_as_jpeg(AVCodecContext* pCodecCtx, AVFrame* pFrame, AVPacket* packet) {
+	/*AVCodec *jpegCodec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
 	if (!jpegCodec) {
 		return -1;
 	}
@@ -121,20 +147,18 @@ int FFmpegWrapper::save_frame_as_jpeg(AVCodecContext *pCodecCtx, AVFrame *pFrame
 
 	if (avcodec_open2(jpegContext, jpegCodec, NULL) < 0) {
 		return -1;
-	}
+	}*/
 	//FILE *JPEGFile;
 	//char JPEGFName[256];
 
-	AVPacket packet;
-	packet.data = NULL, packet.size = 0;
-	av_init_packet(&packet);
+
 	int gotFrame;
 
-	if (avcodec_encode_video2(jpegContext, &packet, pFrame, &gotFrame) < 0) {
+	if (avcodec_encode_video2(jpegContext, packet, pFrame, &gotFrame) < 0) {
 		return -1;
 	}
 
-	vector<uint8_t> frame(packet.data, packet.data + packet.size);
+	vector<uint8_t> frame(packet->data, packet->data + packet->size);
 	send(frame);
 
 	/*sprintf(JPEGFName, "dvr-%06d.jpg", FrameNo);
@@ -142,8 +166,7 @@ int FFmpegWrapper::save_frame_as_jpeg(AVCodecContext *pCodecCtx, AVFrame *pFrame
 	fwrite(packet.data, 1, packet.size, JPEGFile);
 	fclose(JPEGFile);*/
 
-	av_free_packet(&packet);
-	avcodec_close(jpegContext);
+	av_free_packet(packet);
 	return 0;
 }
 
@@ -151,9 +174,9 @@ bool FFmpegWrapper::createMp4Output()
 {
 	mp4FragCreator = make_unique<Mp4frag>(std::bind(&FFmpegWrapper::receiveMp4Chunk, this, std::placeholders::_1));
 
-	AVOutputFormat * outFmt = av_guess_format("mp4", NULL, NULL);
+	AVOutputFormat* outFmt = av_guess_format("mp4", NULL, NULL);
 
-	AVStream * outStrm;
+	AVStream* outStrm;
 	avformat_alloc_output_context2(&this->mp4OutContext, outFmt, NULL, NULL);
 	if (!(outStrm = avformat_new_stream(this->mp4OutContext, 0))) {
 		return -1;
@@ -161,7 +184,7 @@ bool FFmpegWrapper::createMp4Output()
 	AVDictionary* metadata = nullptr;
 	av_dict_copy(&metadata, this->inputFormatCtx->metadata, 0);
 	this->mp4OutContext->metadata = metadata;
-	AVCodec * codec = NULL;
+	AVCodec* codec = NULL;
 	avcodec_get_context_defaults3(outStrm->codec, codec);
 
 
@@ -173,20 +196,21 @@ bool FFmpegWrapper::createMp4Output()
 	outStrm->codecpar->format = this->inputFormatCtx->streams[videoStream]->codecpar->format;
 	outStrm->codecpar->bit_rate = this->inputFormatCtx->streams[videoStream]->codecpar->bit_rate;
 	outStrm->time_base = this->inputFormatCtx->streams[videoStream]->time_base;
-	outStrm->codecpar->extradata = (uint8_t*)av_malloc(this->inputCodecCtx->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
+	outStrm->codecpar->extradata = (uint8_t*)av_malloc((size_t)this->inputCodecCtx->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
 	outStrm->codecpar->extradata_size = this->inputCodecCtx->extradata_size;
 	memcpy(outStrm->codecpar->extradata, this->inputCodecCtx->extradata, this->inputCodecCtx->extradata_size);
 
 
 	AVDictionary* options = nullptr;
-	av_dict_set(&options, "movflags", "+frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset", 0);
-	//av_dict_set(&options, "reset_timestamps", "1", 0);
+	av_dict_set(&options, "movflags", "frag_keyframe+empty_moov+default_base_moof", 0);
+	//av_dict_set(&options, "frag_duration", "700000", 0);
+	av_dict_set(&options, "reset_timestamps", "1", 0);
 	//av_dict_set(&options, "b:v", "1024k", 0);
 
-	uint8_t *buffer2 = NULL;
+	uint8_t* buffer2 = NULL;
 	int numBytes2 = 320 * 1024;
-	buffer2 = (uint8_t *)av_malloc(numBytes2 * sizeof(uint8_t));
-	AVIOContext* pIOCtx = avio_alloc_context(buffer2, numBytes2, 1, (void *)this, 0, ffmpegMp4Callback, 0);
+	buffer2 = (uint8_t*)av_malloc(numBytes2 * sizeof(uint8_t));
+	AVIOContext* pIOCtx = avio_alloc_context(buffer2, numBytes2, 1, (void*)this, 0, ffmpegMp4Callback, 0);
 	this->mp4OutContext->pb = pIOCtx;
 	//avio_open(&outFmtCtx->pb, "test.mp4", AVIO_FLAG_WRITE);
 	avformat_write_header(this->mp4OutContext, &options);
@@ -201,20 +225,85 @@ bool FFmpegWrapper::createMjpegOutput()
 	this->decoderCodec = avcodec_find_decoder(this->inputCodecCtx->codec_id);
 	if (this->decoderCodec == NULL) {
 		fprintf(stderr, "Unsupported codec!\n");
-		return -1; // Codec not found
+		return false; // Codec not found
 	}
 
 	// Copy context
 	this->decoderCodecContext = avcodec_alloc_context3(this->decoderCodec);
 	if (avcodec_copy_context(this->decoderCodecContext, this->inputCodecCtx) != 0) {
 		fprintf(stderr, "Couldn't copy codec context");
-		return -1; // Error copying codec context
+		return false; // Error copying codec context
 	}
 
 	// Open codec
 	if (avcodec_open2(this->decoderCodecContext, this->decoderCodec, NULL) < 0)
-		return -1; // Could not open codec
+		return false; // Could not open codec
 
+
+
+	jpegCodec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
+	if (!jpegCodec) {
+		return false;
+	}
+	jpegContext = avcodec_alloc_context3(jpegCodec);
+	if (!jpegContext) {
+		return false;
+	}
+
+	jpegContext->pix_fmt = AV_PIX_FMT_YUVJ420P;
+
+	jpegContext->height = this->inputFormatCtx->streams[videoStream]->codecpar->height;
+	jpegContext->width = this->inputFormatCtx->streams[videoStream]->codecpar->width;
+	jpegContext->time_base.num = 1;
+	jpegContext->time_base.den = 25;
+
+	if (avcodec_open2(jpegContext, jpegCodec, NULL) < 0) {
+		return false;
+	}
+
+	/*-------------------------------------------*/
+	/* open the hardware device */
+
+	//int ret = av_hwdevice_ctx_create(&decode.hw_device_ref, AV_HWDEVICE_TYPE_QSV, "auto_any", NULL, 0);
+	//if (ret < 0) {
+	//	fprintf(stderr, "Cannot open the hardware device\n");
+	//	return false;
+	//}
+
+	///* initialize the decoder */
+	//decoder = avcodec_find_decoder_by_name("h264_qsv");
+	//if (!decoder) {
+	//	fprintf(stderr, "The QSV decoder is not present in libavcodec\n");
+	//	return false;
+	//}
+	//decoder_ctx = avcodec_alloc_context3(decoder);
+	//if (!decoder_ctx) {
+	//	ret = AVERROR(ENOMEM);
+	//	return false;
+	//}
+	//decoder_ctx->codec_id = AV_CODEC_ID_H264;
+	//if (this->inputFormatCtx->streams[videoStream]->codecpar->extradata_size) {
+	//	decoder_ctx->extradata = reinterpret_cast<uint8_t*>(av_mallocz(this->inputFormatCtx->streams[videoStream]->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE));
+	//	if (!decoder_ctx->extradata) {
+	//		ret = AVERROR(ENOMEM);
+	//		return false;
+	//	}
+
+	//	memcpy(decoder_ctx->extradata, this->inputFormatCtx->streams[videoStream]->codecpar->extradata,
+	//		this->inputFormatCtx->streams[videoStream]->codecpar->extradata_size);
+	//	decoder_ctx->extradata_size = this->inputFormatCtx->streams[videoStream]->codecpar->extradata_size;
+	//}
+
+	//decoder_ctx->refcounted_frames = 1;
+	//decoder_ctx->opaque = &decode;
+	//decoder_ctx->get_format = get_format;
+
+	//ret = avcodec_open2(decoder_ctx, NULL, NULL);
+
+	//if (ret < 0) {
+	//	fprintf(stderr, "Error opening the decoder: ");
+	//	return false;
+	//}
 
 	return true;
 }
@@ -277,25 +366,99 @@ void FFmpegWrapper::readInput()
 	int i = 1;
 	// Allocate video frame
 	pFrame = av_frame_alloc();
+
+	//Control input frame rate
+	auto sleepTime = 1000 / inputFPS;
+	std::mutex mut;
+	std::atomic<bool> canSend = true;
+	std::condition_variable condition_v;
+	std::thread thread1;
+
+	if (ctrlInputRate) {
+		thread1 = std::thread([&]()
+			{
+				while (!mStop)
+				{
+					std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
+					canSend = true;
+					condition_v.notify_all();
+				}
+			});
+	}
+
+	//Control Output frame rate (i.e. 5fps)
+	//auto sleepTime2 = 1000 / 5; //output should be at 5 fps
+	//std::atomic<bool> canSendOut = true;
+	//std::thread thread2;
+	//bool stopThread2 = false;
+	//thread2 = std::thread([&]()
+	//	{
+	//		while (!stopThread2)
+	//		{
+	//			std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime2));
+	//			canSendOut = true;
+	//		}
+	//	});
+
+	//frame = av_frame_alloc();
+	//sw_frame = av_frame_alloc();
+	//if (!frame || !sw_frame) {
+	//	cout << "errrrror";
+	//}
+
+	AVPacket packetEncoded;
+	packetEncoded.data = NULL, packetEncoded.size = 0;
+	av_init_packet(&packetEncoded);
+
 	try
 	{
+		params.lastStopped = GetTickCount();
 		while (av_read_frame(this->inputFormatCtx, &packet) >= 0 && !mStop) {
+			params.lastStopped = GetTickCount();
 			// Is this a packet from the video stream?
 			if (packet.stream_index == videoStream) {
 				//av_write_frame(outFmtCtx, &packet);
 				//std::unique_lock<std::mutex> lock(connectionlock);
 				if (!connections[mjpeg].empty())
 				{
-					avcodec_decode_video2(decoderCodecContext, pFrame, &frameFinished, &packet);
+					if (inputCodecID == AV_CODEC_ID_MJPEG)
+					{
+						vector<uint8_t> frame(packet.data, packet.data + packet.size);
+						send(frame);
+					}
+					else {
+						//decode_packet(decoder_ctx, frame, sw_frame, &packet, this);
 
-					// Did we get a video frame?
-					if (frameFinished) {
-						/*if (++i <= 10)*/
-						//cout << i << endl;
-						if (i == 1)
-							save_frame_as_jpeg(decoderCodecContext, pFrame);
-						if (i++ >= interval)
-							i = 1;
+						avcodec_decode_video2(decoderCodecContext, pFrame, &frameFinished, &packet);
+
+						// Did we get a video frame?
+						if (frameFinished) {
+							/*if (++i <= 10)*/
+							//cout << i << endl;
+
+							if (ctrlInputRate)
+							{
+								while (!canSend && !mStop)
+								{
+									try
+									{
+										std::unique_lock<std::mutex> lok(mut);
+										condition_v.wait_for(lok, std::chrono::seconds(1));
+									}
+									catch (const std::exception& ex)
+									{
+										cout << ex.what() << std::endl;
+									}
+								}
+							}
+
+							/*if (canSendOut) {
+								canSendOut = false;
+								save_frame_as_jpeg(decoderCodecContext, pFrame, &packetEncoded);
+							}*/
+							save_frame_as_jpeg(decoderCodecContext, pFrame, &packetEncoded);
+							canSend = false;
+						}
 					}
 				}
 				if (!connections[mp4].empty()) {
@@ -305,9 +468,15 @@ void FFmpegWrapper::readInput()
 			// Free the packet that was allocated by av_read_frame
 			av_free_packet(&packet);
 		}
+		if (ctrlInputRate)
+		{
+			thread1.join();
+		}
+		/*stopThread2 = true;
+		thread2.join();*/
 	}
 	catch (const exception& ex) {
-
+		cout << ex.what() << std::endl;
 	}
 }
 
@@ -353,6 +522,8 @@ void FFmpegWrapper::freeMjpegOutMemory()
 
 	// Close the codecs
 	avcodec_close(decoderCodecContext);
+
+	avcodec_close(jpegContext);
 }
 
 void FFmpegWrapper::closeInput()
@@ -374,14 +545,24 @@ bool FFmpegWrapper::openInput()
 {
 	this->inputFormatCtx = avformat_alloc_context();
 	this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
-	this->inputFormatCtx->interrupt_callback.opaque = &params;
-	const char *fileName = this->url.c_str();
+	this->inputFormatCtx->interrupt_callback.opaque = this;
+	const char* fileName = this->url.c_str();
 	// Open file
 	AVDictionary* options1 = nullptr;
-	//av_dict_set(&options1, "probesize", "5000", 0);
-	//av_dict_set(&options1, "analyzeduration", "10000000", 0);
+	/*av_dict_set(&options1, "probesize", "500000", 0);
+	av_dict_set(&options1, "analyzeduration", "10000000", 0);*/
+	/*av_dict_set(&options1, "probesize", "2147483647", 0);
+	av_dict_set(&options1, "analyzeduration", "2147483647", 0);*/
 	//av_dict_set(&options1, "reorder_queue_size", "0", 0);
-	av_dict_set(&options1, "rtsp_transport", "tcp", 0);
+	try {
+		if (boost::starts_with(url, "rtsp"))
+			av_dict_set(&options1, "rtsp_transport", "tcp", 0);
+		//av_dict_set(&options1, "use_wallclock_as_timestamps", "1", 0);
+	}
+	catch (boost::bad_lexical_cast) {
+		// bad parameter
+	}
+
 
 	params.lastStopped = GetTickCount();
 
@@ -389,16 +570,17 @@ bool FFmpegWrapper::openInput()
 	{
 		this->inputFormatCtx = avformat_alloc_context();
 		this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
-		this->inputFormatCtx->interrupt_callback.opaque = &params;
+		this->inputFormatCtx->interrupt_callback.opaque = this;
 		AVDictionary* options1 = nullptr;
 		av_dict_set(&options1, "rtsp_transport", "udp", 0);
+		//av_dict_set(&options1, "use_wallclock_as_timestamps", "1", 0);
 
 		params.lastStopped = GetTickCount();
 		if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
 		{
 			this->inputFormatCtx = avformat_alloc_context();
 			this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
-			this->inputFormatCtx->interrupt_callback.opaque = &params;
+			this->inputFormatCtx->interrupt_callback.opaque = this;
 			AVDictionary* options1 = nullptr;
 
 			params.lastStopped = GetTickCount();

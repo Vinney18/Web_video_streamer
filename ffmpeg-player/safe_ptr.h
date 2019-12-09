@@ -92,7 +92,7 @@ namespace sf {
 #if (_WIN32 && _MSC_VER < 1900 || __clang__)
 			template<class mutex_type> friend class std::lock_guard;  // MSVS2013 or Clang 4.0
 #else
-			template<class... mutex_types> friend class std::lock_guard;  // C++17 or MSVS2015
+			template<class mutex_types> friend class std::lock_guard;  // C++17 or MSVS2015
 #endif
 #ifdef SHARED_MTX    
 			template<typename mutex_type> friend class std::shared_lock;  // C++14

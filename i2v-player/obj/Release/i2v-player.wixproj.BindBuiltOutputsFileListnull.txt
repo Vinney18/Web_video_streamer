@@ -1,2 +1,2 @@
-D:\ffmpeg-player\i2v-player\bin\Release\i2v_player.msi
-D:\ffmpeg-player\i2v-player\bin\Release\i2v_player.wixpdb
+D:\ffmpeg-player-vs19\ffmpeg-player\i2v-player\bin\Release\i2v_player.msi
+D:\ffmpeg-player-vs19\ffmpeg-player\i2v-player\bin\Release\i2v_player.wixpdb

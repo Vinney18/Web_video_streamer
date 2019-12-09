@@ -17,9 +17,6 @@
             <Component Id="cmp8D4CB0CAB9711FD978FE9ACB15CE64CC" Guid="*">
                 <File Id="fil6376245C3F7E850D9DC4623A80C4E0C8" KeyPath="yes" Source="$(var.HarvestPath)\avutil-56.dll" />
             </Component>
-            <Component Id="cmpA93C709E8810FF9D77060336C9B4AD76" Guid="*">
-                <File Id="filB5501E4D2B3106563B3235B3FFF582B7" KeyPath="yes" Source="$(var.HarvestPath)\boost_regex-vc141-mt-x64-1_70.dll" />
-            </Component>
             <Component Id="cmpD923EB0D3A359D3EA6C6B38B5D939077" Guid="*">
                 <File Id="fil97CACEBFEA849B07751832169F787829" KeyPath="yes" Source="$(var.HarvestPath)\boost_regex-vc142-mt-x64-1_70.dll" />
             </Component>
@@ -34,6 +31,9 @@
             </Component>
             <Component Id="cmpEBA73AB7BA131F8615F128EF62EDFF92" Guid="*">
                 <File Id="fil3012DDC86BDC8B16FD9D581954222602" KeyPath="yes" Source="$(var.HarvestPath)\ffmpeg-player.pdb" />
+            </Component>
+            <Component Id="cmp0D20EA66ED12B5E06C3EEB22B17F10A0" Guid="*">
+                <File Id="fil99D994FEA0A68050B1C3DEC61C4D8876" KeyPath="yes" Source="$(var.HarvestPath)\libcurl.dll" />
             </Component>
             <Component Id="cmp906378FA53882935FD2EC0CC58D32FAC" Guid="*">
                 <File Id="fil055DB09E328331BF0202C29D7483905C" KeyPath="yes" Source="$(var.HarvestPath)\nssm.exe" />
@@ -50,6 +50,9 @@
             <Component Id="cmpBEE4403013AFC205200BD24CEE74AE5C" Guid="*">
                 <File Id="filA7058BBC93CE1ED163C4DB9B9E6D2653" KeyPath="yes" Source="$(var.HarvestPath)\postproc-55.dll" />
             </Component>
+            <Component Id="cmp51B740C2F757E220058648BD78FE6377" Guid="*">
+                <File Id="fil6FB3B2A03BFF61CDA0FD29FC4E0EC65B" KeyPath="yes" Source="$(var.HarvestPath)\remove_service.bat" />
+            </Component>
             <Component Id="cmpB0329E6AE7AC70D79BF72BFD4BC2A9D3" Guid="*">
                 <File Id="filA14AA72DD15E73EEB347D91E71A6BA3C" KeyPath="yes" Source="$(var.HarvestPath)\run_service.bat" />
             </Component>
@@ -58,6 +61,12 @@
             </Component>
             <Component Id="cmpF0B5FD817150488EB9ACF9EFDE0EBD56" Guid="*">
                 <File Id="fil40E5A8E132500B03BAD6B19B7B30958B" KeyPath="yes" Source="$(var.HarvestPath)\swscale-5.dll" />
+            </Component>
+            <Component Id="cmpADB57938D0EC07629160A64E2C80EB4D" Guid="*">
+                <File Id="filA5BA70AFFF2D075C4D13F2A3C625B126" KeyPath="yes" Source="$(var.HarvestPath)\ucrtbased.dll" />
+            </Component>
+            <Component Id="cmp48757F1581BEDC40785B83B087EFDE67" Guid="*">
+                <File Id="fil98EEC0EC5292C82A2B85DE75248C4657" KeyPath="yes" Source="$(var.HarvestPath)\vcruntime140d.dll" />
             </Component>
             <Component Id="cmpF4A8048A71525C11F1A3E739F4D244F4" Guid="*">
                 <File Id="filA804FE7264B6C5149D3FAFCCD50945CD" KeyPath="yes" Source="$(var.HarvestPath)\zlib1.dll" />
@@ -71,20 +80,23 @@
             <ComponentRef Id="cmpD52D4D53A1B09E38AAFFC5226D0182B2" />
             <ComponentRef Id="cmpAE2934B4AF40AE6FC21B254ABA434BD9" />
             <ComponentRef Id="cmp8D4CB0CAB9711FD978FE9ACB15CE64CC" />
-            <ComponentRef Id="cmpA93C709E8810FF9D77060336C9B4AD76" />
             <ComponentRef Id="cmpD923EB0D3A359D3EA6C6B38B5D939077" />
             <ComponentRef Id="cmpC6B2FD4081FBBD949069F3ADA8A834AD" />
             <ComponentRef Id="cmp8720F9FACFD1BC7B1F774AD42221CB43" />
             <ComponentRef Id="cmp8B329AD3EE7425F73393E3EEBF92655E" />
             <ComponentRef Id="cmpEBA73AB7BA131F8615F128EF62EDFF92" />
+            <ComponentRef Id="cmp0D20EA66ED12B5E06C3EEB22B17F10A0" />
             <ComponentRef Id="cmp906378FA53882935FD2EC0CC58D32FAC" />
             <ComponentRef Id="cmpB68021952ED669AF25BF85D7232A4879" />
             <ComponentRef Id="cmp7B59CAE19D914AFB734F4389348E0C61" />
             <ComponentRef Id="cmpE69210F69FE4E82D057DEC93654552C9" />
             <ComponentRef Id="cmpBEE4403013AFC205200BD24CEE74AE5C" />
+            <ComponentRef Id="cmp51B740C2F757E220058648BD78FE6377" />
             <ComponentRef Id="cmpB0329E6AE7AC70D79BF72BFD4BC2A9D3" />
             <ComponentRef Id="cmp0E71904B3EDBAE24E1A31017CDD6DAF0" />
             <ComponentRef Id="cmpF0B5FD817150488EB9ACF9EFDE0EBD56" />
+            <ComponentRef Id="cmpADB57938D0EC07629160A64E2C80EB4D" />
+            <ComponentRef Id="cmp48757F1581BEDC40785B83B087EFDE67" />
             <ComponentRef Id="cmpF4A8048A71525C11F1A3E739F4D244F4" />
         </ComponentGroup>
     </Fragment>
