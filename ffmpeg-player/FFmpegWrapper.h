@@ -341,5 +341,6 @@ private:
 
 	int save_frame_as_jpeg(AVCodecContext *pCodecCtx, AVFrame *pFrame, AVPacket* packet);
 	void receiveMp4Chunk(vector<uint8_t> data);
+	void seek_video(int64_t offset_time);
 };
 

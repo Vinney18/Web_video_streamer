@@ -20,6 +20,7 @@
     <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="CommonComponents.wxs" />
     <Compile Include="HeatGeneratedFileList.wxs" />
     <Compile Include="MyInstallDirDlg.wxs" />
     <Compile Include="MyWixUI_InstallDir.wxs" />
@@ -42,6 +43,9 @@
     </WixExtension>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="nssm.exe" />
+    <Content Include="remove_service.bat" />
+    <Content Include="run_service.bat" />
     <Content Include="Software_licence_agreement.rtf" />
   </ItemGroup>
   <Import Project="$(WixTargetsPath)" Condition=" '$(WixTargetsPath)' != '' " />

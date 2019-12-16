@@ -43,6 +43,14 @@ int FFmpegWrapper::run()
 			this_thread::sleep_for(std::chrono::seconds(1));
 		}
 	}
+	for (auto connHdl : connections[mjpeg])
+	{
+		websocketSCallback(connHdl, "Stopped");
+	}
+	for (auto connHdl : connections[mp4])
+	{
+		websocketSCallback(connHdl, "Stopped");
+	}
 	return 0;
 }
 
@@ -205,6 +213,7 @@ bool FFmpegWrapper::createMp4Output()
 	av_dict_set(&options, "movflags", "frag_keyframe+empty_moov+default_base_moof", 0);
 	//av_dict_set(&options, "frag_duration", "700000", 0);
 	av_dict_set(&options, "reset_timestamps", "1", 0);
+	//av_dict_set(&options, "ss", "30", 0);
 	//av_dict_set(&options, "b:v", "1024k", 0);
 
 	uint8_t* buffer2 = NULL;
@@ -416,7 +425,7 @@ void FFmpegWrapper::readInput()
 		while (av_read_frame(this->inputFormatCtx, &packet) >= 0 && !mStop) {
 			params.lastStopped = GetTickCount();
 			// Is this a packet from the video stream?
-			if (packet.stream_index == videoStream) {
+			if (packet.stream_index == videoStream) {		
 				//av_write_frame(outFmtCtx, &packet);
 				//std::unique_lock<std::mutex> lock(connectionlock);
 				if (!connections[mjpeg].empty())
@@ -435,7 +444,7 @@ void FFmpegWrapper::readInput()
 						if (frameFinished) {
 							/*if (++i <= 10)*/
 							//cout << i << endl;
-
+							
 							if (ctrlInputRate)
 							{
 								while (!canSend && !mStop)
@@ -463,6 +472,7 @@ void FFmpegWrapper::readInput()
 				}
 				if (!connections[mp4].empty()) {
 					auto x = av_interleaved_write_frame(mp4OutContext, &packet);
+					canSend = false;
 				}
 			}
 			// Free the packet that was allocated by av_read_frame
@@ -470,7 +480,9 @@ void FFmpegWrapper::readInput()
 		}
 		if (ctrlInputRate)
 		{
+			mStop = true;
 			thread1.join();
+			cout << "Thread 1 join";
 		}
 		/*stopThread2 = true;
 		thread2.join();*/
@@ -478,6 +490,15 @@ void FFmpegWrapper::readInput()
 	catch (const exception& ex) {
 		cout << ex.what() << std::endl;
 	}
+}
+
+void FFmpegWrapper::seek_video(int64_t offset_time)
+{
+	if (avformat_seek_file(this->inputFormatCtx, this->videoStream, offset_time, offset_time, offset_time, AVSEEK_FLAG_FRAME) > 0)
+	{
+		cout << "Failed to seek Video ";
+	}
+	//av_seek_frame(this->inputFormatCtx, this->videoStream, offset_time, AVSEEK_FLAG_FRAME);
 }
 
 bool FFmpegWrapper::removeOutput(OutputType outType)
@@ -549,6 +570,7 @@ bool FFmpegWrapper::openInput()
 	const char* fileName = this->url.c_str();
 	// Open file
 	AVDictionary* options1 = nullptr;
+	av_dict_set(&options1, "ss", "30", 0);
 	/*av_dict_set(&options1, "probesize", "500000", 0);
 	av_dict_set(&options1, "analyzeduration", "10000000", 0);*/
 	/*av_dict_set(&options1, "probesize", "2147483647", 0);

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+	<Fragment>
+    <ComponentGroup Id="MainApplicationComponents" Directory="INSTALLFOLDER">
+
+      <Component Id="MainApplicationchildComponents" Guid="DF8B23B810454113A66CCE9567347FCD">
+        <File Source="nssm.exe" />
+        <File Source="run_service.bat" />
+        <File Source="remove_service.bat" />
+
+      </Component>
+      
+
+
+    </ComponentGroup>
+	</Fragment>
+</Wix>

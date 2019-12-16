@@ -1,13 +1,44 @@
-﻿  FFmpegWrapper.cpp
-D:\ffmpeg-player-vs19\ffmpeg-player\ffmpeg-player\Mp4frag.h(67,1): warning C4267:  'initializing': conversion from 'size_t' to 'int', possible loss of data
-D:\vcpkg\installed\x64-windows\include\websocketpp\frame.hpp(834,25): warning C4267:  '=': conversion from 'size_t' to 'uint32_t', possible loss of data
-D:\vcpkg\installed\x64-windows\include\websocketpp\common\md5.hpp(367,34): warning C4267:  '+=': conversion from 'size_t' to 'websocketpp::md5::md5_word_t', possible loss of data
-D:\vcpkg\installed\x64-windows\include\websocketpp\sha1\sha1.hpp(176,28): warning C4267:  '=': conversion from 'size_t' to 'unsigned int', possible loss of data
-D:\ffmpeg-player-vs19\ffmpeg-player\ffmpeg-player\FFmpegWrapper.cpp(182,12): warning C4305:  'return': truncation from 'int' to 'bool'
-D:\ffmpeg-player-vs19\ffmpeg-player\ffmpeg-player\FFmpegWrapper.cpp(618,25): warning C4244:  '=': conversion from 'double' to 'int', possible loss of data
+﻿  base64.cpp
+D:\Projects\player\ffmpeg-player\ffmpeg-player\base64.cpp(88,36): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+D:\Projects\player\ffmpeg-player\ffmpeg-player\base64.cpp(99,57): warning C4267: '=': conversion from 'size_t' to 'unsigned char', possible loss of data
+D:\Projects\player\ffmpeg-player\ffmpeg-player\base64.cpp(113,56): warning C4267: '=': conversion from 'size_t' to 'unsigned char', possible loss of data
+  main.cpp
+D:\Projects\player\ffmpeg-player\ffmpeg-player\Mp4frag.h(67,1): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+D:\Projects\player\vcpkg-master\installed\x64-windows\include\websocketpp\frame.hpp(834,25): warning C4267: '=': conversion from 'size_t' to 'uint32_t', possible loss of data
+D:\Projects\player\vcpkg-master\installed\x64-windows\include\websocketpp\common\md5.hpp(367,34): warning C4267: '+=': conversion from 'size_t' to 'websocketpp::md5::md5_word_t', possible loss of data
+D:\Projects\player\vcpkg-master\installed\x64-windows\include\websocketpp\sha1\sha1.hpp(176,28): warning C4267: '=': conversion from 'size_t' to 'unsigned int', possible loss of data
+  FFmpegWrapper.cpp
+D:\Projects\player\ffmpeg-player\ffmpeg-player\Mp4frag.h(67,1): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+D:\Projects\player\vcpkg-master\installed\x64-windows\include\websocketpp\frame.hpp(834,25): warning C4267: '=': conversion from 'size_t' to 'uint32_t', possible loss of data
+D:\Projects\player\vcpkg-master\installed\x64-windows\include\websocketpp\common\md5.hpp(367,34): warning C4267: '+=': conversion from 'size_t' to 'websocketpp::md5::md5_word_t', possible loss of data
+D:\Projects\player\vcpkg-master\installed\x64-windows\include\websocketpp\sha1\sha1.hpp(176,28): warning C4267: '=': conversion from 'size_t' to 'unsigned int', possible loss of data
+D:\Projects\player\ffmpeg-player\ffmpeg-player\FFmpegWrapper.cpp(190,12): warning C4305: 'return': truncation from 'int' to 'bool'
+D:\Projects\player\ffmpeg-player\ffmpeg-player\FFmpegWrapper.cpp(640,25): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+  MjpegServer.cpp
+D:\Projects\player\ffmpeg-player\ffmpeg-player\MjpegServer.cpp(87,32): warning C4101: 'ex': unreferenced local variable
+D:\Projects\player\ffmpeg-player\ffmpeg-player\MjpegServer.cpp(92,31): warning C4101: 'exception': unreferenced local variable
+  Mp4frag.cpp
+D:\Projects\player\ffmpeg-player\ffmpeg-player\Mp4frag.h(67,1): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+D:\Projects\player\ffmpeg-player\ffmpeg-player\Mp4frag.cpp(13,32): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+D:\Projects\player\ffmpeg-player\ffmpeg-player\Mp4frag.cpp(48,32): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+D:\Projects\player\ffmpeg-player\ffmpeg-player\Mp4frag.cpp(108,18): warning C4244: '=': conversion from 'time_t' to 'long', possible loss of data
+D:\Projects\player\ffmpeg-player\ffmpeg-player\Mp4frag.cpp(122,33): warning C4267: '+=': conversion from 'size_t' to 'long', possible loss of data
+D:\Projects\player\ffmpeg-player\ffmpeg-player\Mp4frag.cpp(134,32): warning C4267: '+=': conversion from 'size_t' to 'int', possible loss of data
+D:\Projects\player\ffmpeg-player\ffmpeg-player\Mp4frag.cpp(154,32): warning C4267: '+=': conversion from 'size_t' to 'int', possible loss of data
+D:\Projects\player\ffmpeg-player\ffmpeg-player\Mp4frag.cpp(210,33): warning C4267: '=': conversion from 'size_t' to 'long', possible loss of data
+D:\Projects\player\ffmpeg-player\ffmpeg-player\Mp4frag.cpp(244,33): warning C4267: '+=': conversion from 'size_t' to 'long', possible loss of data
+D:\Projects\player\ffmpeg-player\ffmpeg-player\Mp4frag.cpp(256,32): warning C4267: '+=': conversion from 'size_t' to 'int', possible loss of data
+D:\Projects\player\ffmpeg-player\ffmpeg-player\Mp4frag.cpp(279,32): warning C4267: '+=': conversion from 'size_t' to 'int', possible loss of data
+D:\Projects\player\ffmpeg-player\ffmpeg-player\Mp4frag.cpp(308,33): warning C4267: '=': conversion from 'size_t' to 'long', possible loss of data
+D:\Projects\player\ffmpeg-player\ffmpeg-player\Mp4frag.cpp(342,16): warning C4244: '=': conversion from 'const _Ty' to 'long', possible loss of data
+          with
+          [
+              _Ty=time_t
+          ]
+D:\Projects\player\ffmpeg-player\ffmpeg-player\Mp4frag.cpp(343,14): warning C4244: '=': conversion from 'time_t' to 'long', possible loss of data
+  Thread.cpp
   Generating code
-  2 of 9240 functions (<0.1%) were compiled, the rest were copied from previous compilation.
-    0 functions were new in current compilation
-    27 functions had inline decision re-evaluated but remain unchanged
+  Previous IPDB not found, fall back to full compilation.
+  All 8861 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   Finished generating code
-  ffmpeg-player.vcxproj -> D:\ffmpeg-player-vs19\ffmpeg-player\x64\Release\ffmpeg-player.exe
+  ffmpeg-player.vcxproj -> D:\Projects\player\ffmpeg-player\x64\Release\ffmpeg-player.exe

@@ -11,3 +11,6 @@ obj\Release\Product.wixobj
 obj\Release\i2v-player.wixproj.BindContentsFileListnull.txt
 obj\Release\i2v-player.wixproj.BindOutputsFileListnull.txt
 obj\Release\i2v-player.wixproj.BindBuiltOutputsFileListnull.txt
+D:\Projects\player\ffmpeg-player\i2v-player\bin\Release\i2v_player.msi
+D:\Projects\player\ffmpeg-player\i2v-player\bin\Release\i2v_player.wixpdb
+obj\Release\CommonComponents.wixobj

@@ -31,6 +31,7 @@
 
 #include <utility>
 #include <algorithm>
+#include <deque>
 #include "safe_ptr.h"
 typedef unsigned char uchar;
 #define STREAMER_FRAME_QUEUE_SIZE 5
