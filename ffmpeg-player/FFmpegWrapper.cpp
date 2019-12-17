@@ -395,26 +395,6 @@ void FFmpegWrapper::readInput()
 			});
 	}
 
-	//Control Output frame rate (i.e. 5fps)
-	//auto sleepTime2 = 1000 / 5; //output should be at 5 fps
-	//std::atomic<bool> canSendOut = true;
-	//std::thread thread2;
-	//bool stopThread2 = false;
-	//thread2 = std::thread([&]()
-	//	{
-	//		while (!stopThread2)
-	//		{
-	//			std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime2));
-	//			canSendOut = true;
-	//		}
-	//	});
-
-	//frame = av_frame_alloc();
-	//sw_frame = av_frame_alloc();
-	//if (!frame || !sw_frame) {
-	//	cout << "errrrror";
-	//}
-
 	AVPacket packetEncoded;
 	packetEncoded.data = NULL, packetEncoded.size = 0;
 	av_init_packet(&packetEncoded);
@@ -422,6 +402,7 @@ void FFmpegWrapper::readInput()
 	try
 	{
 		params.lastStopped = GetTickCount();
+		int framecount = 0;
 		while (av_read_frame(this->inputFormatCtx, &packet) >= 0 && !mStop) {
 			params.lastStopped = GetTickCount();
 			// Is this a packet from the video stream?
@@ -444,7 +425,12 @@ void FFmpegWrapper::readInput()
 						if (frameFinished) {
 							/*if (++i <= 10)*/
 							//cout << i << endl;
-							
+							framecount++;
+							if (framecount == inputFPS) {
+								if (this->initial_seek_time > 0) {
+									seek_video(this->initial_seek_time);
+								}
+							}
 							if (ctrlInputRate)
 							{
 								while (!canSend && !mStop)
@@ -492,14 +478,64 @@ void FFmpegWrapper::readInput()
 	}
 }
 
-void FFmpegWrapper::seek_video(int64_t offset_time)
+
+void FFmpegWrapper::seek_video(int time_toSeek_insec)
 {
-	if (avformat_seek_file(this->inputFormatCtx, this->videoStream, offset_time, offset_time, offset_time, AVSEEK_FLAG_FRAME) > 0)
-	{
-		cout << "Failed to seek Video ";
-	}
-	//av_seek_frame(this->inputFormatCtx, this->videoStream, offset_time, AVSEEK_FLAG_FRAME);
+	//Forwardseek_video(frameIndex);
+	Forwardseek_video(time_toSeek_insec);
 }
+
+void FFmpegWrapper::Forwardseek_video(int time_toSeek_insec) 
+{
+	// Seek is done on packet dts
+	try
+	{
+		int framerate = inputFPS;
+		int frameIndex = time_toSeek_insec * framerate;
+		int64_t target_dts_usecs = (int64_t)round(frameIndex * (double)this->inputFormatCtx->streams[videoStream]->r_frame_rate.den / this->inputFormatCtx->streams[videoStream]->r_frame_rate.num * AV_TIME_BASE);
+		// Remove first dts: when non zero seek should be more accurate
+		auto first_dts_usecs = (int64_t)round(this->inputFormatCtx->streams[videoStream]->first_dts * (double)this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den * AV_TIME_BASE);
+		target_dts_usecs += first_dts_usecs;
+		int rv = av_seek_frame(this->inputFormatCtx, -1, target_dts_usecs, AVSEEK_FLAG_FRAME | AVSEEK_FLAG_ANY);
+		if (rv < 0)
+		{
+			cout << "Unable to seek video";
+		}
+	}
+	catch (const exception & ex)
+	{
+		cout << "Exception while  seek video";
+		cout << ex.what() << std::endl;
+	}
+}
+
+void FFmpegWrapper::Backwardseek_video(int frameIndex)
+{
+	// Seek is done on packet dts
+	try
+	{
+
+		int64_t target_dts_usecs = (int64_t)round(frameIndex * (double)this->inputFormatCtx->streams[videoStream]->r_frame_rate.den / this->inputFormatCtx->streams[videoStream]->r_frame_rate.num * AV_TIME_BASE);
+		// Remove first dts: when non zero seek should be more accurate
+		auto first_dts_usecs = (int64_t)round(this->inputFormatCtx->streams[videoStream]->first_dts * (double)this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den * AV_TIME_BASE);
+		target_dts_usecs += first_dts_usecs;
+		int rv = av_seek_frame(this->inputFormatCtx, -1, target_dts_usecs, AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_ANY);
+		avcodec_flush_buffers(this->decoderCodecContext);
+		avcodec_flush_buffers(this->jpegContext);
+
+		if (rv < 0)
+		{
+			cout << "Unable to seek video";
+		}
+
+	}
+	catch (const exception & ex)
+	{
+		cout << "Exception while  seek video";
+		cout << ex.what() << std::endl;
+	}
+}
+
 
 bool FFmpegWrapper::removeOutput(OutputType outType)
 {
@@ -595,6 +631,7 @@ bool FFmpegWrapper::openInput()
 		this->inputFormatCtx->interrupt_callback.opaque = this;
 		AVDictionary* options1 = nullptr;
 		av_dict_set(&options1, "rtsp_transport", "udp", 0);
+		av_dict_set(&options1, "ss", "30", 0);
 		//av_dict_set(&options1, "use_wallclock_as_timestamps", "1", 0);
 
 		params.lastStopped = GetTickCount();
