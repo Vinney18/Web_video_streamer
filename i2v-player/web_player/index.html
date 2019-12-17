@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Test</title>
+</head>
+
+<body>
+    <input style="width:500px" id="cameraUrl" />
+    <button onClick="Play()">Play</button>
+
+    <!-- div where video will be played -->
+    <div style="height: 500px;width:100%" id="someUniqueId"></div>
+
+
+    <script src="i2v-player.min.js"></script>
+    <script>
+        var playerObj;
+        var vmsIp = "192.168.1.17";
+        var playerIp = "localhost";
+        var sdk = new I2vSdk();
+        sdk.InitPlayer(vmsIp, "vms", function() {
+
+        }, function(err) {
+
+        }, playerIp);
+
+        function Play() {
+            // Check if player is running then stop first
+            if (playerObj) {
+                playerObj.stop();
+            }
+
+            //get url to play
+            var url = document.getElementById("cameraUrl").value;
+            
+            //create new player object, video will start automatically
+            playerObj = sdk.GetPlayer("someUniqueId", url, "1", "1", "20");
+
+            //set Error callback for play method
+            playerObj.setErrorCallback(function(err) {
+                console.error(err);
+            });
+
+            //set retrying callback
+            playerObj.setRetryingCallback(function(err) {
+                console.log("disconnected, retrying to connect!!");
+            });
+
+            //call play method
+            playerObj.play();
+        }
+    </script>
+
+</body>
+
+</html>
