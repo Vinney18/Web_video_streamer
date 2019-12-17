@@ -126,17 +126,30 @@
     <ClInclude Include="FFmpegWrapper.h" />
     <ClInclude Include="httplib.h" />
     <ClInclude Include="json.hpp" />
+    <ClInclude Include="libraries\fmt\container.h" />
+    <ClInclude Include="libraries\fmt\format.h" />
+    <ClInclude Include="libraries\fmt\ostream.h" />
+    <ClInclude Include="libraries\fmt\posix.h" />
+    <ClInclude Include="libraries\fmt\printf.h" />
+    <ClInclude Include="libraries\fmt\string.h" />
+    <ClInclude Include="libraries\fmt\time.h" />
     <ClInclude Include="MjpegServer.h" />
     <ClInclude Include="Mp4frag.h" />
+    <ClInclude Include="Options.h" />
     <ClInclude Include="safe_ptr.h" />
     <ClInclude Include="Thread.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="base64.cpp" />
+    <ClCompile Include="libraries\fmt\format.cc" />
+    <ClCompile Include="libraries\fmt\ostream.cc" />
+    <ClCompile Include="libraries\fmt\posix.cc" />
+    <ClCompile Include="libraries\fmt\printf.cc" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="FFmpegWrapper.cpp" />
     <ClCompile Include="MjpegServer.cpp" />
     <ClCompile Include="Mp4frag.cpp" />
+    <ClCompile Include="Options.cpp" />
     <ClCompile Include="Thread.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

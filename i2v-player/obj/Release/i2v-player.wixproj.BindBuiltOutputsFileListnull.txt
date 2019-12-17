@@ -1,2 +1,0 @@
-D:\Projects\player\ffmpeg-player\i2v-player\bin\Release\i2v_player.msi
-D:\Projects\player\ffmpeg-player\i2v-player\bin\Release\i2v_player.wixpdb

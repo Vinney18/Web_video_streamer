@@ -17,6 +17,9 @@
             <Component Id="cmp8D4CB0CAB9711FD978FE9ACB15CE64CC" Guid="*">
                 <File Id="fil6376245C3F7E850D9DC4623A80C4E0C8" KeyPath="yes" Source="$(var.HarvestPath)\avutil-56.dll" />
             </Component>
+            <Component Id="cmp67B60B5C8A889BAA413E985B5D0821F3" Guid="*">
+                <File Id="fil82B05A5592DA8C30131C0BA36CE28DF9" KeyPath="yes" Source="$(var.HarvestPath)\boost_filesystem-vc142-mt-x64-1_71.dll" />
+            </Component>
             <Component Id="cmp1A0DDE5F5557D67186106594D14DA95F" Guid="*">
                 <File Id="filB36199F0CDCF3DE02CAF855B054913BF" KeyPath="yes" Source="$(var.HarvestPath)\boost_regex-vc142-mt-x64-1_71.dll" />
             </Component>
@@ -62,6 +65,7 @@
             <ComponentRef Id="cmpD52D4D53A1B09E38AAFFC5226D0182B2" />
             <ComponentRef Id="cmpAE2934B4AF40AE6FC21B254ABA434BD9" />
             <ComponentRef Id="cmp8D4CB0CAB9711FD978FE9ACB15CE64CC" />
+            <ComponentRef Id="cmp67B60B5C8A889BAA413E985B5D0821F3" />
             <ComponentRef Id="cmp1A0DDE5F5557D67186106594D14DA95F" />
             <ComponentRef Id="cmpC6B2FD4081FBBD949069F3ADA8A834AD" />
             <ComponentRef Id="cmp8720F9FACFD1BC7B1F774AD42221CB43" />
