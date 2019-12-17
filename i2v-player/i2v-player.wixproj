@@ -47,6 +47,15 @@
     <Content Include="remove_service.bat" />
     <Content Include="run_service.bat" />
     <Content Include="Software_licence_agreement.rtf" />
+    <Content Include="web_player\i2v-player.ts" />
+    <Content Include="web_player\i2v_player.js" />
+    <Content Include="web_player\index.html" />
+    <Content Include="web_player\package-lock.json" />
+    <Content Include="web_player\package.json" />
+    <Content Include="web_player\tsconfig.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="web_player" />
   </ItemGroup>
   <Import Project="$(WixTargetsPath)" Condition=" '$(WixTargetsPath)' != '' " />
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.targets" Condition=" '$(WixTargetsPath)' == '' AND Exists('$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.targets') " />
