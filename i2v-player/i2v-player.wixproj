@@ -21,7 +21,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="CommonComponents.wxs" />
-    <Compile Include="HeatGeneratedFileList.wxs" />
     <Compile Include="MyInstallDirDlg.wxs" />
     <Compile Include="MyWixUI_InstallDir.wxs" />
     <Compile Include="Product.wxs" />
@@ -43,6 +42,10 @@
     </WixExtension>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="lib\postproc-55.dll" />
+    <Content Include="lib\ucrtbased.dll" />
+    <Content Include="lib\vcruntime140d.dll" />
+    <Content Include="lib\vcruntime140_1.dll" />
     <Content Include="nssm.exe" />
     <Content Include="remove_service.bat" />
     <Content Include="run_service.bat" />
@@ -53,9 +56,11 @@
     <Content Include="web_player\index.html" />
     <Content Include="web_player\package-lock.json" />
     <Content Include="web_player\package.json" />
+    <Content Include="web_player\readme.txt" />
     <Content Include="web_player\tsconfig.json" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="lib" />
     <Folder Include="web_player" />
   </ItemGroup>
   <Import Project="$(WixTargetsPath)" Condition=" '$(WixTargetsPath)' != '' " />
@@ -64,7 +69,7 @@
     <Error Text="The WiX Toolset v3.11 (or newer) build tools must be installed to build this project. To download the WiX Toolset, see http://wixtoolset.org/releases/" />
   </Target>
   <Target Name="BeforeBuild">
-    <HeatDirectory Directory="$(SolutionDir)x64\Release" PreprocessorVariable="var.HarvestPath" OutputFile="HeatGeneratedFileList.wxs" ComponentGroupName="HeatGenerated" DirectoryRefId="INSTALLFOLDER" AutogenerateGuids="true" ToolPath="$(WixToolPath)" SuppressFragments="true" SuppressRegistry="true" SuppressRootDirectory="true" />
+    <!--<HeatDirectory Directory="$(SolutionDir)x64\Release" PreprocessorVariable="var.HarvestPath" OutputFile="HeatGeneratedFileList.wxs" ComponentGroupName="HeatGenerated" DirectoryRefId="INSTALLFOLDER" AutogenerateGuids="true" ToolPath="$(WixToolPath)" SuppressFragments="true" SuppressRegistry="true" SuppressRootDirectory="true" />-->
   </Target>
   <!--
 	To modify your build process, add your task inside one of the targets below and uncomment it.

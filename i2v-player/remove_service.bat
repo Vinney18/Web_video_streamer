@@ -1,2 +1,2 @@
-Net Stop CAC_video_player
-SC delete CAC_video_player 
+Net Stop i2v_webPlayer
+SC delete i2v_webPlayer 

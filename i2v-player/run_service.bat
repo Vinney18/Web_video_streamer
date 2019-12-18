@@ -1,2 +1,2 @@
-"%~dp0nssm" install CAC_video_player "%~dp0ffmpeg-player.exe"
-Net Start CAC_video_player 
+"%~dp0nssm" install i2v_webPlayer "%~dp0i2v_webPlayer.exe"
+Net Start i2v_webPlayer 

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 
 <head>
@@ -8,7 +8,8 @@
 
 <body>
     <input style="width:500px" id="cameraUrl" />
-    <button onClick="Play()">Play</button>
+    <button onClick="Play_Live()">Play Live</button>
+    <button onClick="Play_Playback()">Play Playback</button>
 
     <!-- div where video will be played -->
     <div style="height: 500px;width:100%" id="someUniqueId"></div>
@@ -20,13 +21,13 @@
         var vmsIp = "192.168.1.17";
         var playerIp = "localhost";
         var sdk = new I2vSdk();
-        sdk.InitPlayer(vmsIp, "vms", function() {
+        sdk.InitPlayer(vmsIp, "vms", function () {
 
-        }, function(err) {
+        }, function (err) {
 
         }, playerIp);
 
-        function Play() {
+        function Play_Live() {
             // Check if player is running then stop first
             if (playerObj) {
                 playerObj.stop();
@@ -34,17 +35,48 @@
 
             //get url to play
             var url = document.getElementById("cameraUrl").value;
-            
+            var isusingTranscoding = "0"; // may be 0
+            var ctrlinput = "0";
+            var seektime = "0";
             //create new player object, video will start automatically
-            playerObj = sdk.GetPlayer("someUniqueId", url, "1", "1", "20");
+            playerObj = sdk.GetPlayer("someUniqueId", url, isusingTranscoding, ctrlinput, seektime);
 
             //set Error callback for play method
-            playerObj.setErrorCallback(function(err) {
+            playerObj.setErrorCallback(function (err) {
                 console.error(err);
             });
 
             //set retrying callback
-            playerObj.setRetryingCallback(function(err) {
+            playerObj.setRetryingCallback(function (err) {
+                console.log("disconnected, retrying to connect!!");
+            });
+
+            //call play method
+            playerObj.play();
+        }
+
+
+        function Play_Playback() {
+            if (playerObj) {
+                playerObj.stop();
+            }
+
+            //get url to play
+            var url = document.getElementById("cameraUrl").value;
+            var isusingTranscoding = "1";
+            var ctrlinput = "1";
+            var seektime = "0";
+
+            //create new player object, video will start automatically
+            playerObj = sdk.GetPlayer("someUniqueId", url, isusingTranscoding, ctrlinput, seektime);
+
+            //set Error callback for play method
+            playerObj.setErrorCallback(function (err) {
+                console.error(err);
+            });
+
+            //set retrying callback
+            playerObj.setRetryingCallback(function (err) {
                 console.log("disconnected, retrying to connect!!");
             });
 

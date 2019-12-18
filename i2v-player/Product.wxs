@@ -14,23 +14,36 @@
     <Feature Id="ProductFeature" Title="i2v_player" Level="1">
       <ComponentGroupRef Id="MainApplicationComponents" />
       <ComponentGroupRef Id="ProductComponents" />
-      <ComponentGroupRef Id="HeatGenerated" />
+      <ComponentGroupRef Id="ConfigComponents" />
+
+      
     </Feature>
     
     <CustomAction Id="RUN"
       ExeCommand="cmd.exe /c &quot;run_service.bat"
       Directory="INSTALLFOLDER"  Impersonate="no" Execute="deferred" Return="ignore" />
 
+    <CustomAction Id="uninstallBatFile" 
+     ExeCommand="cmd.exe /c &quot;remove_service.bat"
+     Directory="INSTALLFOLDER"  Impersonate="no" Execute="deferred" Return="ignore" />
+    
     <InstallExecuteSequence>
       <Custom Action="RUN" Before="InstallFinalize">NOT Installed AND NOT UPGRADINGPRODUCTCODE</Custom>
     </InstallExecuteSequence>
 
+    <InstallExecuteSequence>
+      <Custom Action="uninstallBatFile" Before="RemoveFiles">Installed AND NOT UPGRADINGPRODUCTCODE </Custom>
+    </InstallExecuteSequence>
+    
   </Product>
 
 	<Fragment>
 		<Directory Id="TARGETDIR" Name="SourceDir">
 			<Directory Id="ProgramFilesFolder">
-				<Directory Id="INSTALLFOLDER" Name="i2v_player" />
+				<Directory Id="INSTALLFOLDER" Name="i2v_player" >
+          <Directory Id="CONFIGFOLDER" Name="config">
+          </Directory>
+        </Directory>
 			</Directory>
 		</Directory>
 	</Fragment>
