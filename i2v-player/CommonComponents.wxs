@@ -15,6 +15,7 @@
         <File Source="run_service.bat" />
         <File Source="remove_service.bat" />
         <File Source="web_player/i2v_player.min.js" />
+        <File Source="web_player/moment.min.js" />
         <File Source="web_player/index.html" />
       </Component>
 
@@ -93,6 +94,10 @@
       <Component Id="c7a359ee25dc43e0befd74810ec79434" Guid="*">
         <File Id="ab487aace8e54051a335dc68434a12fa" KeyPath="yes" Source="lib/vcruntime140d.dll" />
       </Component>
+
+        <Component Id="fccda022b66e44cabbcecbe0842e2378" Guid="*">
+          <File Id="c7901ec1d17b4ef7959914a1d987085f" KeyPath="yes" Source="$(var.HarvestPath)\jsoncpp.dll" />
+        </Component>
 
     </ComponentGroup>
 	</Fragment>

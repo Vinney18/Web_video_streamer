@@ -54,6 +54,7 @@
     <Content Include="web_player\i2v_player.js" />
     <Content Include="web_player\i2v_player.min.js" />
     <Content Include="web_player\index.html" />
+    <Content Include="web_player\moment.min.js" />
     <Content Include="web_player\package-lock.json" />
     <Content Include="web_player\package.json" />
     <Content Include="web_player\readme.txt" />
