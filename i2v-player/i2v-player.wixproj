@@ -24,6 +24,7 @@
     <Compile Include="MyInstallDirDlg.wxs" />
     <Compile Include="MyWixUI_InstallDir.wxs" />
     <Compile Include="Product.wxs" />
+    <Compile Include="SystemFolderComponents.wxs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ffmpeg-player\ffmpeg-player.vcxproj">

@@ -147,6 +147,13 @@ class I2vPlayer {
                     }
                     console.error(errMsg);
                     return;
+                case "EmptyUrl":
+                    var errMsg = "EmptyUrl";
+                    if (this.errorCallback) {
+                        this.errorCallback(errMsg);
+                    }
+                    console.error(errMsg);
+                    return;
                 case "retrying":
                     if (this.retryingCallback) {
                         this.retryingCallback();

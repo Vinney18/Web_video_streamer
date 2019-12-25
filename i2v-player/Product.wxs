@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-	<Product Id="*" Name="i2v_player" Language="1033" Version="2.2" Manufacturer="i2v" UpgradeCode="56e8ff32-9406-4f0a-bfe5-bc1ead2f4351">
+	<Product Id="*" Name="i2v_player" Language="1033" Version="2.3" Manufacturer="i2v" UpgradeCode="56e8ff32-9406-4f0a-bfe5-bc1ead2f4351">
 		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
 
 		<MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
@@ -15,7 +15,7 @@
       <ComponentGroupRef Id="MainApplicationComponents" />
       <ComponentGroupRef Id="ProductComponents" />
       <ComponentGroupRef Id="ConfigComponents" />
-
+      <ComponentGroupRef Id="SystemFolderComponentss" />
       
     </Feature>
     
@@ -43,6 +43,8 @@
 				<Directory Id="INSTALLFOLDER" Name="i2v_player" >
           <Directory Id="CONFIGFOLDER" Name="config">
           </Directory>
+          <Directory Id="SystemFolder" Name="SystemFolder" />
+
         </Directory>
 			</Directory>
 		</Directory>
