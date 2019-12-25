@@ -22,7 +22,7 @@
     <script src="i2v_player.min.js"></script>
     <script>
         var playerObj;
-        var vmsIp = "192.168.1.17";
+        var vmsIp = "127.0.0.1";
         var playerIp = "localhost";
         var sdk = new I2vSdk();
         sdk.InitPlayer(vmsIp, "vms", function () {
@@ -48,10 +48,9 @@
             }
 
             var isusingTranscoding = "0"; // may be 0
-            var ctrlinput = "0";
             var startTime = "0";
             //create new player object, video will start automatically
-            playerObj = sdk.GetPlayer("someUniqueId", cameraId,"Live" ,streamType,isusingTranscoding, ctrlinput, startTime);
+            playerObj = sdk.GetPlayer("someUniqueId", cameraId,"Live" ,streamType,isusingTranscoding, startTime);
 
             //set Error callback for play method
             playerObj.setErrorCallback(function (err) {
@@ -82,11 +81,10 @@
             var streamType = "0";
 
             var isusingTranscoding = "1";
-            var ctrlinput = "1";
             var startTime = datetime.unix();
 
             //create new player object, video will start automatically
-            playerObj = sdk.GetPlayer("someUniqueId", cameraId,"PlayBack",streamType, isusingTranscoding, ctrlinput, startTime);
+            playerObj = sdk.GetPlayer("someUniqueId", cameraId,"PlayBack",streamType, isusingTranscoding, startTime);
 
             //set Error callback for play method
             playerObj.setErrorCallback(function (err) {

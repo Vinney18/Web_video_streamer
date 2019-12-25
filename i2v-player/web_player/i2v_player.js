@@ -25,20 +25,19 @@ class I2vSdk {
             wc.close();
         };
     }
-    GetPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlIR, startTime) {
-        var player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlIR, startTime);
+    GetPlayer(elId, cameraId, mode, streamtype, useTranscoding, startTime) {
+        var player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, startTime);
         player.playerIp = this.playerIp;
         return player;
     }
 }
 class I2vPlayer {
-    constructor(elId, cameraId, mode, streamtype, useTranscoding, ctrlIR, startTime) {
+    constructor(elId, cameraId, mode, streamtype, useTranscoding, startTime) {
         this.elId = elId;
         this.cameraId = cameraId;
         this.mode = mode;
         this.streamtype = streamtype;
         this.useT = useTranscoding;
-        this.ctrlIR = ctrlIR;
         this.urlCreator = window.URL || window.webkitURL;
         this.startTime = startTime;
     }
@@ -131,7 +130,7 @@ class I2vPlayer {
         //this.v = document.getElementById(`${this.elId}_ffmpeg`);
         //this.i = document.getElementById(`${this.elId}_img`);
         this.initializeMediaSource();
-        this.w = new WebSocket(`ws://${this.playerIp}:8181?cameraId~~${this.cameraId}&&id~~${this.elId}&&useTranscoding~~${this.useT}&&ctrlIR~~${this.ctrlIR}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}`);
+        this.w = new WebSocket(`ws://${this.playerIp}:8181?cameraId~~${this.cameraId}&&id~~${this.elId}&&useTranscoding~~${this.useT}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}`);
         this.w.binaryType = 'arraybuffer';
         this.w.addEventListener('open', (event) => {
             this.w.send('Hello Server!');
