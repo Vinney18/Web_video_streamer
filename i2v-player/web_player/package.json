@@ -1,15 +1,16 @@
 {
-    "name": "video-player",
-    "version": "1.0.0",
-    "description": "",
-    "main": "i2v-player.ts",
-    "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
-        "tsc": "tsc"
-    },
-    "author": "",
-    "license": "ISC",
-    "devDependencies": {
-        "typescript": "^3.6.3"
-    }
+  "name": "video-player",
+  "version": "1.0.0",
+  "description": "",
+  "main": "i2v-player.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "uglify": "uglifyjs build/i2v-player.js --compress --mangle -o build/i2v_player.min.js",
+    "build": "tsc && npm run uglify"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^3.6.3"
+  }
 }

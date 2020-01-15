@@ -14,7 +14,7 @@
         <File Source="nssm.exe" />
         <File Source="run_service.bat" />
         <File Source="remove_service.bat" />
-        <File Source="web_player/i2v_player.min.js" />
+        <File Source="web_player/build/i2v_player.min.js" />
         <File Source="web_player/moment.min.js" />
         <File Source="web_player/index.html" />
       </Component>

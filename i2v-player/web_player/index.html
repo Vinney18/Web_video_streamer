@@ -31,7 +31,7 @@
 
         }, playerIp);
 
-		document.getElementById("date").defaultValue = moment().format('YYYY-MM-DD');
+        document.getElementById("date").defaultValue = moment().format('YYYY-MM-DD');
 
         function Play_Live() {
             // Check if player is running then stop first
@@ -43,14 +43,15 @@
             var cameraId = document.getElementById("cameraId").value;
             var streamType = "";
 
-            if(streamType == ""){
+            if (streamType == "") {
                 streamType = "0";
             }
 
             var isusingTranscoding = "0"; // may be 0
             var startTime = "0";
+            var ctrlInputRate = "0";
             //create new player object, video will start automatically
-            playerObj = sdk.GetPlayer("someUniqueId", cameraId,"Live" ,streamType,isusingTranscoding, startTime);
+            playerObj = sdk.GetPlayer("someUniqueId", cameraId, "Live", streamType, isusingTranscoding, ctrlInputRate, startTime);
 
             //set Error callback for play method
             playerObj.setErrorCallback(function (err) {
@@ -76,15 +77,15 @@
             var cameraId = document.getElementById("cameraId").value;
             var date = document.getElementById("date").value;
             var time = document.getElementById("time").value;
-            var datetime = moment(date+ " "+time);
-            
+            var datetime = moment(date + " " + time);
+
             var streamType = "0";
 
             var isusingTranscoding = "1";
             var startTime = datetime.unix();
-
+            var ctrlInputRate = "1";
             //create new player object, video will start automatically
-            playerObj = sdk.GetPlayer("someUniqueId", cameraId,"PlayBack",streamType, isusingTranscoding, startTime);
+            playerObj = sdk.GetPlayer("someUniqueId", cameraId, "PlayBack", streamType, isusingTranscoding, ctrlInputRate, startTime);
 
             //set Error callback for play method
             playerObj.setErrorCallback(function (err) {

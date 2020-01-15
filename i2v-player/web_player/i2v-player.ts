@@ -24,8 +24,8 @@ class I2vSdk {
         }
     }
 
-    GetPlayer(elId, cameraId, mode, streamtype, useTranscoding,startTime) {
-        var player = new I2vPlayer(elId, cameraId, mode ,streamtype,useTranscoding,startTime);
+    GetPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime) {
+        var player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime);
         player.playerIp = this.playerIp;
         return player;
     }
@@ -34,9 +34,11 @@ class I2vSdk {
 class I2vPlayer {
     elId: any;
     cameraId: any;
-    streamtype:any;
-    mode:string;
+    streamtype: any;
+    mode: string;
     useT: any; // use Transcoding
+    ctrlInputRate: any;
+    startTime: any;
     urlCreator: { new(url: string, base?: string | URL): URL; prototype: URL; createObjectURL(object: any): string; revokeObjectURL(url: string): void; };
     errorCallback: any;
     w: WebSocket; //websocket client
@@ -52,7 +54,7 @@ class I2vPlayer {
     lastSegment: Uint8Array;
     playerIp: string;
 
-    constructor(elId, cameraId, mode , streamtype ,useTranscoding,startTime) {
+    constructor(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime) {
         this.elId = elId;
         this.cameraId = cameraId;
         this.mode = mode;
@@ -60,6 +62,7 @@ class I2vPlayer {
         this.useT = useTranscoding;
         this.urlCreator = window.URL || window.webkitURL;
         this.startTime = startTime;
+        this.ctrlInputRate = ctrlInputRate;
     }
 
     setErrorCallback(errorCallback) {
@@ -159,7 +162,7 @@ class I2vPlayer {
         //this.v = document.getElementById(`${this.elId}_ffmpeg`);
         //this.i = document.getElementById(`${this.elId}_img`);
         this.initializeMediaSource();
-        this.w = new WebSocket(`ws://${this.playerIp}:8181?cameraId~~${this.cameraId}&&id~~${this.elId}&&useTranscoding~~${this.useT}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}`);
+        this.w = new WebSocket(`ws://${this.playerIp}:8181?cameraId~~${this.cameraId}&&id~~${this.elId}&&useTranscoding~~${this.useT}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}&&ctrlInputRate~~${this.ctrlInputRate}`);
         this.w.binaryType = 'arraybuffer';
         this.w.addEventListener('open', (event) => {
             this.w.send('Hello Server!');
