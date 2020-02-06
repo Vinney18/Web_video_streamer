@@ -20,10 +20,11 @@
     <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="HeatGeneratedFileList.wxs" />
+    <Compile Include="CommonComponents.wxs" />
     <Compile Include="MyInstallDirDlg.wxs" />
     <Compile Include="MyWixUI_InstallDir.wxs" />
     <Compile Include="Product.wxs" />
+    <Compile Include="SystemFolderComponents.wxs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ffmpeg-player\ffmpeg-player.vcxproj">
@@ -42,7 +43,29 @@
     </WixExtension>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="lib\postproc-55.dll" />
+    <Content Include="lib\ucrtbased.dll" />
+    <Content Include="lib\vcruntime140d.dll" />
+    <Content Include="lib\vcruntime140_1.dll" />
+    <Content Include="nssm.exe" />
+    <Content Include="prebuild.bat" />
+    <Content Include="remove_service.bat" />
+    <Content Include="run_service.bat" />
     <Content Include="Software_licence_agreement.rtf" />
+    <Content Include="web_player\build\i2v-player.js" />
+    <Content Include="web_player\build\i2v_player.min.js" />
+    <Content Include="web_player\i2v-player.ts" />
+    <Content Include="web_player\index.html" />
+    <Content Include="web_player\moment.min.js" />
+    <Content Include="web_player\package-lock.json" />
+    <Content Include="web_player\package.json" />
+    <Content Include="web_player\readme.txt" />
+    <Content Include="web_player\tsconfig.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="lib" />
+    <Folder Include="web_player" />
+    <Folder Include="web_player\build\" />
   </ItemGroup>
   <Import Project="$(WixTargetsPath)" Condition=" '$(WixTargetsPath)' != '' " />
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.targets" Condition=" '$(WixTargetsPath)' == '' AND Exists('$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.targets') " />
@@ -50,7 +73,7 @@
     <Error Text="The WiX Toolset v3.11 (or newer) build tools must be installed to build this project. To download the WiX Toolset, see http://wixtoolset.org/releases/" />
   </Target>
   <Target Name="BeforeBuild">
-    <HeatDirectory Directory="$(SolutionDir)x64\Release" PreprocessorVariable="var.HarvestPath" OutputFile="HeatGeneratedFileList.wxs" ComponentGroupName="HeatGenerated" DirectoryRefId="INSTALLFOLDER" AutogenerateGuids="true" ToolPath="$(WixToolPath)" SuppressFragments="true" SuppressRegistry="true" SuppressRootDirectory="true" />
+    <Exec WorkingDirectory="$(OutDir)" Command="$(MSBuildProjectDirectory)\prebuild.bat" />
   </Target>
   <!--
 	To modify your build process, add your task inside one of the targets below and uncomment it.

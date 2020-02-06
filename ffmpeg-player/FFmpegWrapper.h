@@ -55,6 +55,7 @@ class FFmpegWrapper : public virtual Thread, public virtual i2v::MjpegRoute
 private:
 	string id;
 	string url;
+	int initial_seek_time = 0;
 	WebsocketDataCallback websocketCallback;
 	WebsocketSDataCallback websocketSCallback;
 	bool ctrlInputRate;
@@ -86,13 +87,13 @@ private:
 	DecodeContext decode = { NULL };*/
 public:
 
-	FFmpegWrapper(string _url, string _id, WebsocketDataCallback _websocketCallback, WebsocketSDataCallback _websocketSCallback, bool _ctrlInputRate) : Thread(), i2v::MjpegRoute(_id) {
+	FFmpegWrapper(string _url, string _id, int start_seek_time, WebsocketDataCallback _websocketCallback, WebsocketSDataCallback _websocketSCallback, bool _ctrlInputRate) : Thread(), i2v::MjpegRoute(_id) {
 		id = std::move(_id);
 		url = std::move(_url);
 		websocketCallback = _websocketCallback;
 		websocketSCallback = _websocketSCallback;
 		ctrlInputRate = _ctrlInputRate;
-
+		initial_seek_time = start_seek_time;
 		connections = { {mp4, con_list()}, { mjpeg , con_list()} };
 		//av_log_set_level(AV_LOG_QUIET);
 	}
@@ -341,5 +342,10 @@ private:
 
 	int save_frame_as_jpeg(AVCodecContext *pCodecCtx, AVFrame *pFrame, AVPacket* packet);
 	void receiveMp4Chunk(vector<uint8_t> data);
+	void seek_video(int offset_time);
+	void Forwardseek_video(int offset_time);
+	void Backwardseek_video(int offset_time);
+
+	
 };
 

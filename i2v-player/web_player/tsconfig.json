@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "module": "system",
+        "removeComments": true,
+        "preserveConstEnums": true,
+        "outFile": "build/i2v-player.js",
+        "sourceMap": false
+    },
+    "include": [
+        "*.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}
