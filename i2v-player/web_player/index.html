@@ -25,6 +25,7 @@
         var vmsIp = "127.0.0.1";
         var playerIp = "localhost";
         var sdk = new I2vSdk();
+        var latestDivId = "someUniqueId"
         sdk.InitPlayer(vmsIp, "vms", function () {
 
         }, function (err) {
@@ -50,8 +51,12 @@
             var isusingTranscoding = "0"; // may be 0
             var startTime = "0";
             var ctrlInputRate = "0";
+
+            var providedDiv = document.getElementById(latestDivId);
+            providedDiv.id = Math.trunc(Math.random() * 1000);
+            latestDivId = providedDiv.id;
             //create new player object, video will start automatically
-            playerObj = sdk.GetPlayer("someUniqueId", cameraId, "Live", streamType, isusingTranscoding, ctrlInputRate, startTime);
+            playerObj = sdk.GetPlayer(latestDivId, cameraId, "Live", streamType, isusingTranscoding, ctrlInputRate, startTime);
 
             //set Error callback for play method
             playerObj.setErrorCallback(function (err) {
@@ -84,8 +89,11 @@
             var isusingTranscoding = "1";
             var startTime = datetime.unix();
             var ctrlInputRate = "1";
+            var providedDiv = document.getElementById(latestDivId);
+            providedDiv.id = Math.trunc(Math.random() * 100);
+            latestDivId = providedDiv.id;
             //create new player object, video will start automatically
-            playerObj = sdk.GetPlayer("someUniqueId", cameraId, "PlayBack", streamType, isusingTranscoding, ctrlInputRate, startTime);
+            playerObj = sdk.GetPlayer(latestDivId, cameraId, "PlayBack", streamType, isusingTranscoding, ctrlInputRate, startTime);
 
             //set Error callback for play method
             playerObj.setErrorCallback(function (err) {
