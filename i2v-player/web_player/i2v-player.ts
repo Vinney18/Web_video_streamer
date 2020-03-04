@@ -1,12 +1,22 @@
 
 class I2vSdk {
     playerIp: string = "localhost";
+    useSecureConnection: boolean = false;
 
-    InitPlayer(serverIP, serverType, successCallback, errorCallback, _playerIp?) {
+    InitPlayer(serverIP, serverType, successCallback, errorCallback, _playerIp?, useSecureConnection?: boolean) {
         if (_playerIp) {
             this.playerIp = _playerIp;
         }
-        var wc = new WebSocket(`ws://${this.playerIp}:8181?serverIp~~${serverIP}&&serverType~~${serverType}`);
+        if (useSecureConnection) {
+            this.useSecureConnection = useSecureConnection;
+        }
+        var protocolType: string = "ws";
+        var port: number = 8181;
+        if (this.useSecureConnection) {
+            protocolType = "wss";
+            port = 8182;
+        }
+        var wc = new WebSocket(`${protocolType}://${this.playerIp}:${port}?serverIp~~${serverIP}&&serverType~~${serverType}`);
         wc.onmessage = function (e) {
             if (e.data == "Ok") {
                 successCallback();
@@ -25,7 +35,7 @@ class I2vSdk {
     }
 
     GetPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime) {
-        var player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime);
+        var player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, this.useSecureConnection);
         player.playerIp = this.playerIp;
         return player;
     }
@@ -38,6 +48,7 @@ class I2vPlayer {
     mode: string;
     useT: any; // use Transcoding
     ctrlInputRate: any;
+    useSecureConnection: boolean = false;
     startTime: any;
     urlCreator: { new(url: string, base?: string | URL): URL; prototype: URL; createObjectURL(object: any): string; revokeObjectURL(url: string): void; };
     errorCallback: any;
@@ -54,7 +65,7 @@ class I2vPlayer {
     lastSegment: Uint8Array;
     playerIp: string;
 
-    constructor(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime) {
+    constructor(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, useSecureConnection) {
         this.elId = elId;
         this.cameraId = cameraId;
         this.mode = mode;
@@ -63,6 +74,7 @@ class I2vPlayer {
         this.urlCreator = window.URL || window.webkitURL;
         this.startTime = startTime;
         this.ctrlInputRate = ctrlInputRate;
+        this.useSecureConnection = useSecureConnection;
     }
 
     setErrorCallback(errorCallback) {
@@ -161,8 +173,14 @@ class I2vPlayer {
     play() {
         //this.v = document.getElementById(`${this.elId}_ffmpeg`);
         //this.i = document.getElementById(`${this.elId}_img`);
+        var protocolType: string = "ws";
+        var port: number = 8181;
+        if (this.useSecureConnection) {
+            protocolType = "wss";
+            port = 8182;
+        }
         this.initializeMediaSource();
-        this.w = new WebSocket(`ws://${this.playerIp}:8181?cameraId~~${this.cameraId}&&id~~${this.elId}&&useTranscoding~~${this.useT}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}&&ctrlInputRate~~${this.ctrlInputRate}`);
+        this.w = new WebSocket(`${protocolType}://${this.playerIp}:${port}?cameraId~~${this.cameraId}&&id~~${this.elId}&&useTranscoding~~${this.useT}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}&&ctrlInputRate~~${this.ctrlInputRate}`);
         this.w.binaryType = 'arraybuffer';
         this.w.addEventListener('open', (event) => {
             this.w.send('Hello Server!');

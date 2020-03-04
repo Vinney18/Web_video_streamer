@@ -23,14 +23,15 @@
     <script>
         var playerObj;
         var vmsIp = "127.0.0.1";
-        var playerIp = "localhost";
+        var playerIp = "127.0.0.1";
+        var UseSecureConnection = false;
         var sdk = new I2vSdk();
         var latestDivId = "someUniqueId"
         sdk.InitPlayer(vmsIp, "vms", function () {
 
         }, function (err) {
 
-        }, playerIp);
+        }, playerIp, UseSecureConnection);
 
         document.getElementById("date").defaultValue = moment().format('YYYY-MM-DD');
 
@@ -43,6 +44,7 @@
             //get url to play
             var cameraId = document.getElementById("cameraId").value;
             var streamType = "";
+            
 
             if (streamType == "") {
                 streamType = "0";
@@ -83,7 +85,6 @@
             var date = document.getElementById("date").value;
             var time = document.getElementById("time").value;
             var datetime = moment(date + " " + time);
-
             var streamType = "0";
 
             var isusingTranscoding = "1";
