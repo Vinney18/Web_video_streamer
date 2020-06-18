@@ -1,12 +1,22 @@
 var I2vSdk = (function () {
     function I2vSdk() {
         this.playerIp = "localhost";
+        this.useSecureConnection = false;
     }
-    I2vSdk.prototype.InitPlayer = function (serverIP, serverType, successCallback, errorCallback, _playerIp) {
+    I2vSdk.prototype.InitPlayer = function (serverIP, serverType, successCallback, errorCallback, _playerIp, useSecureConnection) {
         if (_playerIp) {
             this.playerIp = _playerIp;
         }
-        var wc = new WebSocket("ws://" + this.playerIp + ":8181?serverIp~~" + serverIP + "&&serverType~~" + serverType);
+        if (useSecureConnection) {
+            this.useSecureConnection = useSecureConnection;
+        }
+        var protocolType = "ws";
+        var port = 8181;
+        if (this.useSecureConnection) {
+            protocolType = "wss";
+            port = 8182;
+        }
+        var wc = new WebSocket(protocolType + "://" + this.playerIp + ":" + port + "?serverIp~~" + serverIP + "&&serverType~~" + serverType);
         wc.onmessage = function (e) {
             if (e.data == "Ok") {
                 successCallback();
@@ -25,14 +35,15 @@ var I2vSdk = (function () {
         };
     };
     I2vSdk.prototype.GetPlayer = function (elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime) {
-        var player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime);
+        var player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, this.useSecureConnection);
         player.playerIp = this.playerIp;
         return player;
     };
     return I2vSdk;
 }());
 var I2vPlayer = (function () {
-    function I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime) {
+    function I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, useSecureConnection) {
+        this.useSecureConnection = false;
         this.elId = elId;
         this.cameraId = cameraId;
         this.mode = mode;
@@ -41,6 +52,7 @@ var I2vPlayer = (function () {
         this.urlCreator = window.URL || window.webkitURL;
         this.startTime = startTime;
         this.ctrlInputRate = ctrlInputRate;
+        this.useSecureConnection = useSecureConnection;
     }
     I2vPlayer.prototype.setErrorCallback = function (errorCallback) {
         this.errorCallback = errorCallback;
@@ -121,8 +133,14 @@ var I2vPlayer = (function () {
     };
     I2vPlayer.prototype.play = function () {
         var _this = this;
+        var protocolType = "ws";
+        var port = 8181;
+        if (this.useSecureConnection) {
+            protocolType = "wss";
+            port = 8182;
+        }
         this.initializeMediaSource();
-        this.w = new WebSocket("ws://" + this.playerIp + ":8181?cameraId~~" + this.cameraId + "&&id~~" + this.elId + "&&useTranscoding~~" + this.useT + "&&startTime~~" + this.startTime + "&&mode~~" + this.mode + "&&streamtype~~" + this.streamtype + "&&ctrlInputRate~~" + this.ctrlInputRate);
+        this.w = new WebSocket(protocolType + "://" + this.playerIp + ":" + port + "?cameraId~~" + this.cameraId + "&&id~~" + this.elId + "&&useTranscoding~~" + this.useT + "&&startTime~~" + this.startTime + "&&mode~~" + this.mode + "&&streamtype~~" + this.streamtype + "&&ctrlInputRate~~" + this.ctrlInputRate);
         this.w.binaryType = 'arraybuffer';
         this.w.addEventListener('open', function (event) {
             _this.w.send('Hello Server!');
