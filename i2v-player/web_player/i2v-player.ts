@@ -3,7 +3,7 @@ class I2vSdk {
     playerIp: string = "localhost";
     useSecureConnection: boolean = false;
 
-    InitPlayer(serverIP, serverType, successCallback, errorCallback, _playerIp?, useSecureConnection?: boolean) {
+    InitPlayer(serverIP, successCallback, errorCallback, _playerIp?, useSecureConnection?: boolean) {
         if (_playerIp) {
             this.playerIp = _playerIp;
         }
@@ -16,9 +16,9 @@ class I2vSdk {
             protocolType = "wss";
             port = 8182;
         }
-        var wc = new WebSocket(`${protocolType}://${this.playerIp}:${port}?serverIp~~${serverIP}&&serverType~~${serverType}`);
+        var wc = new WebSocket(`${protocolType}://${this.playerIp}:${port}?serverIp~~${serverIP}`);
         wc.onmessage = function (e) {
-            if (e.data == "Ok") {
+            if (e.data == "Ok" || e.data == "Init") {
                 successCallback();
             } else {
                 errorCallback(e.data);
@@ -209,6 +209,20 @@ class I2vPlayer {
                         this.retryingCallback();
                     }
                     console.log("Disconnected, trying to reconnect!!");
+                    return;
+                case "License Expired":
+                    var errMsg = "License Expired/Invalid";
+                    if (this.errorCallback) {
+                        this.errorCallback(errMsg);
+                    }
+                    console.error(errMsg);
+                    return;
+                case "Some problem occured":
+                    var errMsg = "Some problem in getting playable url";
+                    if (this.errorCallback) {
+                        this.errorCallback(errMsg);
+                    }
+                    console.error(errMsg);
                     return;
             }
             if (!this.isPlayerSet) {

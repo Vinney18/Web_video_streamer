@@ -27,7 +27,7 @@
         var UseSecureConnection = false;
         var sdk = new I2vSdk();
         var latestDivId = "someUniqueId"
-        sdk.InitPlayer(vmsIp, "vms", function () {
+        sdk.InitPlayer(vmsIp, function () {
 
         }, function (err) {
 
@@ -44,7 +44,7 @@
             //get url to play
             var cameraId = document.getElementById("cameraId").value;
             var streamType = "";
-            
+
 
             if (streamType == "") {
                 streamType = "0";

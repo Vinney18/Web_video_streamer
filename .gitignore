@@ -535,3 +535,5 @@ ffmpeg-player/x64
 x64
 .vs
 i2v-player/bin/Release
+/PlayerServer/BootstrapperProject/Resource
+/PlayerServer/BootstrapperProject/External_Dependencies

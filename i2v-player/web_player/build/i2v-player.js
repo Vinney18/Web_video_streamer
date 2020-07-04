@@ -3,7 +3,7 @@ var I2vSdk = (function () {
         this.playerIp = "localhost";
         this.useSecureConnection = false;
     }
-    I2vSdk.prototype.InitPlayer = function (serverIP, serverType, successCallback, errorCallback, _playerIp, useSecureConnection) {
+    I2vSdk.prototype.InitPlayer = function (serverIP, successCallback, errorCallback, _playerIp, useSecureConnection) {
         if (_playerIp) {
             this.playerIp = _playerIp;
         }
@@ -16,9 +16,9 @@ var I2vSdk = (function () {
             protocolType = "wss";
             port = 8182;
         }
-        var wc = new WebSocket(protocolType + "://" + this.playerIp + ":" + port + "?serverIp~~" + serverIP + "&&serverType~~" + serverType);
+        var wc = new WebSocket(protocolType + "://" + this.playerIp + ":" + port + "?serverIp~~" + serverIP);
         wc.onmessage = function (e) {
-            if (e.data == "Ok") {
+            if (e.data == "Ok" || e.data == "Init") {
                 successCallback();
             }
             else {
@@ -169,6 +169,20 @@ var I2vPlayer = (function () {
                         _this.retryingCallback();
                     }
                     console.log("Disconnected, trying to reconnect!!");
+                    return;
+                case "License Expired":
+                    var errMsg = "License Expired/Invalid";
+                    if (_this.errorCallback) {
+                        _this.errorCallback(errMsg);
+                    }
+                    console.error(errMsg);
+                    return;
+                case "Some problem occured":
+                    var errMsg = "Some problem in getting playable url";
+                    if (_this.errorCallback) {
+                        _this.errorCallback(errMsg);
+                    }
+                    console.error(errMsg);
                     return;
             }
             if (!_this.isPlayerSet) {
