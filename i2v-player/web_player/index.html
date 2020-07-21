@@ -22,12 +22,12 @@
     <script src="i2v_player.min.js"></script>
     <script>
         var playerObj;
-        var serverIp = "127.0.0.1"; //This is Ip of Player Server Module
-        var playerIp = "127.0.0.1"; //This is Ip of Player Component
+        var serverIp = "127.0.0.1"; //This is Ip of Player Server Module (Same as VMS if player server installed on same machine)
+        var playerIp = "127.0.0.1"; //This is Ip of Player Stramer
         var UseSecureConnection = false;
         var sdk = new I2vSdk();
         var latestDivId = "someUniqueId"
-        sdk.InitPlayer(serverIp, function () {
+        sdk.InitPlayer(serverIp, "vms", function () {
 
         }, function (err) {
 

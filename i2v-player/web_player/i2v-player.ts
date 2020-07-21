@@ -3,7 +3,7 @@ class I2vSdk {
     playerIp: string = "localhost";
     useSecureConnection: boolean = false;
 
-    InitPlayer(serverIP, successCallback, errorCallback, _playerIp?, useSecureConnection?: boolean) {
+    InitPlayer(serverIP, serverType, successCallback, errorCallback, _playerIp?, useSecureConnection?: boolean) {
         if (_playerIp) {
             this.playerIp = _playerIp;
         }

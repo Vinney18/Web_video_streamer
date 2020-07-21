@@ -3,7 +3,7 @@ var I2vSdk = (function () {
         this.playerIp = "localhost";
         this.useSecureConnection = false;
     }
-    I2vSdk.prototype.InitPlayer = function (serverIP, successCallback, errorCallback, _playerIp, useSecureConnection) {
+    I2vSdk.prototype.InitPlayer = function (serverIP, serverType, successCallback, errorCallback, _playerIp, useSecureConnection) {
         if (_playerIp) {
             this.playerIp = _playerIp;
         }
