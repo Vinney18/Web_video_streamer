@@ -17,6 +17,9 @@
             <Component Id="cmp753D30BB0B44F936936FFC888F744F24" Guid="*">
                 <File Id="fil4223797050A0ED52A0AAF198AEF10663" KeyPath="yes" Source="$(var.serverPath)\Microsoft.Win32.Registry.dll" />
             </Component>
+            <Component Id="cmp7097FBCC97F425D8BFF3B46CE27F51EF" Guid="*">
+                <File Id="fil7DF976F083B346D29B99FEEBABF7A3B9" KeyPath="yes" Source="$(var.serverPath)\networkSetting.json" />
+            </Component>
             <Component Id="cmpE593D3BBE259517471DA4BBA1A455A22" Guid="*">
                 <File Id="fil1E47DAA690F9C4AC6A98EABB4E9C2ABF" KeyPath="yes" Source="$(var.serverPath)\package-lock.json" />
             </Component>
@@ -112,6 +115,12 @@
                 <Component Id="cmp0F8155DD3A78A3897CB7CDC15E6D34B7" Guid="*">
                     <File Id="fil820767385030340FB66D6F7866519A0E" KeyPath="yes" Source="$(var.serverPath)\wwwroot\licenseDetails.html" />
                 </Component>
+                <Component Id="cmp9FA481B2DE4245B61F565F328DD0FB5A" Guid="*">
+                    <File Id="fil60E40747B38E8253DC5A0B9F93192B46" KeyPath="yes" Source="$(var.serverPath)\wwwroot\licenseSetting.html" />
+                </Component>
+                <Component Id="cmpC80D161EABDDBBE83E002876C1E4967D" Guid="*">
+                    <File Id="fil2136467EF8EC02FD9C88CE963DBEE2A8" KeyPath="yes" Source="$(var.serverPath)\wwwroot\network.html" />
+                </Component>
                 <Component Id="cmpE70C2276C3B4457F10B9BD76D91D055A" Guid="*">
                     <File Id="fil586627AF857986208A1F636868BBD4F5" KeyPath="yes" Source="$(var.serverPath)\wwwroot\ServerError.html" />
                 </Component>
@@ -137,6 +146,14 @@
                         <File Id="filD8F4D843B9CC6E08F3D65AD01D897128" KeyPath="yes" Source="$(var.serverPath)\wwwroot\js\toastr.js" />
                     </Component>
                 </Directory>
+                <Directory Id="dir4315BF0CFF1E985FFC77BF4AF78E5F2A" Name="player">
+                    <Component Id="cmp1442E61487A0C019020F53F7BAFA50E4" Guid="*">
+                        <File Id="fil479E1F48902B106F306EFDFDA3DCD061" KeyPath="yes" Source="$(var.serverPath)\wwwroot\player\i2v_player.min.js" />
+                    </Component>
+                    <Component Id="cmp49B1697E0E06A2E5EA2D3D9ED4D0D685" Guid="*">
+                        <File Id="filAAD88CB9886C6CE0DD72970051E8D76F" KeyPath="yes" Source="$(var.serverPath)\wwwroot\player\index.html" />
+                    </Component>
+                </Directory>
             </Directory>
         </DirectoryRef>
     </Fragment>
@@ -147,6 +164,7 @@
             <ComponentRef Id="cmp311148B2A7753F1F9899B09F38CA3894" />
             <ComponentRef Id="cmpEEC72832A30BB1F9192464822043AF1B" />
             <ComponentRef Id="cmp753D30BB0B44F936936FFC888F744F24" />
+            <ComponentRef Id="cmp7097FBCC97F425D8BFF3B46CE27F51EF" />
             <ComponentRef Id="cmpE593D3BBE259517471DA4BBA1A455A22" />
             <ComponentRef Id="cmp26258580F622C387F20F112DE630F1C0" />
             <ComponentRef Id="cmp1DB813760D2BB7C6A1664AD5CAB32BDC" />
@@ -171,6 +189,8 @@
             <ComponentRef Id="cmp5DB8203593E21202460A12B60169B289" />
             <ComponentRef Id="cmp14514D1768FC5B27A14E345760544CEA" />
             <ComponentRef Id="cmp0F8155DD3A78A3897CB7CDC15E6D34B7" />
+            <ComponentRef Id="cmp9FA481B2DE4245B61F565F328DD0FB5A" />
+            <ComponentRef Id="cmpC80D161EABDDBBE83E002876C1E4967D" />
             <ComponentRef Id="cmpE70C2276C3B4457F10B9BD76D91D055A" />
             <ComponentRef Id="cmp80FC2798EC2F79640050B183470F93A8" />
             <ComponentRef Id="cmpEC940043FE8A96AF3889AC16F1B4F987" />
@@ -178,6 +198,8 @@
             <ComponentRef Id="cmp773331DA569C50B03F5E31A3E4E9CADF" />
             <ComponentRef Id="cmp8C5ACFF2728DDF7DEB8CE4D49044A58E" />
             <ComponentRef Id="cmpD30666D9BE4BD52BE006A4A8E5E7B659" />
+            <ComponentRef Id="cmp1442E61487A0C019020F53F7BAFA50E4" />
+            <ComponentRef Id="cmp49B1697E0E06A2E5EA2D3D9ED4D0D685" />
         </ComponentGroup>
     </Fragment>
 </Wix>
