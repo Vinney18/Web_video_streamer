@@ -11,5 +11,7 @@ namespace PlayerServer
         public static string AttachedServerIp = "localhost";
         public static int port = 47060;
         public static string token = "";
+        public static bool isVPN = false;
+        public static string ReturnIp = "";
     }
 }

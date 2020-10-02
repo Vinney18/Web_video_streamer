@@ -46,5 +46,35 @@ namespace PlayerServer.Controllers
             }
             return Ok();
         }
+
+        [HttpPost]
+        [Route("~/api/NetworkSetting")]
+        public IActionResult UpdateNetworkSetting([FromBody]NetworkSettingReq configurationReq)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest();
+            }
+            try
+            {
+                ServerDetails.isVPN = configurationReq.IsVPN;
+                ServerDetails.ReturnIp = configurationReq.ReturnIp;
+                string path = Path.Combine(Directory.GetCurrentDirectory(), "networkSetting.json");
+                System.IO.File.WriteAllBytes(path, Encoding.ASCII.GetBytes(JsonConvert.SerializeObject(configurationReq)));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest("Some Problem occured");
+            }
+            return Ok();
+        }
+
+        [HttpGet]
+        [Route("~/api/NetworkSetting")]
+        public IActionResult GetNetworkSetting()
+        {
+            return Ok(new { isVPN = ServerDetails.isVPN, returnIp = ServerDetails.ReturnIp });
+        }
     }
+
 }

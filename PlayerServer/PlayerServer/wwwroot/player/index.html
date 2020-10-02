@@ -1,0 +1,116 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Test</title>
+    <script type="text/javascript" src="moment.min.js"></script>
+</head>
+
+<body>
+    <input style="width:500px" id="cameraId" />
+
+    <button onClick="Play_Live()">Play Live</button>
+    <input id="date" type="date">
+    <input id="time" type="time" step="1" value="18:00">
+    <button onClick="Play_Playback()">Play Playback</button>
+
+    <!-- div where video will be played -->
+    <div style="height: 500px;width:100%" id="someUniqueId"></div>
+
+
+    <script src="i2v_player.min.js"></script>
+    <script>
+        var playerObj;
+        var serverIp = "127.0.0.1"; //This is Ip of Player Server Module
+        var playerIp = "127.0.0.1"; //This is Ip of Player Component
+        var UseSecureConnection = false;
+        var sdk = new I2vSdk();
+        var latestDivId = "someUniqueId"
+        sdk.InitPlayer(serverIp, function () {
+
+        }, function (err) {
+
+        }, playerIp, UseSecureConnection);
+
+        document.getElementById("date").defaultValue = moment().format('YYYY-MM-DD');
+
+        function Play_Live() {
+            // Check if player is running then stop first
+            if (playerObj) {
+                playerObj.stop();
+            }
+
+            //get url to play
+            var cameraId = document.getElementById("cameraId").value;
+            var streamType = "";
+
+
+            if (streamType == "") {
+                streamType = "7";
+            }
+
+            var isusingTranscoding = "0"; // may be 0
+            var startTime = "0";
+            var ctrlInputRate = "0";
+
+            var providedDiv = document.getElementById(latestDivId);
+            providedDiv.id = Math.trunc(Math.random() * 1000);
+            latestDivId = providedDiv.id;
+            //create new player object, video will start automatically
+            playerObj = sdk.GetPlayer(latestDivId, cameraId, "Live", streamType, isusingTranscoding, ctrlInputRate, startTime);
+
+            //set Error callback for play method
+            playerObj.setErrorCallback(function (err) {
+                console.error(err);
+            });
+
+            //set retrying callback
+            playerObj.setRetryingCallback(function (err) {
+                console.log("disconnected, retrying to connect!!");
+            });
+
+            //call play method
+            playerObj.play();
+        }
+
+
+        function Play_Playback() {
+            if (playerObj) {
+                playerObj.stop();
+            }
+
+            //get url to play
+            var cameraId = document.getElementById("cameraId").value;
+            var date = document.getElementById("date").value;
+            var time = document.getElementById("time").value;
+            var datetime = moment(date + " " + time);
+            var streamType = "0";
+
+            var isusingTranscoding = "1";
+            var startTime = datetime.unix();
+            var ctrlInputRate = "1";
+            var providedDiv = document.getElementById(latestDivId);
+            providedDiv.id = Math.trunc(Math.random() * 100);
+            latestDivId = providedDiv.id;
+            //create new player object, video will start automatically
+            playerObj = sdk.GetPlayer(latestDivId, cameraId, "PlayBack", streamType, isusingTranscoding, ctrlInputRate, startTime);
+
+            //set Error callback for play method
+            playerObj.setErrorCallback(function (err) {
+                console.error(err);
+            });
+
+            //set retrying callback
+            playerObj.setRetryingCallback(function (err) {
+                console.log("disconnected, retrying to connect!!");
+            });
+
+            //call play method
+            playerObj.play();
+        }
+    </script>
+
+</body>
+
+</html>

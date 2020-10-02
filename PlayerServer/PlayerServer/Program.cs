@@ -69,6 +69,26 @@ namespace PlayerServer
                 File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), "config.json"), JsonConvert.SerializeObject(serverDetails));
                 args = new List<string>() { "8890" }.ToArray();
             }
+
+            if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "networkSetting.json")))
+            {
+                var text = File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "networkSetting.json"));
+                if (!string.IsNullOrEmpty(text))
+                {
+                    var configObject = JsonConvert.DeserializeObject<Dictionary<string, object>>(text);
+                    if (configObject != null)
+                    {
+                        if (configObject.ContainsKey("IsVPN"))
+                        {
+                            ServerDetails.isVPN = Convert.ToBoolean(configObject["IsVPN"]);
+                        }
+                        if (configObject.ContainsKey("ReturnIp"))
+                        {
+                            ServerDetails.ReturnIp = Convert.ToString(configObject["ReturnIp"]);
+                        }
+                    }
+                }
+            }
             Licensing.LicenseManager.LoadLicense();
             CreateWebHostBuilder(args).Build().Run();
         }
