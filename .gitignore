@@ -537,3 +537,4 @@ x64
 i2v-player/bin/Release
 /PlayerServer/BootstrapperProject/Resource
 /PlayerServer/BootstrapperProject/External_Dependencies
+/PlayerServer/PlayerServer/logs.txt

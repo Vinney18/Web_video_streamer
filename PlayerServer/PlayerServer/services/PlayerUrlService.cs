@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -31,7 +32,17 @@ namespace PlayerServer.services
             var httpResponse = await httpClient.GetAsync("/RestService/server/LiveUrl?cameraId=" + cameraId + "&streamType=" + streamType);
             if (httpResponse.StatusCode == System.Net.HttpStatusCode.OK)
             {
-                return await httpResponse.Content.ReadAsStringAsync();
+                var responseString = await httpResponse.Content.ReadAsStringAsync();
+                if (responseString.StartsWith("\""))
+                {
+                    var url = JsonConvert.DeserializeObject<string>(responseString);
+                    return url;
+                }
+                else
+                {
+                    return responseString;
+                }
+               
             }
             return "";
         }
@@ -80,7 +91,7 @@ namespace PlayerServer.services
             string snet = null;
             string commonIp = string.Empty;
             var ips = Dns.GetHostAddresses("");
-            
+
             foreach (IPAddress ip in ips)
             {
                 if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)

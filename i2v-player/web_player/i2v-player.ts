@@ -2,6 +2,7 @@
 class I2vSdk {
     playerIp: string = "localhost";
     useSecureConnection: boolean = false;
+    player: any;
 
     InitPlayer(serverIP, serverType, successCallback, errorCallback, _playerIp?, useSecureConnection?: boolean) {
         if (_playerIp) {
@@ -35,9 +36,9 @@ class I2vSdk {
     }
 
     GetPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime) {
-        var player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, this.useSecureConnection);
-        player.playerIp = this.playerIp;
-        return player;
+        this.player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, this.useSecureConnection);
+        this.player.playerIp = this.playerIp;
+        return this.player;
     }
 }
 
@@ -64,6 +65,7 @@ class I2vPlayer {
     retryingCallback: any;
     lastSegment: Uint8Array;
     playerIp: string;
+    doesStopRequested: boolean = false;
 
     constructor(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, useSecureConnection) {
         this.elId = elId;
@@ -86,6 +88,7 @@ class I2vPlayer {
     }
 
     stop() {
+        this.doesStopRequested = true;
         this.w.close();
         delete this.m;
         delete this.v;
@@ -171,8 +174,6 @@ class I2vPlayer {
     }
 
     play() {
-        //this.v = document.getElementById(`${this.elId}_ffmpeg`);
-        //this.i = document.getElementById(`${this.elId}_img`);
         var protocolType: string = "ws";
         var port: number = 8181;
         if (this.useSecureConnection) {
@@ -183,10 +184,45 @@ class I2vPlayer {
         this.w = new WebSocket(`${protocolType}://${this.playerIp}:${port}?cameraId~~${this.cameraId}&&id~~${this.elId}&&useTranscoding~~${this.useT}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}&&ctrlInputRate~~${this.ctrlInputRate}`);
         this.w.binaryType = 'arraybuffer';
         this.w.addEventListener('open', (event) => {
+            this.doesStopRequested = false;
             this.w.send('Hello Server!');
         });
         this.w.addEventListener('close', (event) => {
-            console.log('socket closed');
+            if (this.doesStopRequested) {
+                console.log('socket closed');
+            } else {
+                console.log('socket closed and retrying...');
+                if (this.isPlayerSet) {
+                    this.showErrorMessage("trying to reconnect...");
+                }
+                delete this.w;
+                if (this.b) {
+                    this.b.abort();
+                }
+                this.b = null;
+                this.m = null;
+                delete this.v;
+                this.isPlayerSet = false;
+                if (this.isJpeg) {
+                    var i = document.getElementById(`${this.elId}_img`) as HTMLImageElement;
+                    if (i) {
+                        i.src = "";
+                        i.parentNode.removeChild(i);
+                    }
+
+                } else {
+                    var v = document.getElementById(`${this.elId}_video`) as HTMLVideoElement;
+                    if (v) {
+                        v.src = "";
+                        v.parentNode.removeChild(v);
+                    }
+
+                }
+                setTimeout(() => {
+                    this.play();
+                }, 1000);
+            }
+
         });
         this.w.addEventListener('message', (e) => {
             switch (e.data) {
@@ -195,43 +231,48 @@ class I2vPlayer {
                     if (this.errorCallback) {
                         this.errorCallback(errMsg);
                     }
-                    console.error(errMsg);
+                    this.showErrorMessage(errMsg);
                     return;
                 case "EmptyUrl":
-                    var errMsg = "EmptyUrl";
+                    var errMsg = this.mode == "Live" ? "Url not configured" : "Recording not found";
                     if (this.errorCallback) {
                         this.errorCallback(errMsg);
                     }
-                    console.error(errMsg);
+                    this.showErrorMessage(errMsg);
                     return;
                 case "retrying":
                     if (this.retryingCallback) {
                         this.retryingCallback();
                     }
-                    console.log("Disconnected, trying to reconnect!!");
+                    this.showErrorMessage("trying to reconnect...");
                     return;
                 case "License Expired":
                     var errMsg = "License Expired/Invalid";
                     if (this.errorCallback) {
                         this.errorCallback(errMsg);
                     }
-                    console.error(errMsg);
+                    this.showErrorMessage(errMsg);
                     return;
                 case "Some problem occured":
-                    var errMsg = "Some problem in getting playable url";
+                    var errMsg = "Some problem occured";
                     if (this.errorCallback) {
                         this.errorCallback(errMsg);
                     }
-                    console.error(errMsg);
+                    this.showErrorMessage(errMsg);
                     return;
+                default:
+                    this.removeErrorMessage();
             }
             if (!this.isPlayerSet) {
                 if (e.data instanceof ArrayBuffer) {
                     return;
                 } else {
                     if (e.data === "mp4") {
+                        this.removeErrorMessage()
                         this.v = document.createElement("video");
-                        document.getElementById(this.elId).appendChild(this.v);
+                        var div = document.getElementById(this.elId);
+                        div.style.background = "black";
+                        div.appendChild(this.v);
                         this.v.id = `${this.elId}_video`;
                         this.v.src = window.URL.createObjectURL(this.m);
                         this.v.style.height = "100%";
@@ -240,8 +281,11 @@ class I2vPlayer {
                         this.isJpeg = false;
                         this.intS = null;
                     } else if (e.data === "mjpeg") {
+                        this.removeErrorMessage()
                         this.i = document.createElement("img");
-                        document.getElementById(this.elId).appendChild(this.i);
+                        var div = document.getElementById(this.elId);
+                        div.style.background = "black";
+                        div.appendChild(this.i);
                         this.i.id = `${this.elId}_img`;
                         this.i.style.height = "100%";
                         this.i.style.width = "100%";
@@ -278,14 +322,14 @@ class I2vPlayer {
                 if (!this.isSourceReady)
                     return;
 
-                if (this.b.buffered.length) {
+                if (this.b && this.b.buffered.length) {
                     const lag = this.b.buffered.end(0) - this.v.currentTime;
                     if (lag > 0.5) {
                         this.v.currentTime = this.b.buffered.end(0) - 0.5;
                     }
                 }
                 this.lastSegment = data;
-                if (!this.b.updating && this.m.readyState === 'open') {
+                if (this.b && (!this.b.updating && this.m.readyState === 'open')) {
                     try {
                         this.b.appendBuffer(this.lastSegment);
                     } catch (ex) {
@@ -300,7 +344,34 @@ class I2vPlayer {
 
 
         }, false);
+    }
 
+    showErrorMessage(message) {
+        var spanElement = document.getElementById("errorMessage" + this.elId);
+        if (!spanElement) {
+            var span = document.createElement("span");
+            span.innerHTML = message + "...";
+            span.style.color = "red";
+            span.style.position = "absolute";
+            span.style.fontSize = "25px";
+            span.style.fontWeight = "bold";
+            span.id = "errorMessage" + this.elId;
+            var element = document.getElementById(this.elId);
+            if (element) {
+                element.style.background = "black";
+                element.style.position = "relative";
+                element.appendChild(span);
+            }
+        } else {
+            spanElement.innerHTML = message + "...";
+        }
+    }
 
+    removeErrorMessage() {
+        var spanElement = document.getElementById("errorMessage" + this.elId);
+        if (spanElement) {
+            var element = document.getElementById(this.elId);
+            element.removeChild(spanElement);
+        }
     }
 }

@@ -35,15 +35,16 @@ var I2vSdk = (function () {
         };
     };
     I2vSdk.prototype.GetPlayer = function (elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime) {
-        var player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, this.useSecureConnection);
-        player.playerIp = this.playerIp;
-        return player;
+        this.player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, this.useSecureConnection);
+        this.player.playerIp = this.playerIp;
+        return this.player;
     };
     return I2vSdk;
 }());
 var I2vPlayer = (function () {
     function I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, useSecureConnection) {
         this.useSecureConnection = false;
+        this.doesStopRequested = false;
         this.elId = elId;
         this.cameraId = cameraId;
         this.mode = mode;
@@ -61,6 +62,7 @@ var I2vPlayer = (function () {
         this.retryingCallback = retryingCallback;
     };
     I2vPlayer.prototype.stop = function () {
+        this.doesStopRequested = true;
         this.w.close();
         delete this.m;
         delete this.v;
@@ -143,10 +145,44 @@ var I2vPlayer = (function () {
         this.w = new WebSocket(protocolType + "://" + this.playerIp + ":" + port + "?cameraId~~" + this.cameraId + "&&id~~" + this.elId + "&&useTranscoding~~" + this.useT + "&&startTime~~" + this.startTime + "&&mode~~" + this.mode + "&&streamtype~~" + this.streamtype + "&&ctrlInputRate~~" + this.ctrlInputRate);
         this.w.binaryType = 'arraybuffer';
         this.w.addEventListener('open', function (event) {
+            _this.doesStopRequested = false;
             _this.w.send('Hello Server!');
         });
         this.w.addEventListener('close', function (event) {
-            console.log('socket closed');
+            if (_this.doesStopRequested) {
+                console.log('socket closed');
+            }
+            else {
+                console.log('socket closed and retrying...');
+                if (_this.isPlayerSet) {
+                    _this.showErrorMessage("trying to reconnect...");
+                }
+                delete _this.w;
+                if (_this.b) {
+                    _this.b.abort();
+                }
+                _this.b = null;
+                _this.m = null;
+                delete _this.v;
+                _this.isPlayerSet = false;
+                if (_this.isJpeg) {
+                    var i = document.getElementById(_this.elId + "_img");
+                    if (i) {
+                        i.src = "";
+                        i.parentNode.removeChild(i);
+                    }
+                }
+                else {
+                    var v = document.getElementById(_this.elId + "_video");
+                    if (v) {
+                        v.src = "";
+                        v.parentNode.removeChild(v);
+                    }
+                }
+                setTimeout(function () {
+                    _this.play();
+                }, 1000);
+            }
         });
         this.w.addEventListener('message', function (e) {
             switch (e.data) {
@@ -155,35 +191,37 @@ var I2vPlayer = (function () {
                     if (_this.errorCallback) {
                         _this.errorCallback(errMsg);
                     }
-                    console.error(errMsg);
+                    _this.showErrorMessage(errMsg);
                     return;
                 case "EmptyUrl":
-                    var errMsg = "EmptyUrl";
+                    var errMsg = _this.mode == "Live" ? "Url not configured" : "Recording not found";
                     if (_this.errorCallback) {
                         _this.errorCallback(errMsg);
                     }
-                    console.error(errMsg);
+                    _this.showErrorMessage(errMsg);
                     return;
                 case "retrying":
                     if (_this.retryingCallback) {
                         _this.retryingCallback();
                     }
-                    console.log("Disconnected, trying to reconnect!!");
+                    _this.showErrorMessage("trying to reconnect...");
                     return;
                 case "License Expired":
                     var errMsg = "License Expired/Invalid";
                     if (_this.errorCallback) {
                         _this.errorCallback(errMsg);
                     }
-                    console.error(errMsg);
+                    _this.showErrorMessage(errMsg);
                     return;
                 case "Some problem occured":
-                    var errMsg = "Some problem in getting playable url";
+                    var errMsg = "Some problem occured";
                     if (_this.errorCallback) {
                         _this.errorCallback(errMsg);
                     }
-                    console.error(errMsg);
+                    _this.showErrorMessage(errMsg);
                     return;
+                default:
+                    _this.removeErrorMessage();
             }
             if (!_this.isPlayerSet) {
                 if (e.data instanceof ArrayBuffer) {
@@ -191,8 +229,11 @@ var I2vPlayer = (function () {
                 }
                 else {
                     if (e.data === "mp4") {
+                        _this.removeErrorMessage();
                         _this.v = document.createElement("video");
-                        document.getElementById(_this.elId).appendChild(_this.v);
+                        var div = document.getElementById(_this.elId);
+                        div.style.background = "black";
+                        div.appendChild(_this.v);
                         _this.v.id = _this.elId + "_video";
                         _this.v.src = window.URL.createObjectURL(_this.m);
                         _this.v.style.height = "100%";
@@ -202,8 +243,11 @@ var I2vPlayer = (function () {
                         _this.intS = null;
                     }
                     else if (e.data === "mjpeg") {
+                        _this.removeErrorMessage();
                         _this.i = document.createElement("img");
-                        document.getElementById(_this.elId).appendChild(_this.i);
+                        var div = document.getElementById(_this.elId);
+                        div.style.background = "black";
+                        div.appendChild(_this.i);
                         _this.i.id = _this.elId + "_img";
                         _this.i.style.height = "100%";
                         _this.i.style.width = "100%";
@@ -224,14 +268,14 @@ var I2vPlayer = (function () {
                 }
                 if (!_this.isSourceReady)
                     return;
-                if (_this.b.buffered.length) {
+                if (_this.b && _this.b.buffered.length) {
                     var lag = _this.b.buffered.end(0) - _this.v.currentTime;
                     if (lag > 0.5) {
                         _this.v.currentTime = _this.b.buffered.end(0) - 0.5;
                     }
                 }
                 _this.lastSegment = data;
-                if (!_this.b.updating && _this.m.readyState === 'open') {
+                if (_this.b && (!_this.b.updating && _this.m.readyState === 'open')) {
                     try {
                         _this.b.appendBuffer(_this.lastSegment);
                     }
@@ -245,6 +289,34 @@ var I2vPlayer = (function () {
                 }
             }
         }, false);
+    };
+    I2vPlayer.prototype.showErrorMessage = function (message) {
+        var spanElement = document.getElementById("errorMessage" + this.elId);
+        if (!spanElement) {
+            var span = document.createElement("span");
+            span.innerHTML = message + "...";
+            span.style.color = "red";
+            span.style.position = "absolute";
+            span.style.fontSize = "25px";
+            span.style.fontWeight = "bold";
+            span.id = "errorMessage" + this.elId;
+            var element = document.getElementById(this.elId);
+            if (element) {
+                element.style.background = "black";
+                element.style.position = "relative";
+                element.appendChild(span);
+            }
+        }
+        else {
+            spanElement.innerHTML = message + "...";
+        }
+    };
+    I2vPlayer.prototype.removeErrorMessage = function () {
+        var spanElement = document.getElementById("errorMessage" + this.elId);
+        if (spanElement) {
+            var element = document.getElementById(this.elId);
+            element.removeChild(spanElement);
+        }
     };
     return I2vPlayer;
 }());

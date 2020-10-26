@@ -56,8 +56,16 @@ namespace PlayerServer.Controllers
             {
                 var url = await _playerUrlService.GetPlaybackUrl(cameraId, time);
                 var obj = JsonConvert.DeserializeObject<dynamic>(url);
-
-                var currentUrl = obj.GetEventPlaybackUrlResult.ToString();
+                string currentUrl = "";
+                if (url.Contains("GetEventPlaybackUrlResult"))
+                {
+                    currentUrl = obj.GetEventPlaybackUrlResult.ToString();
+                }
+                else
+                {
+                    currentUrl = obj.getEventPlaybackUrlResult.ToString();
+                }
+               
                 if (currentUrl.Contains("127.0.0.1") || currentUrl.Contains("localhost"))
                 {
                     if (ServerDetails.isVPN)
