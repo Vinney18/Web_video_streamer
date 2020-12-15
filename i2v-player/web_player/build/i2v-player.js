@@ -205,6 +205,14 @@ var I2vPlayer = (function () {
                         _this.retryingCallback();
                     }
                     _this.showErrorMessage("trying to reconnect...");
+                    try {
+                        var start = _this.b.buffered.start(0);
+                        var end = _this.b.buffered.end(0);
+                        _this.b.remove(start, end);
+                    }
+                    catch (ex) {
+                        console.log(ex);
+                    }
                     return;
                 case "License Expired":
                     var errMsg = "License Expired/Invalid";
@@ -298,6 +306,8 @@ var I2vPlayer = (function () {
             span.style.color = "red";
             span.style.position = "absolute";
             span.style.fontSize = "25px";
+            span.style.top = "5px";
+            span.style.left = "10px";
             span.style.fontWeight = "bold";
             span.id = "errorMessage" + this.elId;
             var element = document.getElementById(this.elId);

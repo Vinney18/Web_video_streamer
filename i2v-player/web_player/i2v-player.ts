@@ -149,6 +149,7 @@ class I2vPlayer {
                 //     this.v.currentTime = end - 1;
                 // }
                 //todo play with numbers and make dynamic or user configurable
+            
                 if (past > 20 && currentTime < end && !this.b.updating) {
                     this.b.remove(start, currentTime - 4);
                 }
@@ -245,6 +246,16 @@ class I2vPlayer {
                         this.retryingCallback();
                     }
                     this.showErrorMessage("trying to reconnect...");
+                    try {
+                        if (this.b && this.b.buffered)
+                        {
+                            const start = this.b.buffered.start(0);
+                            const end = this.b.buffered.end(0);
+                            this.b.remove(start, end);
+                        }                    
+                    } catch (ex) {
+                        console.log(ex);
+                    }
                     return;
                 case "License Expired":
                     var errMsg = "License Expired/Invalid";
@@ -263,7 +274,7 @@ class I2vPlayer {
                 default:
                     this.removeErrorMessage();
             }
-            if (!this.isPlayerSet) {
+            if (!this.isPlayerSet) {               
                 if (e.data instanceof ArrayBuffer) {
                     return;
                 } else {
@@ -354,6 +365,8 @@ class I2vPlayer {
             span.style.color = "red";
             span.style.position = "absolute";
             span.style.fontSize = "25px";
+            span.style.top = "5px";
+            span.style.left = "10px";
             span.style.fontWeight = "bold";
             span.id = "errorMessage" + this.elId;
             var element = document.getElementById(this.elId);
