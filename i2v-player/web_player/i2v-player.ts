@@ -36,8 +36,8 @@ class I2vSdk {
         }
     }
 
-    GetPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, advanceDecoding) {
-        this.player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, this.useSecureConnection, advanceDecoding);
+    GetPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, advanceDecoding, connectionmode) {
+        this.player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, this.useSecureConnection, advanceDecoding, connectionmode);
         this.player.playerIp = this.playerIp;
         return this.player;
     }
@@ -70,7 +70,8 @@ class I2vPlayer {
     playrecursivetimeout: any;
     jmuxer: any;
     useJmuxer: boolean = false;
-    constructor(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, useSecureConnection, advanceDecoding) {
+    connectionmode: string = "tcp";
+    constructor(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, useSecureConnection, advanceDecoding, _connectionmode) {
         this.elId = elId;
         this.cameraId = cameraId;
         this.mode = mode;
@@ -80,10 +81,24 @@ class I2vPlayer {
         this.startTime = startTime;
         this.ctrlInputRate = ctrlInputRate;
         this.useSecureConnection = useSecureConnection;
+        this.connectionmode = _connectionmode;
         //TODO Check playback also working or not
+        if (!this.connectionmode) {
+            this.connectionmode = "tcp";
+        }
+        else if (this.connectionmode != "tcp" && this.connectionmode != "udp")
+        {
+            this.connectionmode = "tcp";
+        }
+
+
         if (mode == "Live")
         {
-            if (advanceDecoding == "0")
+            if (!advanceDecoding)
+            {
+                this.useJmuxer = true;
+            }
+           else if (advanceDecoding == "0")
             {
                 this.useJmuxer = true;
             }
@@ -223,7 +238,7 @@ class I2vPlayer {
         }
         this.removeErrorMessage();
         this.showErrorMessage("Trying to Connect...");
-        this.w = new WebSocket(`${protocolType}://${this.playerIp}:${port}?cameraId~~${this.cameraId}&&id~~${this.elId}&&useTranscoding~~${this.useT}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}&&ctrlInputRate~~${this.ctrlInputRate}&&useJmuxer~~${this.useJmuxer}`);
+        this.w = new WebSocket(`${protocolType}://${this.playerIp}:${port}?cameraId~~${this.cameraId}&&id~~${this.elId}&&useTranscoding~~${this.useT}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}&&ctrlInputRate~~${this.ctrlInputRate}&&useJmuxer~~${this.useJmuxer}&&connectionmode~~${this.connectionmode}`);
         this.w.binaryType = 'arraybuffer';
         this.w.addEventListener('open', (event) => {
             this.doesStopRequested = false;

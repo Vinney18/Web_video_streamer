@@ -34,20 +34,21 @@ var I2vSdk = (function () {
             wc.close();
         };
     };
-    I2vSdk.prototype.GetPlayer = function (elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, advanceDecoding) {
-        this.player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, this.useSecureConnection, advanceDecoding);
+    I2vSdk.prototype.GetPlayer = function (elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, advanceDecoding, connectionmode) {
+        this.player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, this.useSecureConnection, advanceDecoding, connectionmode);
         this.player.playerIp = this.playerIp;
         return this.player;
     };
     return I2vSdk;
 }());
 var I2vPlayer = (function () {
-    function I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, useSecureConnection, advanceDecoding) {
+    function I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, useSecureConnection, advanceDecoding, _connectionmode) {
         var _this = this;
         this.useSecureConnection = false;
         this.doesStopRequested = false;
         this.isErrorMessageVisible = false;
         this.useJmuxer = false;
+        this.connectionmode = "tcp";
         this.OnVideoVisiblityChange = function (event) {
             if (_this.useJmuxer) {
                 if (document.visibilityState == 'hidden') {
@@ -69,8 +70,18 @@ var I2vPlayer = (function () {
         this.startTime = startTime;
         this.ctrlInputRate = ctrlInputRate;
         this.useSecureConnection = useSecureConnection;
+        this.connectionmode = _connectionmode;
+        if (!this.connectionmode) {
+            this.connectionmode = "tcp";
+        }
+        else if (this.connectionmode != "tcp" && this.connectionmode != "udp") {
+            this.connectionmode = "tcp";
+        }
         if (mode == "Live") {
-            if (advanceDecoding == "0") {
+            if (!advanceDecoding) {
+                this.useJmuxer = true;
+            }
+            else if (advanceDecoding == "0") {
                 this.useJmuxer = true;
             }
             else {
@@ -186,7 +197,7 @@ var I2vPlayer = (function () {
         }
         this.removeErrorMessage();
         this.showErrorMessage("Trying to Connect...");
-        this.w = new WebSocket(protocolType + "://" + this.playerIp + ":" + port + "?cameraId~~" + this.cameraId + "&&id~~" + this.elId + "&&useTranscoding~~" + this.useT + "&&startTime~~" + this.startTime + "&&mode~~" + this.mode + "&&streamtype~~" + this.streamtype + "&&ctrlInputRate~~" + this.ctrlInputRate + "&&useJmuxer~~" + this.useJmuxer);
+        this.w = new WebSocket(protocolType + "://" + this.playerIp + ":" + port + "?cameraId~~" + this.cameraId + "&&id~~" + this.elId + "&&useTranscoding~~" + this.useT + "&&startTime~~" + this.startTime + "&&mode~~" + this.mode + "&&streamtype~~" + this.streamtype + "&&ctrlInputRate~~" + this.ctrlInputRate + "&&useJmuxer~~" + this.useJmuxer + "&&connectionmode~~" + this.connectionmode);
         this.w.binaryType = 'arraybuffer';
         this.w.addEventListener('open', function (event) {
             _this.doesStopRequested = false;

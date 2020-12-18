@@ -617,11 +617,12 @@ bool FFmpegWrapper::openInput()
 	const char* fileName = this->url.c_str();
 	// Open file
 	AVDictionary* options1 = nullptr;
-	//av_dict_set(&options1, "probesize", "32", 0);
-	//av_dict_set(&options1, "analyzeduration", "0", 0);
 	try {
-		if (boost::starts_with(url, "rtsp")) {}
-			av_dict_set(&options1, "rtsp_transport", "tcp", 0);
+		av_dict_set(&options1, "rtsp_transport", "tcp", 0);
+		if (connectionmode == "udp") 
+		{
+			av_dict_set(&options1, "rtsp_transport", "udp", 0);
+		}
 	}
 	catch (boost::bad_lexical_cast) {
 		// bad parameter
