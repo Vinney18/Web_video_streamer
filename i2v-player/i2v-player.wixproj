@@ -56,6 +56,7 @@
     <Content Include="web_player\build\i2v_player.min.js" />
     <Content Include="web_player\i2v-player.ts" />
     <Content Include="web_player\index.html" />
+    <Content Include="web_player\jmuxer.js" />
     <Content Include="web_player\moment.min.js" />
     <Content Include="web_player\package-lock.json" />
     <Content Include="web_player\package.json" />

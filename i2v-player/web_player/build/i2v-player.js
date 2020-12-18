@@ -34,17 +34,32 @@ var I2vSdk = (function () {
             wc.close();
         };
     };
-    I2vSdk.prototype.GetPlayer = function (elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime) {
-        this.player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, this.useSecureConnection);
+    I2vSdk.prototype.GetPlayer = function (elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, advanceDecoding) {
+        this.player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, this.useSecureConnection, advanceDecoding);
         this.player.playerIp = this.playerIp;
         return this.player;
     };
     return I2vSdk;
 }());
 var I2vPlayer = (function () {
-    function I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, useSecureConnection) {
+    function I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, useSecureConnection, advanceDecoding) {
+        var _this = this;
         this.useSecureConnection = false;
         this.doesStopRequested = false;
+        this.isErrorMessageVisible = false;
+        this.useJmuxer = false;
+        this.OnVideoVisiblityChange = function (event) {
+            if (_this.useJmuxer) {
+                if (document.visibilityState == 'hidden') {
+                    if (_this.jmuxer) {
+                        _this.jmuxer = null;
+                    }
+                }
+                else {
+                    _this.Createjmuxerobject();
+                }
+            }
+        };
         this.elId = elId;
         this.cameraId = cameraId;
         this.mode = mode;
@@ -54,6 +69,17 @@ var I2vPlayer = (function () {
         this.startTime = startTime;
         this.ctrlInputRate = ctrlInputRate;
         this.useSecureConnection = useSecureConnection;
+        if (mode == "Live") {
+            if (advanceDecoding == "0") {
+                this.useJmuxer = true;
+            }
+            else {
+                this.useJmuxer = false;
+            }
+        }
+        else {
+            this.useJmuxer = false;
+        }
     }
     I2vPlayer.prototype.setErrorCallback = function (errorCallback) {
         this.errorCallback = errorCallback;
@@ -62,23 +88,37 @@ var I2vPlayer = (function () {
         this.retryingCallback = retryingCallback;
     };
     I2vPlayer.prototype.stop = function () {
-        this.doesStopRequested = true;
-        this.w.close();
-        delete this.m;
-        delete this.v;
-        if (this.isJpeg) {
-            var i = document.getElementById(this.elId + "_img");
-            if (i) {
-                i.src = "";
-                i.parentNode.removeChild(i);
+        try {
+            this.removeErrorMessage();
+            this.doesStopRequested = true;
+            if (this.playrecursivetimeout) {
+                clearTimeout(this.playrecursivetimeout);
+            }
+            try {
+                if (this.w) {
+                    this.w.close();
+                }
+            }
+            catch (ex) {
+            }
+            delete this.m;
+            delete this.v;
+            if (this.isJpeg) {
+                var i = document.getElementById(this.elId + "_img");
+                if (i) {
+                    i.src = "";
+                    i.parentNode.removeChild(i);
+                }
+            }
+            else {
+                var v = document.getElementById(this.elId + "_video");
+                if (v) {
+                    v.src = "";
+                    v.parentNode.removeChild(v);
+                }
             }
         }
-        else {
-            var v = document.getElementById(this.elId + "_video");
-            if (v) {
-                v.src = "";
-                v.parentNode.removeChild(v);
-            }
+        catch (ex) {
         }
     };
     I2vPlayer.prototype.initializeMediaSource = function () {
@@ -141,8 +181,12 @@ var I2vPlayer = (function () {
             protocolType = "wss";
             port = 8182;
         }
-        this.initializeMediaSource();
-        this.w = new WebSocket(protocolType + "://" + this.playerIp + ":" + port + "?cameraId~~" + this.cameraId + "&&id~~" + this.elId + "&&useTranscoding~~" + this.useT + "&&startTime~~" + this.startTime + "&&mode~~" + this.mode + "&&streamtype~~" + this.streamtype + "&&ctrlInputRate~~" + this.ctrlInputRate);
+        if (!this.useJmuxer) {
+            this.initializeMediaSource();
+        }
+        this.removeErrorMessage();
+        this.showErrorMessage("Trying to Connect...");
+        this.w = new WebSocket(protocolType + "://" + this.playerIp + ":" + port + "?cameraId~~" + this.cameraId + "&&id~~" + this.elId + "&&useTranscoding~~" + this.useT + "&&startTime~~" + this.startTime + "&&mode~~" + this.mode + "&&streamtype~~" + this.streamtype + "&&ctrlInputRate~~" + this.ctrlInputRate + "&&useJmuxer~~" + this.useJmuxer);
         this.w.binaryType = 'arraybuffer';
         this.w.addEventListener('open', function (event) {
             _this.doesStopRequested = false;
@@ -151,15 +195,19 @@ var I2vPlayer = (function () {
         this.w.addEventListener('close', function (event) {
             if (_this.doesStopRequested) {
                 console.log('socket closed');
+                _this.removeErrorMessage();
             }
             else {
                 console.log('socket closed and retrying...');
-                if (_this.isPlayerSet) {
-                    _this.showErrorMessage("trying to reconnect...");
+                if (!_this.isErrorMessageVisible) {
+                    _this.showErrorMessage("Trying to Connect...");
                 }
                 delete _this.w;
                 if (_this.b) {
                     _this.b.abort();
+                }
+                if (_this.jmuxer) {
+                    _this.disposejmuxer();
                 }
                 _this.b = null;
                 _this.m = null;
@@ -179,22 +227,24 @@ var I2vPlayer = (function () {
                         v.parentNode.removeChild(v);
                     }
                 }
-                setTimeout(function () {
-                    _this.play();
-                }, 1000);
+                _this.playrecursivetimeout = setTimeout(function () {
+                    if (!_this.doesStopRequested) {
+                        _this.play();
+                    }
+                }, 3000);
             }
         });
         this.w.addEventListener('message', function (e) {
             switch (e.data) {
                 case "Init":
-                    var errMsg = "Player is not initialized. Please call InitPlayer() first!!";
+                    var errMsg = "Player is not Initialized. Please Call InitPlayer() First!!";
                     if (_this.errorCallback) {
                         _this.errorCallback(errMsg);
                     }
                     _this.showErrorMessage(errMsg);
                     return;
                 case "EmptyUrl":
-                    var errMsg = _this.mode == "Live" ? "Url not configured" : "Recording not found";
+                    var errMsg = _this.mode == "Live" ? "Url not configured" : "Recording not Found";
                     if (_this.errorCallback) {
                         _this.errorCallback(errMsg);
                     }
@@ -204,14 +254,18 @@ var I2vPlayer = (function () {
                     if (_this.retryingCallback) {
                         _this.retryingCallback();
                     }
-                    _this.showErrorMessage("trying to reconnect...");
+                    _this.showErrorMessage("Trying to Connect...");
                     try {
-                        var start = _this.b.buffered.start(0);
-                        var end = _this.b.buffered.end(0);
-                        _this.b.remove(start, end);
+                        if (_this.jmuxer) {
+                            _this.disposejmuxer();
+                        }
+                        if (_this.b && _this.b.buffered && _this.b.buffered.length > 0) {
+                            var start = _this.b.buffered.start(0);
+                            var end = _this.b.buffered.end(0);
+                            _this.b.remove(start, end);
+                        }
                     }
                     catch (ex) {
-                        console.log(ex);
                     }
                     return;
                 case "License Expired":
@@ -222,7 +276,7 @@ var I2vPlayer = (function () {
                     _this.showErrorMessage(errMsg);
                     return;
                 case "Some problem occured":
-                    var errMsg = "Some problem occured";
+                    var errMsg = "Some Problem Occured";
                     if (_this.errorCallback) {
                         _this.errorCallback(errMsg);
                     }
@@ -243,14 +297,24 @@ var I2vPlayer = (function () {
                         div.style.background = "black";
                         div.appendChild(_this.v);
                         _this.v.id = _this.elId + "_video";
-                        _this.v.src = window.URL.createObjectURL(_this.m);
                         _this.v.style.height = "100%";
                         _this.v.style.width = "100%";
                         _this.v.style.display = "inline";
                         _this.isJpeg = false;
                         _this.intS = null;
+                        if (_this.useJmuxer) {
+                            _this.v.autoplay = true;
+                            if (document.addEventListener) {
+                                document.addEventListener("visibilitychange", _this.OnVideoVisiblityChange);
+                            }
+                            _this.Createjmuxerobject();
+                        }
+                        else {
+                            _this.v.src = window.URL.createObjectURL(_this.m);
+                        }
                     }
                     else if (e.data === "mjpeg") {
+                        _this.useJmuxer = false;
                         _this.removeErrorMessage();
                         _this.i = document.createElement("img");
                         var div = document.getElementById(_this.elId);
@@ -271,34 +335,60 @@ var I2vPlayer = (function () {
             }
             else {
                 var data = new Uint8Array(e.data);
-                if (!_this.intS) {
-                    _this.intS = data;
-                }
-                if (!_this.isSourceReady)
-                    return;
-                if (_this.b && _this.b.buffered.length) {
-                    var lag = _this.b.buffered.end(0) - _this.v.currentTime;
-                    if (lag > 0.5) {
-                        _this.v.currentTime = _this.b.buffered.end(0) - 0.5;
+                if (_this.useJmuxer) {
+                    if (!_this.jmuxer) {
+                        _this.Createjmuxerobject();
+                    }
+                    if (_this.jmuxer && _this.jmuxer.mseReady) {
+                        _this.jmuxer.feed({
+                            video: data
+                        });
                     }
                 }
-                _this.lastSegment = data;
-                if (_this.b && (!_this.b.updating && _this.m.readyState === 'open')) {
-                    try {
-                        _this.b.appendBuffer(_this.lastSegment);
+                else {
+                    if (!_this.intS) {
+                        _this.intS = data;
                     }
-                    catch (ex) {
-                        _this.isSourceReady = false;
-                        _this.initializeMediaSource();
-                        _this.v.src = null;
-                        _this.v.src = window.URL.createObjectURL(_this.m);
+                    if (!_this.isSourceReady)
+                        return;
+                    if (_this.b && _this.b.buffered.length) {
+                        var lag = _this.b.buffered.end(0) - _this.v.currentTime;
+                        if (lag > 0.5) {
+                            _this.v.currentTime = _this.b.buffered.end(0) - 0.5;
+                        }
                     }
-                    _this.lastSegment = null;
+                    _this.lastSegment = data;
+                    if (_this.b && (!_this.b.updating && _this.m.readyState === 'open')) {
+                        try {
+                            _this.b.appendBuffer(_this.lastSegment);
+                        }
+                        catch (ex) {
+                            _this.isSourceReady = false;
+                            _this.initializeMediaSource();
+                            _this.v.src = null;
+                            _this.v.src = window.URL.createObjectURL(_this.m);
+                        }
+                        _this.lastSegment = null;
+                    }
                 }
             }
         }, false);
     };
+    I2vPlayer.prototype.disposejmuxer = function () {
+        this.jmuxer = null;
+    };
+    I2vPlayer.prototype.Createjmuxerobject = function () {
+        this.jmuxer = null;
+        this.jmuxer = new JMuxer({
+            node: this.v.id,
+            debug: false,
+            mode: 'video',
+            flushingTime: 0,
+            fps: 30
+        });
+    };
     I2vPlayer.prototype.showErrorMessage = function (message) {
+        this.isErrorMessageVisible = true;
         var spanElement = document.getElementById("errorMessage" + this.elId);
         if (!spanElement) {
             var span = document.createElement("span");
@@ -322,10 +412,15 @@ var I2vPlayer = (function () {
         }
     };
     I2vPlayer.prototype.removeErrorMessage = function () {
-        var spanElement = document.getElementById("errorMessage" + this.elId);
-        if (spanElement) {
-            var element = document.getElementById(this.elId);
-            element.removeChild(spanElement);
+        try {
+            this.isErrorMessageVisible = false;
+            var spanElement = document.getElementById("errorMessage" + this.elId);
+            if (spanElement) {
+                var element = document.getElementById(this.elId);
+                element.removeChild(spanElement);
+            }
+        }
+        catch (ex) {
         }
     };
     return I2vPlayer;

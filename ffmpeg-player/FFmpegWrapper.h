@@ -59,6 +59,7 @@ private:
 	WebsocketDataCallback websocketCallback;
 	WebsocketSDataCallback websocketSCallback;
 	bool ctrlInputRate;
+	bool usejmuxer;
 
 	std::unique_ptr<Mp4frag> mp4FragCreator;
 	std::map<OutputType, con_list> connections; //keys mp4 and mjpeg
@@ -87,12 +88,13 @@ private:
 	DecodeContext decode = { NULL };*/
 public:
 
-	FFmpegWrapper(string _url, string _id, int start_seek_time, WebsocketDataCallback _websocketCallback, WebsocketSDataCallback _websocketSCallback, bool _ctrlInputRate) : Thread(), i2v::MjpegRoute(_id) {
+	FFmpegWrapper(string _url, string _id, int start_seek_time, WebsocketDataCallback _websocketCallback, WebsocketSDataCallback _websocketSCallback, bool _ctrlInputRate, bool _usejmuxer) : Thread(), i2v::MjpegRoute(_id) {
 		id = std::move(_id);
 		url = std::move(_url);
 		websocketCallback = _websocketCallback;
 		websocketSCallback = _websocketSCallback;
 		ctrlInputRate = _ctrlInputRate;
+		usejmuxer = _usejmuxer;
 		initial_seek_time = start_seek_time;
 		connections = { {mp4, con_list()}, { mjpeg , con_list()} };
 		//av_log_set_level(AV_LOG_QUIET);

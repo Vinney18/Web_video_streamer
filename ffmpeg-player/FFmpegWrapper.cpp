@@ -457,7 +457,18 @@ void FFmpegWrapper::readInput()
 					}
 				}
 				if (!connections[mp4].empty()) {
-					auto x = av_interleaved_write_frame(mp4OutContext, &packet);
+					if (usejmuxer)
+					{
+						auto hdlList = connections[mp4];
+						vector<uint8_t> chunk(packet.data, packet.data + packet.buf->size);
+						for (auto hndl : hdlList) {
+							websocketCallback(hndl, chunk);
+						}
+					}
+					else
+					{
+						auto x = av_interleaved_write_frame(mp4OutContext, &packet);
+					}
 					canSend = false;
 				}
 			}
@@ -606,16 +617,11 @@ bool FFmpegWrapper::openInput()
 	const char* fileName = this->url.c_str();
 	// Open file
 	AVDictionary* options1 = nullptr;
-	av_dict_set(&options1, "ss", "30", 0);
-	/*av_dict_set(&options1, "probesize", "500000", 0);
-	av_dict_set(&options1, "analyzeduration", "10000000", 0);*/
-	/*av_dict_set(&options1, "probesize", "2147483647", 0);
-	av_dict_set(&options1, "analyzeduration", "2147483647", 0);*/
-	//av_dict_set(&options1, "reorder_queue_size", "0", 0);
+	//av_dict_set(&options1, "probesize", "32", 0);
+	//av_dict_set(&options1, "analyzeduration", "0", 0);
 	try {
-		if (boost::starts_with(url, "rtsp"))
+		if (boost::starts_with(url, "rtsp")) {}
 			av_dict_set(&options1, "rtsp_transport", "tcp", 0);
-		//av_dict_set(&options1, "use_wallclock_as_timestamps", "1", 0);
 	}
 	catch (boost::bad_lexical_cast) {
 		// bad parameter
@@ -626,31 +632,32 @@ bool FFmpegWrapper::openInput()
 
 	if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
 	{
-		this->inputFormatCtx = avformat_alloc_context();
-		this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
-		this->inputFormatCtx->interrupt_callback.opaque = this;
-		AVDictionary* options1 = nullptr;
-		av_dict_set(&options1, "rtsp_transport", "udp", 0);
-		av_dict_set(&options1, "ss", "30", 0);
-		//av_dict_set(&options1, "use_wallclock_as_timestamps", "1", 0);
+		return false;
+		//this->inputFormatCtx = avformat_alloc_context();
+		//this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
+		//this->inputFormatCtx->interrupt_callback.opaque = this;
+		////AVDictionary* options1 = nullptr;
+		////av_dict_set(&options1, "rtsp_transport", "tcp", 0);
+		////av_dict_set(&options1, "use_wallclock_as_timestamps", "1", 0);
 
-		params.lastStopped = GetTickCount();
-		if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
-		{
-			this->inputFormatCtx = avformat_alloc_context();
-			this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
-			this->inputFormatCtx->interrupt_callback.opaque = this;
-			AVDictionary* options1 = nullptr;
+		//params.lastStopped = GetTickCount();
+		//if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
+		//{
+		//	this->inputFormatCtx = avformat_alloc_context();
+		//	this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
+		//	this->inputFormatCtx->interrupt_callback.opaque = this;
+		//	//AVDictionary* options1 = nullptr;
 
-			params.lastStopped = GetTickCount();
-			if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0) {
-				return false;
-			}
-		}
+		//	params.lastStopped = GetTickCount();
+		//	if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0) {
+		//		return false;
+		//	}
+		//}
 	}
 
 	// Dump information about file onto standard error
 	av_dump_format(this->inputFormatCtx, 0, fileName, 0);
+
 	return true;
 }
 

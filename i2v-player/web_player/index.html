@@ -18,7 +18,7 @@
     <!-- div where video will be played -->
     <div style="height: 500px;width:100%" id="someUniqueId"></div>
 
-
+    <script src="jmuxer.min.js"></script>
     <script src="i2v_player.min.js"></script>
     <script>
         var playerObj;
@@ -53,12 +53,13 @@
             var isusingTranscoding = "0"; // may be 0
             var startTime = "0";
             var ctrlInputRate = "0";
+            var advanceDecoding = "0";
 
             var providedDiv = document.getElementById(latestDivId);
             providedDiv.id = Math.trunc(Math.random() * 1000);
             latestDivId = providedDiv.id;
             //create new player object, video will start automatically
-            playerObj = sdk.GetPlayer(latestDivId, cameraId, "Live", streamType, isusingTranscoding, ctrlInputRate, startTime);
+            playerObj = sdk.GetPlayer(latestDivId, cameraId, "Live", streamType, isusingTranscoding, ctrlInputRate, startTime, advanceDecoding);
 
             //set Error callback for play method
             playerObj.setErrorCallback(function (err) {
@@ -90,6 +91,7 @@
             var isusingTranscoding = "1";
             var startTime = datetime.unix();
             var ctrlInputRate = "1";
+            var advanceDecoding = "0";
             var providedDiv = document.getElementById(latestDivId);
             providedDiv.id = Math.trunc(Math.random() * 100);
             latestDivId = providedDiv.id;
