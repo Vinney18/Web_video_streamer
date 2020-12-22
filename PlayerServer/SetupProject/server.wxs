@@ -20,6 +20,9 @@
             <Component Id="cmpE593D3BBE259517471DA4BBA1A455A22" Guid="*">
                 <File Id="fil1E47DAA690F9C4AC6A98EABB4E9C2ABF" KeyPath="yes" Source="$(var.serverPath)\package-lock.json" />
             </Component>
+            <Component Id="cmp9CA5C0F7D6E012DF67F805BFB427D610" Guid="*">
+                <File Id="filDBCC56F4C0C92F60E70C8AE64952D657" KeyPath="yes" Source="$(var.serverPath)\package.json" />
+            </Component>
             <Component Id="cmp26258580F622C387F20F112DE630F1C0" Guid="*">
                 <File Id="filB281B3E606B4AE2A2F60C353E861C1BA" KeyPath="yes" Source="$(var.serverPath)\PlayerServer.bat" />
             </Component>
@@ -162,6 +165,7 @@
             <ComponentRef Id="cmp753D30BB0B44F936936FFC888F744F24" />
             <ComponentRef Id="cmp7097FBCC97F425D8BFF3B46CE27F51EF" />
             <ComponentRef Id="cmpE593D3BBE259517471DA4BBA1A455A22" />
+            <ComponentRef Id="cmp9CA5C0F7D6E012DF67F805BFB427D610" />
             <ComponentRef Id="cmp26258580F622C387F20F112DE630F1C0" />
             <ComponentRef Id="cmp1DB813760D2BB7C6A1664AD5CAB32BDC" />
             <ComponentRef Id="cmp22D5E6DC9CCD15349989BE58989FFF14" />

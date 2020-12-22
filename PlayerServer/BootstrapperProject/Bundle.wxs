@@ -14,10 +14,10 @@
     </BootstrapperApplicationRef>
 
     <Chain>
-      <ExePackage SourceFile="External_Dependencies/dotnet-hosting-2.2.7-win.exe" Permanent="yes" Compressed="yes" Vital="no"   />
+      <!--<ExePackage SourceFile="External_Dependencies/dotnet-hosting-2.2.7-win.exe" Permanent="yes" Compressed="yes" Vital="no"   />
       <ExePackage SourceFile="External_Dependencies/vcredist_x64.exe" Permanent="yes" Compressed="yes" Vital="no"   />
       <ExePackage SourceFile="External_Dependencies/vcredist_x64 (2).exe" Permanent="yes" Compressed="yes" Vital="no"   />
-      <ExePackage SourceFile="External_Dependencies/vcredist_x64 (3).exe" Permanent="yes" Compressed="yes" Vital="no"   />
+      <ExePackage SourceFile="External_Dependencies/vcredist_x64 (3).exe" Permanent="yes" Compressed="yes" Vital="no"   />-->
       <MsiPackage SourceFile="$(var.SetupProject.TargetPath)" Permanent="no" Visible="yes" DisplayInternalUI="yes" Compressed="yes" Vital="yes"   >
       </MsiPackage>
       <MsiPackage SourceFile="../PlayerServer/setup/i2v_player.msi" Permanent="no" Visible="yes" DisplayInternalUI="yes" Compressed="yes" Vital="yes"   >

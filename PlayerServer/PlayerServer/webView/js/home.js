@@ -60,3 +60,6 @@ function saveNetworkSetting() {
     xhttp.setRequestHeader("Content-Type", "application/json");
     xhttp.send(JSON.stringify(obj));
 }
+function openPlayer() {
+    window.open("/player/index.html");
+}
