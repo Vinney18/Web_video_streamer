@@ -8,9 +8,6 @@
             <Component Id="cmpC15DCDD613E04D681744ED67D352F6E4" Guid="*">
                 <File Id="fil105B422D41276ECD223DFDE49ADB5BBA" KeyPath="yes" Source="$(var.serverPath)\appsettings.json" />
             </Component>
-            <Component Id="cmp311148B2A7753F1F9899B09F38CA3894" Guid="*">
-                <File Id="fil5EA3B8F5742A339A927D6849B5604E8E" KeyPath="yes" Source="$(var.serverPath)\config.json" />
-            </Component>
             <Component Id="cmpEEC72832A30BB1F9192464822043AF1B" Guid="*">
                 <File Id="filD6A9E18CD6D4C384E285DD8533738CFE" KeyPath="yes" Source="$(var.serverPath)\Licensing.dll" />
             </Component>
@@ -161,7 +158,6 @@
         <ComponentGroup Id="playerServerComponent">
             <ComponentRef Id="cmpE53B744293A53C2996CB5DEB23D98430" />
             <ComponentRef Id="cmpC15DCDD613E04D681744ED67D352F6E4" />
-            <ComponentRef Id="cmp311148B2A7753F1F9899B09F38CA3894" />
             <ComponentRef Id="cmpEEC72832A30BB1F9192464822043AF1B" />
             <ComponentRef Id="cmp753D30BB0B44F936936FFC888F744F24" />
             <ComponentRef Id="cmp7097FBCC97F425D8BFF3B46CE27F51EF" />

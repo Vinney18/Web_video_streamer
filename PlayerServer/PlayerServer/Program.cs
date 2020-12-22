@@ -20,6 +20,8 @@ namespace PlayerServer
 
             if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "config.json")))
             {
+                Console.WriteLine("json file exixts");
+
                 var text = File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "config.json"));
                 if (!string.IsNullOrEmpty(text))
                 {
@@ -60,6 +62,7 @@ namespace PlayerServer
             }
             else
             {
+                Console.WriteLine("json file does not exixt");
                 Dictionary<string, object> serverDetails = new Dictionary<string, object>()
                 {
                     {"ServerIp",ServerDetails.AttachedServerIp},

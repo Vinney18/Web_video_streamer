@@ -9,7 +9,7 @@ namespace PlayerServer
     {
         public static bool isLicenseValid = true;
         public static string AttachedServerIp = "localhost";
-        public static int port = 47060;
+        public static int port = 8800;
         public static string token = "";
         public static bool isVPN = false;
         public static string ReturnIp = "";
