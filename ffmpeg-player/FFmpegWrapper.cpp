@@ -406,7 +406,14 @@ void FFmpegWrapper::readInput()
 	pFrame = av_frame_alloc();
 
 	//Control input frame rate
-	auto sleepTime = 1000 / inputFPS;
+	auto sleepTime = 0;
+	if (playbackviaapache)
+	{
+		if (inputFPS == 0 || inputFPS < 0 || inputFPS > 100) {
+			inputFPS = 25;
+		}
+		sleepTime = 1000 / inputFPS;
+	}
 	std::mutex mut;
 	std::atomic<bool> canSend = true;
 	std::condition_variable condition_v;
@@ -595,7 +602,7 @@ void FFmpegWrapper::seek_video(int time_toSeek_insec)
 			try
 			{
 				string cameraId_instring = to_string(cameraId);
-				std::string endpoint = "/url/SeekVideo?cameraId=" + cameraId_instring + "&time=" + to_string(start_time_ofplaybackfile) + "&seekTime=" + to_string(time_toSeek_insec);
+				std::string endpoint = "/url/SeekVideo?cameraId=" + cameraId_instring + "&time=" + to_string(start_time_ofplaybackfile) + "&seekTime=" + to_string(time_toSeek_insec)+"&sessionId="+to_string(sessionid);
 				std::string url = "http://" + serverIp + ":" + to_string(port) + endpoint;
 				auto res = cpr::Get(cpr::Url{ url });
 			}

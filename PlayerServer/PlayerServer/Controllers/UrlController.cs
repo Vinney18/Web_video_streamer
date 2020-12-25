@@ -95,11 +95,11 @@ namespace PlayerServer.Controllers
 
         [HttpGet]
         [Route("~/url/SeekVideo")]
-        public async Task<IActionResult> SeekVideo(int cameraId, long time, long seekTime)
+        public async Task<IActionResult> SeekVideo(int cameraId, long time, long seekTime,int sessionId)
         {
             try
             {
-                var url = await _playerUrlService.SeekVideo(cameraId, time, seekTime);               
+                var url = await _playerUrlService.SeekVideo(cameraId, time, seekTime, sessionId);               
                 return Ok(url);
             }
             catch (Exception ex)

@@ -80,7 +80,7 @@ private:
 	int cameraId = 0;
 	string serverIp;
 	int port = 8890;
-
+	int sessionid = 0;
 	AVCodec* decoderCodec = NULL;
 	AVCodecContext* decoderCodecContext = NULL;
 	AVFormatContext* mp4OutContext = NULL;
@@ -95,7 +95,7 @@ private:
 	DecodeContext decode = { NULL };*/
 public:
 
-	FFmpegWrapper(int _cameraId , string _url, string _id, int start_seek_time, WebsocketDataCallback _websocketCallback, WebsocketSDataCallback _websocketSCallback, bool _usejmuxer, string _connectionmode, bool _playbackviaapache, string _playmode, int _start_time_ofplaybackfile, string _serverIp, int _port) : Thread(), i2v::MjpegRoute(_id) {
+	FFmpegWrapper(int _cameraId , string _url, string _id, int start_seek_time, WebsocketDataCallback _websocketCallback, WebsocketSDataCallback _websocketSCallback, bool _usejmuxer, string _connectionmode, bool _playbackviaapache, string _playmode, int _start_time_ofplaybackfile, string _serverIp, int _port, int _sessionid) : Thread(), i2v::MjpegRoute(_id) {
 		id = std::move(_id);
 		url = std::move(_url);
 		websocketCallback = _websocketCallback;
@@ -110,6 +110,7 @@ public:
 		cameraId = _cameraId;
 		serverIp = _serverIp;
 		port = _port;
+		sessionid = _sessionid;
 		//av_log_set_level(AV_LOG_QUIET);
 	}
 
