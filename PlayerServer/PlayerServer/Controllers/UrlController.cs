@@ -50,11 +50,11 @@ namespace PlayerServer.Controllers
 
         [HttpGet]
         [Route("~/url/GetPlaybackUrl")]
-        public async Task<IActionResult> GetPlaybackUrl(int cameraId, long time)
+        public async Task<IActionResult> GetPlaybackUrl(int cameraId, long time, bool streamviaapache)
         {
             try
             {
-                var url = await _playerUrlService.GetPlaybackUrl(cameraId, time);
+                var url = await _playerUrlService.GetPlaybackUrl(cameraId, time, streamviaapache);
                 var obj = JsonConvert.DeserializeObject<dynamic>(url);
                 string currentUrl = "";
                 if (url.Contains("GetEventPlaybackUrlResult"))

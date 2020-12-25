@@ -58,9 +58,10 @@ private:
 	int initial_seek_time = 0;
 	WebsocketDataCallback websocketCallback;
 	WebsocketSDataCallback websocketSCallback;
-	bool ctrlInputRate;
 	bool usejmuxer;
+	string playmode;
 	string connectionmode;
+	bool playbackviaapache;
 
 	std::unique_ptr<Mp4frag> mp4FragCreator;
 	std::map<OutputType, con_list> connections; //keys mp4 and mjpeg
@@ -89,15 +90,16 @@ private:
 	DecodeContext decode = { NULL };*/
 public:
 
-	FFmpegWrapper(string _url, string _id, int start_seek_time, WebsocketDataCallback _websocketCallback, WebsocketSDataCallback _websocketSCallback, bool _ctrlInputRate, bool _usejmuxer, string _connectionmode) : Thread(), i2v::MjpegRoute(_id) {
+	FFmpegWrapper(string _url, string _id, int start_seek_time, WebsocketDataCallback _websocketCallback, WebsocketSDataCallback _websocketSCallback, bool _usejmuxer, string _connectionmode, bool _playbackviaapache, string _playmode) : Thread(), i2v::MjpegRoute(_id) {
 		id = std::move(_id);
 		url = std::move(_url);
 		websocketCallback = _websocketCallback;
 		websocketSCallback = _websocketSCallback;
-		ctrlInputRate = _ctrlInputRate;
 		usejmuxer = _usejmuxer;
 		connectionmode = _connectionmode;
 		initial_seek_time = start_seek_time;
+		playbackviaapache = _playbackviaapache;
+		playmode = _playmode;
 		connections = { {mp4, con_list()}, { mjpeg , con_list()} };
 		//av_log_set_level(AV_LOG_QUIET);
 	}
@@ -152,7 +154,7 @@ public:
 		mp4FragCreator->_parseChunk(data);
 	}
 
-	void addConnection(websocketpp::connection_hdl connHdl, bool useTranscoding);
+	void addConnection(websocketpp::connection_hdl connHdl);
 	bool removeConnection(websocketpp::connection_hdl connHdl);
 	InterruptParams params;
 

@@ -3,42 +3,29 @@ declare var JMuxer: any;
 class I2vSdk {
     playerIp: string = "localhost";
     useSecureConnection: boolean = false;
-    player: any;
-
-    InitPlayer(serverIP, serverType, successCallback, errorCallback, _playerIp?, useSecureConnection?: boolean) {
-        if (_playerIp) {
-            this.playerIp = _playerIp;
-        }
+    player: I2vPlayer;
+    playerServerIp:string;
+    
+    constructor(_playerip, _playerserverip, useSecureConnection?: boolean) {
+        this.playerServerIp = _playerserverip;
+        this.playerIp = _playerip;
         if (useSecureConnection) {
             this.useSecureConnection = useSecureConnection;
-        }
-        var protocolType: string = "ws";
-        var port: number = 8181;
-        if (this.useSecureConnection) {
-            protocolType = "wss";
-            port = 8182;
-        }
-        var wc = new WebSocket(`${protocolType}://${this.playerIp}:${port}?serverIp~~${serverIP}`);
-        wc.onmessage = function (e) {
-            if (e.data == "Ok" || e.data == "Init") {
-                successCallback();
-            } else {
-                errorCallback(e.data);
-                console.error(e.data);
-            }
-            wc.close();
-        }
-        wc.onerror = function (e) {
-            var errMsg = "Not able to connect to player.";
-            console.error(errMsg);
-            errorCallback(errMsg);
-            wc.close();
-        }
+        }     
     }
 
-    GetPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, advanceDecoding, connectionmode) {
-        this.player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, this.useSecureConnection, advanceDecoding, connectionmode);
+
+    GetLivePlayer(elId, cameraId, streamtype, advanceDecoding, connectionmode) {
+        this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, this.useSecureConnection, advanceDecoding, connectionmode, "1");
         this.player.playerIp = this.playerIp;
+        this.player.playerServerIp = this.playerServerIp;
+        return this.player;
+    }
+   
+    GetPlaybackPlayer(elId, cameraId, startTime, _playbackviaapache) {
+        this.player = new I2vPlayer(elId, cameraId, "PlayBack", "0", startTime, this.useSecureConnection, "0", "tcp", _playbackviaapache);
+        this.player.playerIp = this.playerIp;
+        this.player.playerServerIp = this.playerServerIp;
         return this.player;
     }
 }
@@ -47,8 +34,6 @@ class I2vPlayer {
     cameraId: any;
     streamtype: any;
     mode: string;
-    useT: any; // use Transcoding
-    ctrlInputRate: any;
     useSecureConnection: boolean = false;
     startTime: any;
     urlCreator: { new(url: string, base?: string | URL): URL; prototype: URL; createObjectURL(object: any): string; revokeObjectURL(url: string): void; };
@@ -65,23 +50,24 @@ class I2vPlayer {
     retryingCallback: any;
     lastSegment: Uint8Array;
     playerIp: string;
+    playerServerIp: string;
     doesStopRequested: boolean = false;
     isErrorMessageVisible: boolean = false;
     playrecursivetimeout: any;
     jmuxer: any;
     useJmuxer: boolean = false;
     connectionmode: string = "tcp";
-    constructor(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, useSecureConnection, advanceDecoding, _connectionmode) {
+    playbackviaapache: boolean = true;
+    constructor(elId, cameraId, mode, streamtype, startTime, useSecureConnection, advanceDecoding, _connectionmode, _playbackviaapache) {
         this.elId = elId;
         this.cameraId = cameraId;
         this.mode = mode;
         this.streamtype = streamtype;
-        this.useT = useTranscoding;
         this.urlCreator = window.URL || window.webkitURL;
         this.startTime = startTime;
-        this.ctrlInputRate = ctrlInputRate;
         this.useSecureConnection = useSecureConnection;
         this.connectionmode = _connectionmode;
+        this.playbackviaapache = _playbackviaapache;
         //TODO Check playback also working or not
         if (!this.connectionmode) {
             this.connectionmode = "tcp";
@@ -109,13 +95,12 @@ class I2vPlayer {
         }
         else
         {
-            this.useJmuxer = false;
+            this.useJmuxer = true;
         }
     }
 
     setErrorCallback(errorCallback) {
-        this.errorCallback = errorCallback;
-       
+        this.errorCallback = errorCallback;       
     }
 
     setRetryingCallback(retryingCallback) {
@@ -238,7 +223,7 @@ class I2vPlayer {
         }
         this.removeErrorMessage();
         this.showErrorMessage("Trying to Connect...");
-        this.w = new WebSocket(`${protocolType}://${this.playerIp}:${port}?cameraId~~${this.cameraId}&&id~~${this.elId}&&useTranscoding~~${this.useT}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}&&ctrlInputRate~~${this.ctrlInputRate}&&useJmuxer~~${this.useJmuxer}&&connectionmode~~${this.connectionmode}`);
+        this.w = new WebSocket(`${protocolType}://${this.playerIp}:${port}?cameraId~~${this.cameraId}&&id~~${this.elId}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}&&useJmuxer~~${this.useJmuxer}&&connectionmode~~${this.connectionmode}&&playbackviaapache~~${this.playbackviaapache}&&serverIp~~${this.playerServerIp}`);
         this.w.binaryType = 'arraybuffer';
         this.w.addEventListener('open', (event) => {
             this.doesStopRequested = false;
@@ -288,13 +273,21 @@ class I2vPlayer {
 
         });
         this.w.addEventListener('message', (e) => {
-            switch (e.data) {
-                case "Init":
-                    var errMsg = "Player is not Initialized. Please Call InitPlayer() First!!";
+            switch (e.data) {     
+                case "Server_ip_not_provided":
+                    var errMsg = "Please Provide Valid Server Ip";
                     if (this.errorCallback) {
                         this.errorCallback(errMsg);
                     }
                     this.showErrorMessage(errMsg);
+                    return;
+                case "Playback_Finished":
+                    var errMsg = "Playback_Finished";
+                    console.log(errMsg);
+                    if (this.errorCallback) {
+                        this.errorCallback(errMsg);
+                    }
+                    this.stop();
                     return;
                 case "EmptyUrl":
                     var errMsg = this.mode == "Live" ? "Url not configured" : "Recording not Found";

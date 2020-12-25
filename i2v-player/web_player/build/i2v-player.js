@@ -1,54 +1,36 @@
 var I2vSdk = (function () {
-    function I2vSdk() {
+    function I2vSdk(_playerip, _playerserverip, useSecureConnection) {
         this.playerIp = "localhost";
         this.useSecureConnection = false;
-    }
-    I2vSdk.prototype.InitPlayer = function (serverIP, serverType, successCallback, errorCallback, _playerIp, useSecureConnection) {
-        if (_playerIp) {
-            this.playerIp = _playerIp;
-        }
+        this.playerServerIp = _playerserverip;
+        this.playerIp = _playerip;
         if (useSecureConnection) {
             this.useSecureConnection = useSecureConnection;
         }
-        var protocolType = "ws";
-        var port = 8181;
-        if (this.useSecureConnection) {
-            protocolType = "wss";
-            port = 8182;
-        }
-        var wc = new WebSocket(protocolType + "://" + this.playerIp + ":" + port + "?serverIp~~" + serverIP);
-        wc.onmessage = function (e) {
-            if (e.data == "Ok" || e.data == "Init") {
-                successCallback();
-            }
-            else {
-                errorCallback(e.data);
-                console.error(e.data);
-            }
-            wc.close();
-        };
-        wc.onerror = function (e) {
-            var errMsg = "Not able to connect to player.";
-            console.error(errMsg);
-            errorCallback(errMsg);
-            wc.close();
-        };
-    };
-    I2vSdk.prototype.GetPlayer = function (elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, advanceDecoding, connectionmode) {
-        this.player = new I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, this.useSecureConnection, advanceDecoding, connectionmode);
+    }
+    I2vSdk.prototype.GetLivePlayer = function (elId, cameraId, streamtype, advanceDecoding, connectionmode) {
+        this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, this.useSecureConnection, advanceDecoding, connectionmode, "1");
         this.player.playerIp = this.playerIp;
+        this.player.playerServerIp = this.playerServerIp;
+        return this.player;
+    };
+    I2vSdk.prototype.GetPlaybackPlayer = function (elId, cameraId, startTime, _playbackviaapache) {
+        this.player = new I2vPlayer(elId, cameraId, "PlayBack", "0", startTime, this.useSecureConnection, "0", "tcp", _playbackviaapache);
+        this.player.playerIp = this.playerIp;
+        this.player.playerServerIp = this.playerServerIp;
         return this.player;
     };
     return I2vSdk;
 }());
 var I2vPlayer = (function () {
-    function I2vPlayer(elId, cameraId, mode, streamtype, useTranscoding, ctrlInputRate, startTime, useSecureConnection, advanceDecoding, _connectionmode) {
+    function I2vPlayer(elId, cameraId, mode, streamtype, startTime, useSecureConnection, advanceDecoding, _connectionmode, _playbackviaapache) {
         var _this = this;
         this.useSecureConnection = false;
         this.doesStopRequested = false;
         this.isErrorMessageVisible = false;
         this.useJmuxer = false;
         this.connectionmode = "tcp";
+        this.playbackviaapache = true;
         this.OnVideoVisiblityChange = function (event) {
             if (_this.useJmuxer) {
                 if (document.visibilityState == 'hidden') {
@@ -65,12 +47,11 @@ var I2vPlayer = (function () {
         this.cameraId = cameraId;
         this.mode = mode;
         this.streamtype = streamtype;
-        this.useT = useTranscoding;
         this.urlCreator = window.URL || window.webkitURL;
         this.startTime = startTime;
-        this.ctrlInputRate = ctrlInputRate;
         this.useSecureConnection = useSecureConnection;
         this.connectionmode = _connectionmode;
+        this.playbackviaapache = _playbackviaapache;
         if (!this.connectionmode) {
             this.connectionmode = "tcp";
         }
@@ -89,7 +70,7 @@ var I2vPlayer = (function () {
             }
         }
         else {
-            this.useJmuxer = false;
+            this.useJmuxer = true;
         }
     }
     I2vPlayer.prototype.setErrorCallback = function (errorCallback) {
@@ -197,7 +178,7 @@ var I2vPlayer = (function () {
         }
         this.removeErrorMessage();
         this.showErrorMessage("Trying to Connect...");
-        this.w = new WebSocket(protocolType + "://" + this.playerIp + ":" + port + "?cameraId~~" + this.cameraId + "&&id~~" + this.elId + "&&useTranscoding~~" + this.useT + "&&startTime~~" + this.startTime + "&&mode~~" + this.mode + "&&streamtype~~" + this.streamtype + "&&ctrlInputRate~~" + this.ctrlInputRate + "&&useJmuxer~~" + this.useJmuxer + "&&connectionmode~~" + this.connectionmode);
+        this.w = new WebSocket(protocolType + "://" + this.playerIp + ":" + port + "?cameraId~~" + this.cameraId + "&&id~~" + this.elId + "&&startTime~~" + this.startTime + "&&mode~~" + this.mode + "&&streamtype~~" + this.streamtype + "&&useJmuxer~~" + this.useJmuxer + "&&connectionmode~~" + this.connectionmode + "&&playbackviaapache~~" + this.playbackviaapache + "&&serverIp~~" + this.playerServerIp);
         this.w.binaryType = 'arraybuffer';
         this.w.addEventListener('open', function (event) {
             _this.doesStopRequested = false;
@@ -247,12 +228,20 @@ var I2vPlayer = (function () {
         });
         this.w.addEventListener('message', function (e) {
             switch (e.data) {
-                case "Init":
-                    var errMsg = "Player is not Initialized. Please Call InitPlayer() First!!";
+                case "Server_ip_not_provided":
+                    var errMsg = "Please Provide Valid Server Ip";
                     if (_this.errorCallback) {
                         _this.errorCallback(errMsg);
                     }
                     _this.showErrorMessage(errMsg);
+                    return;
+                case "Playback_Finished":
+                    var errMsg = "Playback_Finished";
+                    console.log(errMsg);
+                    if (_this.errorCallback) {
+                        _this.errorCallback(errMsg);
+                    }
+                    _this.stop();
                     return;
                 case "EmptyUrl":
                     var errMsg = _this.mode == "Live" ? "Url not configured" : "Recording not Found";

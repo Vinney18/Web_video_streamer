@@ -18,7 +18,7 @@ int FFmpegWrapper::run()
 			createMjpegOutput();
 			if (!tempConnections.empty()) {
 				for (auto el : tempConnections) {
-					addConnection(el.first, el.second);
+					addConnection(el.first);
 				}
 				tempConnections.clear();
 			}
@@ -54,14 +54,14 @@ int FFmpegWrapper::run()
 	return 0;
 }
 
-void FFmpegWrapper::addConnection(websocketpp::connection_hdl connHdl, bool useTranscoding)
+void FFmpegWrapper::addConnection(websocketpp::connection_hdl connHdl)
 {
 	if (inputCodecID == AV_CODEC_ID_NONE) {
-		tempConnections.push_back(std::make_pair(connHdl, useTranscoding));
+		tempConnections.push_back(std::make_pair(connHdl, false));
 	}
 	else {
 
-		if (inputCodecID != AV_CODEC_ID_H264 || useTranscoding) {
+		if (inputCodecID != AV_CODEC_ID_H264) {
 			websocketSCallback(connHdl, "mjpeg");
 			addConnToList(connHdl, mjpeg);
 		}
@@ -383,7 +383,7 @@ void FFmpegWrapper::readInput()
 	std::condition_variable condition_v;
 	std::thread thread1;
 
-	if (ctrlInputRate) {
+	if (playmode != "Live") {
 		thread1 = std::thread([&]()
 			{
 				while (!mStop)
@@ -403,12 +403,13 @@ void FFmpegWrapper::readInput()
 	{
 		params.lastStopped = GetTickCount();
 		int framecount = 0;
-		while (av_read_frame(this->inputFormatCtx, &packet) >= 0 && !mStop) {
+		while (av_read_frame(this->inputFormatCtx, &packet) >= 0 && !mStop) 
+		{
 			params.lastStopped = GetTickCount();
 			// Is this a packet from the video stream?
-			if (packet.stream_index == videoStream) {		
-				//av_write_frame(outFmtCtx, &packet);
-				//std::unique_lock<std::mutex> lock(connectionlock);
+			if (packet.stream_index == videoStream) 
+			{		
+
 				if (!connections[mjpeg].empty())
 				{
 					if (inputCodecID == AV_CODEC_ID_MJPEG)
@@ -417,21 +418,17 @@ void FFmpegWrapper::readInput()
 						send(frame);
 					}
 					else {
-						//decode_packet(decoder_ctx, frame, sw_frame, &packet, this);
-
 						avcodec_decode_video2(decoderCodecContext, pFrame, &frameFinished, &packet);
 
 						// Did we get a video frame?
 						if (frameFinished) {
-							/*if (++i <= 10)*/
-							//cout << i << endl;
 							framecount++;
 							if (framecount == inputFPS) {
 								if (this->initial_seek_time > 0) {
 									seek_video(this->initial_seek_time);
 								}
 							}
-							if (ctrlInputRate)
+							if (playmode != "Live")
 							{
 								while (!canSend && !mStop)
 								{
@@ -446,17 +443,34 @@ void FFmpegWrapper::readInput()
 									}
 								}
 							}
-
-							/*if (canSendOut) {
-								canSendOut = false;
-								save_frame_as_jpeg(decoderCodecContext, pFrame, &packetEncoded);
-							}*/
 							save_frame_as_jpeg(decoderCodecContext, pFrame, &packetEncoded);
 							canSend = false;
 						}
 					}
 				}
+
 				if (!connections[mp4].empty()) {
+					if (playmode != "Live") 
+					{
+						while (!canSend && !mStop)
+						{
+							try
+							{
+								std::unique_lock<std::mutex> lok(mut);
+								condition_v.wait_for(lok, std::chrono::seconds(1));
+							}
+							catch (const std::exception& ex)
+							{
+								cout << ex.what() << std::endl;
+							}
+						}
+						framecount++;
+						if (framecount == inputFPS) {
+							if (this->initial_seek_time > 0) {
+								seek_video(this->initial_seek_time);
+							}
+						}
+					}
 					if (usejmuxer)
 					{
 						auto hdlList = connections[mp4];
@@ -475,8 +489,13 @@ void FFmpegWrapper::readInput()
 			// Free the packet that was allocated by av_read_frame
 			av_free_packet(&packet);
 		}
-		if (ctrlInputRate)
+		if (playmode != "Live")
 		{
+			auto hdlList = connections[mp4];
+
+			for (auto hndl : hdlList) {
+				websocketSCallback(hndl, "Playback_Finished");
+			}
 			mStop = true;
 			thread1.join();
 			cout << "Thread 1 join";
@@ -623,6 +642,7 @@ bool FFmpegWrapper::openInput()
 		{
 			av_dict_set(&options1, "rtsp_transport", "udp", 0);
 		}
+
 	}
 	catch (boost::bad_lexical_cast) {
 		// bad parameter

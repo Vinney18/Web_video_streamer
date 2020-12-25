@@ -47,11 +47,11 @@ namespace PlayerServer.services
             return "";
         }
 
-        public async Task<string> GetPlaybackUrl(int cameraId, long time)
+        public async Task<string> GetPlaybackUrl(int cameraId, long time, bool streamviaapache)
         {
             DateTimeOffset dateTime = DateTimeOffset.FromUnixTimeSeconds(time);
             string timePlayback = dateTime.LocalDateTime.ToString("MM/dd/yyyy, hh:mm:ss tt", CultureInfo.InvariantCulture);
-            var httpResponse = await httpClient.GetAsync("/RestService/server/EventPlaybackUrl?cameraId=" + cameraId + "&eventDateTime=" + timePlayback);
+            var httpResponse = await httpClient.GetAsync("/RestService/server/EventPlaybackUrl?cameraId=" + cameraId + "&eventDateTime=" + timePlayback+ "&streamviaapache="+ streamviaapache);
             if (httpResponse.StatusCode == System.Net.HttpStatusCode.OK)
             {
                 return await httpResponse.Content.ReadAsStringAsync();
