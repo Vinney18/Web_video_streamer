@@ -28,6 +28,13 @@ class I2vSdk {
         this.player.playerServerIp = this.playerServerIp;
         return this.player;
     }
+
+    SeekVideo(startTime)
+    {
+        if (this.player) {
+            this.player.SeekVideo(startTime);
+        }
+    }
 }
 class I2vPlayer {
     elId: any;
@@ -58,6 +65,7 @@ class I2vPlayer {
     useJmuxer: boolean = false;
     connectionmode: string = "tcp";
     playbackviaapache: boolean = true;
+
     constructor(elId, cameraId, mode, streamtype, startTime, useSecureConnection, advanceDecoding, _connectionmode, _playbackviaapache) {
         this.elId = elId;
         this.cameraId = cameraId;
@@ -213,22 +221,28 @@ class I2vPlayer {
     play() {
         var protocolType: string = "ws";
         var port: number = 8181;
+
         if (this.useSecureConnection) {
             protocolType = "wss";
             port = 8182;
         }
+
         if (!this.useJmuxer)
         {
             this.initializeMediaSource();
         }
+
         this.removeErrorMessage();
+
         this.showErrorMessage("Trying to Connect...");
         this.w = new WebSocket(`${protocolType}://${this.playerIp}:${port}?cameraId~~${this.cameraId}&&id~~${this.elId}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}&&useJmuxer~~${this.useJmuxer}&&connectionmode~~${this.connectionmode}&&playbackviaapache~~${this.playbackviaapache}&&serverIp~~${this.playerServerIp}`);
         this.w.binaryType = 'arraybuffer';
+
         this.w.addEventListener('open', (event) => {
             this.doesStopRequested = false;
             this.w.send('Hello Server!');
         });
+
         this.w.addEventListener('close', (event) => {
             if (this.doesStopRequested) {
                 console.log('socket closed');
@@ -272,6 +286,7 @@ class I2vPlayer {
             }
 
         });
+
         this.w.addEventListener('message', (e) => {
             switch (e.data) {     
                 case "Server_ip_not_provided":
@@ -289,6 +304,14 @@ class I2vPlayer {
                     }
                     this.stop();
                     return;
+                case "unable_to_play":
+                    var errMsg = "unable_to_play";
+                    console.log(errMsg);
+                    if (this.errorCallback) {
+                        this.errorCallback(errMsg);
+                    }
+                    this.stop();
+                    return;                 
                 case "EmptyUrl":
                     var errMsg = this.mode == "Live" ? "Url not configured" : "Recording not Found";
                     if (this.errorCallback) {
@@ -442,6 +465,7 @@ class I2vPlayer {
             }
         }, false);
     }
+
     OnVideoVisiblityChange = (event) =>
     {
         if (this.useJmuxer)
@@ -461,6 +485,7 @@ class I2vPlayer {
     {
         this.jmuxer = null;
     }
+
     Createjmuxerobject()
     {
         this.jmuxer = null;
@@ -472,6 +497,7 @@ class I2vPlayer {
             fps: 30
         });
     }
+
     showErrorMessage(message) {
         this.isErrorMessageVisible = true;
         var spanElement = document.getElementById("errorMessage" + this.elId);
@@ -506,6 +532,13 @@ class I2vPlayer {
             }
         } catch (ex) {
 
+        }
+    }
+
+    SeekVideo(starttime)
+    {
+        if (this.w) {
+            this.w.send("seek_Time" + starttime);
         }
     }
 }

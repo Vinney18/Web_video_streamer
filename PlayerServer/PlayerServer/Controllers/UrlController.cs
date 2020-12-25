@@ -92,5 +92,20 @@ namespace PlayerServer.Controllers
                 return BadRequest();
             }
         }
+
+        [HttpGet]
+        [Route("~/url/SeekVideo")]
+        public async Task<IActionResult> SeekVideo(int cameraId, long time, long seekTime)
+        {
+            try
+            {
+                var url = await _playerUrlService.SeekVideo(cameraId, time, seekTime);               
+                return Ok(url);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest();
+            }
+        }
     }
 }

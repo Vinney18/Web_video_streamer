@@ -14,6 +14,7 @@
     <input id="date" type="date">
     <input id="time" type="time" step="1" value="18:00">
     <button onClick="Play_Playback()">Play Playback</button>
+    <button onClick="seekVideo()">Seek Video</button>
 
     <!-- div where video will be played -->
     <div style="height: 500px;width:100%" id="someUniqueId"></div>
@@ -24,7 +25,9 @@
         var serverIp = "127.0.0.1"; //This is Ip of Player Server Module (Same as VMS if player server installed on same machine)
         var playerIp = "127.0.0.1"; //This is Ip of Player Stramer
         var UseSecureConnection = false;
+
         var sdk = new I2vSdk(playerIp, serverIp, UseSecureConnection);
+
         var latestDivId = "someUniqueId"
 
 
@@ -39,7 +42,7 @@
             //get url to play
             var cameraId = document.getElementById("cameraId").value;
 
-            var streamType = "";
+            var streamType = "0";
 
 
             if (streamType == "") {
@@ -71,7 +74,12 @@
             playerObj.play();
         }
 
+        function seekVideo() {
+            if (playerObj) {
+                playerObj.SeekVideo("10");
+            }
 
+        }
         function Play_Playback() {
             if (playerObj) {
                 playerObj.stop();
@@ -85,7 +93,7 @@
             var datetime = moment(date + " " + time);
             var startTime = datetime.unix();
 
-            var _playbackviaapache = "1";
+            var _playbackviaapache = "0";
 
 
             var providedDiv = document.getElementById(latestDivId);

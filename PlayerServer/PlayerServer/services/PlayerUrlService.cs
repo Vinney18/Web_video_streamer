@@ -58,6 +58,18 @@ namespace PlayerServer.services
             }
             return "";
         }
+
+        public async Task<string> SeekVideo(int cameraId, long time, long seekTime)
+        {
+            DateTimeOffset dateTime = DateTimeOffset.FromUnixTimeSeconds(time);
+            string timePlayback = dateTime.LocalDateTime.ToString("MM/dd/yyyy, hh:mm:ss tt", CultureInfo.InvariantCulture);
+            var httpResponse = await httpClient.GetAsync("/RestService/server/SeekVideo?cameraId=" + cameraId + "&eventDateTime=" + timePlayback + "&seekTime=" + seekTime);
+            if (httpResponse.StatusCode == System.Net.HttpStatusCode.OK)
+            {
+                return await httpResponse.Content.ReadAsStringAsync();
+            }
+            return "";
+        }
     }
 
     public static class CommonMethods

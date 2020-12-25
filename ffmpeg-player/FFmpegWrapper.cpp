@@ -16,16 +16,35 @@ int FFmpegWrapper::run()
 			GetInputCodecInfo();
 			createMp4Output();
 			createMjpegOutput();
+			
 			if (!tempConnections.empty()) {
-				for (auto el : tempConnections) {
-					addConnection(el.first);
+				for (auto el : tempConnections)
+				{
+					if (inputCodecID == AV_CODEC_ID_NONE)
+					{
+						//close websocket if not able to play
+						websocketSCallback(el.first, "unable_to_play");
+					}
+					else
+					{
+						addConnection(el.first);
+					}
 				}
 				tempConnections.clear();
 			}
-			readInput();
-			freeMp4OutMemory();
-			freeMjpegOutMemory();
-			closeInput();
+			if (inputCodecID == AV_CODEC_ID_NONE)
+			{
+				mStop = true;
+				closeInput();
+			}
+			else 
+			{
+				readInput();
+				freeMp4OutMemory();
+				freeMjpegOutMemory();
+				closeInput();
+			}
+			
 		}
 
 		if (!mStop) {
@@ -56,7 +75,8 @@ int FFmpegWrapper::run()
 
 void FFmpegWrapper::addConnection(websocketpp::connection_hdl connHdl)
 {
-	if (inputCodecID == AV_CODEC_ID_NONE) {
+	if (inputCodecID == AV_CODEC_ID_NONE)
+	{
 		tempConnections.push_back(std::make_pair(connHdl, false));
 	}
 	else {
@@ -196,7 +216,11 @@ bool FFmpegWrapper::createMp4Output()
 	avcodec_get_context_defaults3(outStrm->codec, codec);
 
 
-
+	if (this->inputCodecID == AV_CODEC_ID_NONE)
+	{ 
+		//in case of not getting any codec like in mjpeg stream from camera
+		return false;
+	}
 	outStrm->codecpar->codec_id = this->inputFormatCtx->streams[videoStream]->codecpar->codec_id;
 	outStrm->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
 	outStrm->codecpar->width = this->inputFormatCtx->streams[videoStream]->codecpar->width;
@@ -230,6 +254,11 @@ bool FFmpegWrapper::createMjpegOutput()
 {
 	std::cout << "fps :" << this->inputFPS << std::endl;
 
+	if (this->inputCodecCtx == NULL )
+	{
+		fprintf(stderr, "Unsupported codec!\n");
+		return false;
+	}
 	// Find the decoder for the video stream
 	this->decoderCodec = avcodec_find_decoder(this->inputCodecCtx->codec_id);
 	if (this->decoderCodec == NULL) {
@@ -383,14 +412,18 @@ void FFmpegWrapper::readInput()
 	std::condition_variable condition_v;
 	std::thread thread1;
 
-	if (playmode != "Live") {
+	if (!isLiveMode()) {
 		thread1 = std::thread([&]()
 			{
 				while (!mStop)
 				{
-					std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
-					canSend = true;
-					condition_v.notify_all();
+					if (!fileseekingstarted)
+					{
+						std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
+						canSend = true;
+						condition_v.notify_all();
+					}
+
 				}
 			});
 	}
@@ -423,12 +456,15 @@ void FFmpegWrapper::readInput()
 						// Did we get a video frame?
 						if (frameFinished) {
 							framecount++;
-							if (framecount == inputFPS) {
-								if (this->initial_seek_time > 0) {
+							if (framecount == inputFPS) 
+							{
+								playbackFileStared = true;
+								if (this->initial_seek_time > 0)
+								{
 									seek_video(this->initial_seek_time);
 								}
 							}
-							if (playmode != "Live")
+							if (!isLiveMode())
 							{
 								while (!canSend && !mStop)
 								{
@@ -450,7 +486,7 @@ void FFmpegWrapper::readInput()
 				}
 
 				if (!connections[mp4].empty()) {
-					if (playmode != "Live") 
+					if (!isLiveMode())
 					{
 						while (!canSend && !mStop)
 						{
@@ -465,7 +501,9 @@ void FFmpegWrapper::readInput()
 							}
 						}
 						framecount++;
-						if (framecount == inputFPS) {
+						if (framecount == inputFPS)
+						{
+							playbackFileStared = true;
 							if (this->initial_seek_time > 0) {
 								seek_video(this->initial_seek_time);
 							}
@@ -489,12 +527,16 @@ void FFmpegWrapper::readInput()
 			// Free the packet that was allocated by av_read_frame
 			av_free_packet(&packet);
 		}
-		if (playmode != "Live")
+		if (!isLiveMode())
 		{
 			auto hdlList = connections[mp4];
+			auto hdlList1 = connections[mjpeg];
 
 			for (auto hndl : hdlList) {
 				websocketSCallback(hndl, "Playback_Finished");
+			}
+			for (auto hndl1 : hdlList1) {
+				websocketSCallback(hndl1, "Playback_Finished");
 			}
 			mStop = true;
 			thread1.join();
@@ -511,33 +553,64 @@ void FFmpegWrapper::readInput()
 
 void FFmpegWrapper::seek_video(int time_toSeek_insec)
 {
-	//Forwardseek_video(frameIndex);
-	Forwardseek_video(time_toSeek_insec);
+	if (time_toSeek_insec > 0) 
+	{
+
+		if (playbackviaapache)
+		{
+
+			if (fileseekingstarted && !playbackFileStared)
+			{
+				return;
+			}
+			fileseekingstarted = true;
+			// Seek is done on packet dts
+			try
+			{
+				int framerate = inputFPS;
+				int frameIndex = time_toSeek_insec * framerate;
+				int64_t target_dts_usecs = (int64_t)round(frameIndex * (double)this->inputFormatCtx->streams[videoStream]->r_frame_rate.den / this->inputFormatCtx->streams[videoStream]->r_frame_rate.num * AV_TIME_BASE);
+				// Remove first dts: when non zero seek should be more accurate
+				auto first_dts_usecs = (int64_t)round(this->inputFormatCtx->streams[videoStream]->first_dts * (double)this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den * AV_TIME_BASE);
+				target_dts_usecs += first_dts_usecs;
+				int rv = av_seek_frame(this->inputFormatCtx, -1, target_dts_usecs, AVSEEK_FLAG_FRAME | AVSEEK_FLAG_ANY);
+				if (rv < 0)
+				{
+					fileseekingstarted = false;
+					cout << "Unable to seek video";
+				}
+				std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+				fileseekingstarted = false;
+			}
+			catch (const exception& ex)
+			{
+				fileseekingstarted = false;
+				cout << "Exception while  seek video";
+				cout << ex.what() << std::endl;
+			}
+		}
+		else
+		{
+			//call recording server to seek file
+			try
+			{
+				string cameraId_instring = to_string(cameraId);
+				std::string endpoint = "/url/SeekVideo?cameraId=" + cameraId_instring + "&time=" + to_string(start_time_ofplaybackfile) + "&seekTime=" + to_string(time_toSeek_insec);
+				std::string url = "http://" + serverIp + ":" + to_string(port) + endpoint;
+				auto res = cpr::Get(cpr::Url{ url });
+			}
+			catch (const std::exception&)
+			{
+				cout << "Exception while  seek video on recording server ";
+			}
+
+
+		}
+
+	}
 }
 
-void FFmpegWrapper::Forwardseek_video(int time_toSeek_insec) 
-{
-	// Seek is done on packet dts
-	try
-	{
-		int framerate = inputFPS;
-		int frameIndex = time_toSeek_insec * framerate;
-		int64_t target_dts_usecs = (int64_t)round(frameIndex * (double)this->inputFormatCtx->streams[videoStream]->r_frame_rate.den / this->inputFormatCtx->streams[videoStream]->r_frame_rate.num * AV_TIME_BASE);
-		// Remove first dts: when non zero seek should be more accurate
-		auto first_dts_usecs = (int64_t)round(this->inputFormatCtx->streams[videoStream]->first_dts * (double)this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den * AV_TIME_BASE);
-		target_dts_usecs += first_dts_usecs;
-		int rv = av_seek_frame(this->inputFormatCtx, -1, target_dts_usecs, AVSEEK_FLAG_FRAME | AVSEEK_FLAG_ANY);
-		if (rv < 0)
-		{
-			cout << "Unable to seek video";
-		}
-	}
-	catch (const exception & ex)
-	{
-		cout << "Exception while  seek video";
-		cout << ex.what() << std::endl;
-	}
-}
+
 
 void FFmpegWrapper::Backwardseek_video(int frameIndex)
 {
@@ -589,6 +662,7 @@ void FFmpegWrapper::freeMp4OutMemory()
 	{
 		//For mp4
 	//av_write_trailer(outFmtCtx);
+		if (mp4OutContext->pb == NULL) { return; }
 		av_free(mp4OutContext->pb->buffer);
 		avio_context_free(&mp4OutContext->pb);
 		mp4OutContext->pb = NULL;
@@ -721,4 +795,15 @@ void FFmpegWrapper::receiveMp4Chunk(vector<uint8_t> data) {
 		//echo_server.send(*it, dataPtr, size, websocketpp::frame::opcode::BINARY);
 		websocketCallback(hndl, data);
 	}
+}
+
+bool FFmpegWrapper::isLiveMode()
+{
+	bool livemode = true;
+
+	if (playmode != "Live")
+	{
+		livemode = false;
+	}
+	return livemode;
 }

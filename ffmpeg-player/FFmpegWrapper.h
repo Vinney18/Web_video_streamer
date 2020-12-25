@@ -13,6 +13,7 @@
 #include <websocketpp/endpoint.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/lexical_cast.hpp>
+#include <cpr/cpr.h>
 
 extern "C"
 {
@@ -60,13 +61,14 @@ private:
 	WebsocketSDataCallback websocketSCallback;
 	bool usejmuxer;
 	string playmode;
+	bool fileseekingstarted = false;
+	bool playbackFileStared = false;
 	string connectionmode;
 	bool playbackviaapache;
-
 	std::unique_ptr<Mp4frag> mp4FragCreator;
 	std::map<OutputType, con_list> connections; //keys mp4 and mjpeg
 	std::vector<std::pair<websocketpp::connection_hdl, bool>> tempConnections;
-
+	int start_time_ofplaybackfile;
 	//std::mutex connectionlock;
 
 	AVFormatContext* inputFormatCtx = NULL;
@@ -75,6 +77,9 @@ private:
 	AVFrame *pFrame = NULL;
 	int inputFPS = 0;
 	int videoStream = -1;
+	int cameraId = 0;
+	string serverIp;
+	int port = 8890;
 
 	AVCodec* decoderCodec = NULL;
 	AVCodecContext* decoderCodecContext = NULL;
@@ -90,7 +95,7 @@ private:
 	DecodeContext decode = { NULL };*/
 public:
 
-	FFmpegWrapper(string _url, string _id, int start_seek_time, WebsocketDataCallback _websocketCallback, WebsocketSDataCallback _websocketSCallback, bool _usejmuxer, string _connectionmode, bool _playbackviaapache, string _playmode) : Thread(), i2v::MjpegRoute(_id) {
+	FFmpegWrapper(int _cameraId , string _url, string _id, int start_seek_time, WebsocketDataCallback _websocketCallback, WebsocketSDataCallback _websocketSCallback, bool _usejmuxer, string _connectionmode, bool _playbackviaapache, string _playmode, int _start_time_ofplaybackfile, string _serverIp, int _port) : Thread(), i2v::MjpegRoute(_id) {
 		id = std::move(_id);
 		url = std::move(_url);
 		websocketCallback = _websocketCallback;
@@ -101,6 +106,10 @@ public:
 		playbackviaapache = _playbackviaapache;
 		playmode = _playmode;
 		connections = { {mp4, con_list()}, { mjpeg , con_list()} };
+		start_time_ofplaybackfile = _start_time_ofplaybackfile;
+		cameraId = _cameraId;
+		serverIp = _serverIp;
+		port = _port;
 		//av_log_set_level(AV_LOG_QUIET);
 	}
 
@@ -156,6 +165,7 @@ public:
 
 	void addConnection(websocketpp::connection_hdl connHdl);
 	bool removeConnection(websocketpp::connection_hdl connHdl);
+	void seek_video(int offset_time);
 	InterruptParams params;
 
 
@@ -348,10 +358,8 @@ private:
 
 	int save_frame_as_jpeg(AVCodecContext *pCodecCtx, AVFrame *pFrame, AVPacket* packet);
 	void receiveMp4Chunk(vector<uint8_t> data);
-	void seek_video(int offset_time);
-	void Forwardseek_video(int offset_time);
 	void Backwardseek_video(int offset_time);
-
+	bool isLiveMode();
 	
 };
 

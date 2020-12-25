@@ -20,6 +20,11 @@ var I2vSdk = (function () {
         this.player.playerServerIp = this.playerServerIp;
         return this.player;
     };
+    I2vSdk.prototype.SeekVideo = function (startTime) {
+        if (this.player) {
+            this.player.SeekVideo(startTime);
+        }
+    };
     return I2vSdk;
 }());
 var I2vPlayer = (function () {
@@ -243,6 +248,14 @@ var I2vPlayer = (function () {
                     }
                     _this.stop();
                     return;
+                case "unable_to_play":
+                    var errMsg = "unable_to_play";
+                    console.log(errMsg);
+                    if (_this.errorCallback) {
+                        _this.errorCallback(errMsg);
+                    }
+                    _this.stop();
+                    return;
                 case "EmptyUrl":
                     var errMsg = _this.mode == "Live" ? "Url not configured" : "Recording not Found";
                     if (_this.errorCallback) {
@@ -421,6 +434,11 @@ var I2vPlayer = (function () {
             }
         }
         catch (ex) {
+        }
+    };
+    I2vPlayer.prototype.SeekVideo = function (starttime) {
+        if (this.w) {
+            this.w.send("seek_Time" + starttime);
         }
     };
     return I2vPlayer;
