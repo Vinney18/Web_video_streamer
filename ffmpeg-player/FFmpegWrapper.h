@@ -63,6 +63,7 @@ private:
 	string playmode;
 	bool fileseekingstarted = false;
 	bool playbackFileStared = false;
+	bool IsFilePaused = false;
 	string connectionmode;
 	bool playbackviaapache;
 	std::unique_ptr<Mp4frag> mp4FragCreator;
@@ -70,7 +71,6 @@ private:
 	std::vector<std::pair<websocketpp::connection_hdl, bool>> tempConnections;
 	int start_time_ofplaybackfile;
 	//std::mutex connectionlock;
-
 	AVFormatContext* inputFormatCtx = NULL;
 	AVCodecContext* inputCodecCtx = NULL;
 	AVCodecID inputCodecID = AV_CODEC_ID_NONE;
@@ -167,6 +167,10 @@ public:
 	void addConnection(websocketpp::connection_hdl connHdl);
 	bool removeConnection(websocketpp::connection_hdl connHdl);
 	void seek_video(int offset_time);
+	void Pause_video(); 
+	void Resume_video();
+
+
 	InterruptParams params;
 
 

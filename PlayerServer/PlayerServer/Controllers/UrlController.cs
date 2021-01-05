@@ -94,6 +94,36 @@ namespace PlayerServer.Controllers
         }
 
         [HttpGet]
+        [Route("~/url/PauseVideo")]
+        public async Task<IActionResult> PauseVideo(int cameraId, long time, int sessionId)
+        {
+            try
+            {
+                var url = await _playerUrlService.PauseVideo(cameraId, time, sessionId);
+                return Ok(url);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest();
+            }
+        }
+
+        [HttpGet]
+        [Route("~/url/ResumeVideo")]
+        public async Task<IActionResult> ResumeVideo(int cameraId, long time, int sessionId)
+        {
+            try
+            {
+                var url = await _playerUrlService.ResumeVideo(cameraId, time, sessionId);
+                return Ok(url);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest();
+            }
+        }
+
+        [HttpGet]
         [Route("~/url/SeekVideo")]
         public async Task<IActionResult> SeekVideo(int cameraId, long time, long seekTime,int sessionId)
         {

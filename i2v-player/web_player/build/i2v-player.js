@@ -21,8 +21,18 @@ var I2vSdk = (function () {
         return this.player;
     };
     I2vSdk.prototype.SeekVideo = function (startTime) {
-        if (this.player) {
+        if (this.player && this.player.mode != "Live") {
             this.player.SeekVideo(startTime);
+        }
+    };
+    I2vSdk.prototype.Pause = function () {
+        if (this.player && this.player.mode != "Live") {
+            this.player.Pause();
+        }
+    };
+    I2vSdk.prototype.Resume = function () {
+        if (this.player && this.player.mode != "Live") {
+            this.player.Resume();
         }
     };
     return I2vSdk;
@@ -392,13 +402,15 @@ var I2vPlayer = (function () {
     };
     I2vPlayer.prototype.Createjmuxerobject = function () {
         this.jmuxer = null;
-        this.jmuxer = new JMuxer({
-            node: this.v.id,
-            debug: false,
-            mode: 'video',
-            flushingTime: 0,
-            fps: 30
-        });
+        if (this.v) {
+            this.jmuxer = new JMuxer({
+                node: this.v.id,
+                debug: false,
+                mode: 'video',
+                flushingTime: 0,
+                fps: 30
+            });
+        }
     };
     I2vPlayer.prototype.showErrorMessage = function (message) {
         this.isErrorMessageVisible = true;
@@ -439,6 +451,16 @@ var I2vPlayer = (function () {
     I2vPlayer.prototype.SeekVideo = function (starttime) {
         if (this.w) {
             this.w.send("seek_Time" + starttime);
+        }
+    };
+    I2vPlayer.prototype.Pause = function () {
+        if (this.w) {
+            this.w.send("Pause");
+        }
+    };
+    I2vPlayer.prototype.Resume = function () {
+        if (this.w) {
+            this.w.send("Resume");
         }
     };
     return I2vPlayer;

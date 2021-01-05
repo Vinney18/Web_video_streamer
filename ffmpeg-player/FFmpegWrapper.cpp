@@ -438,101 +438,100 @@ void FFmpegWrapper::readInput()
 	AVPacket packetEncoded;
 	packetEncoded.data = NULL, packetEncoded.size = 0;
 	av_init_packet(&packetEncoded);
-
 	try
 	{
 		params.lastStopped = GetTickCount();
 		int framecount = 0;
-		while (av_read_frame(this->inputFormatCtx, &packet) >= 0 && !mStop) 
+		while (av_read_frame(this->inputFormatCtx, &packet) >= 0 && !mStop)
 		{
-			params.lastStopped = GetTickCount();
-			// Is this a packet from the video stream?
-			if (packet.stream_index == videoStream) 
-			{		
-
-				if (!connections[mjpeg].empty())
+				params.lastStopped = GetTickCount();
+				// Is this a packet from the video stream?
+				if (packet.stream_index == videoStream)
 				{
-					if (inputCodecID == AV_CODEC_ID_MJPEG)
-					{
-						vector<uint8_t> frame(packet.data, packet.data + packet.size);
-						send(frame);
-					}
-					else {
-						avcodec_decode_video2(decoderCodecContext, pFrame, &frameFinished, &packet);
 
-						// Did we get a video frame?
-						if (frameFinished) {
+					if (!connections[mjpeg].empty())
+					{
+						if (inputCodecID == AV_CODEC_ID_MJPEG)
+						{
+							vector<uint8_t> frame(packet.data, packet.data + packet.size);
+							send(frame);
+						}
+						else {
+							avcodec_decode_video2(decoderCodecContext, pFrame, &frameFinished, &packet);
+
+							// Did we get a video frame?
+							if (frameFinished) {
+								framecount++;
+								if (framecount == inputFPS)
+								{
+									playbackFileStared = true;
+									if (this->initial_seek_time > 0)
+									{
+										seek_video(this->initial_seek_time);
+									}
+								}
+								if (!isLiveMode())
+								{
+									while (!canSend && !mStop)
+									{
+										try
+										{
+											std::unique_lock<std::mutex> lok(mut);
+											condition_v.wait_for(lok, std::chrono::seconds(1));
+										}
+										catch (const std::exception& ex)
+										{
+											cout << ex.what() << std::endl;
+										}
+									}
+								}
+								save_frame_as_jpeg(decoderCodecContext, pFrame, &packetEncoded);
+								canSend = false;
+							}
+						}
+					}
+
+					if (!connections[mp4].empty()) {
+						if (!isLiveMode())
+						{
+							while (!canSend && !mStop)
+							{
+								try
+								{
+									std::unique_lock<std::mutex> lok(mut);
+									condition_v.wait_for(lok, std::chrono::seconds(1));
+								}
+								catch (const std::exception& ex)
+								{
+									cout << ex.what() << std::endl;
+								}
+							}
 							framecount++;
-							if (framecount == inputFPS) 
+							if (framecount == inputFPS)
 							{
 								playbackFileStared = true;
-								if (this->initial_seek_time > 0)
-								{
+								if (this->initial_seek_time > 0) {
 									seek_video(this->initial_seek_time);
 								}
 							}
-							if (!isLiveMode())
-							{
-								while (!canSend && !mStop)
-								{
-									try
-									{
-										std::unique_lock<std::mutex> lok(mut);
-										condition_v.wait_for(lok, std::chrono::seconds(1));
-									}
-									catch (const std::exception& ex)
-									{
-										cout << ex.what() << std::endl;
-									}
-								}
-							}
-							save_frame_as_jpeg(decoderCodecContext, pFrame, &packetEncoded);
-							canSend = false;
 						}
+						if (usejmuxer)
+						{
+							auto hdlList = connections[mp4];
+							vector<uint8_t> chunk(packet.data, packet.data + packet.buf->size);
+							for (auto hndl : hdlList) {
+								websocketCallback(hndl, chunk);
+							}
+						}
+						else
+						{
+							auto x = av_interleaved_write_frame(mp4OutContext, &packet);
+						}
+						canSend = false;
 					}
 				}
-
-				if (!connections[mp4].empty()) {
-					if (!isLiveMode())
-					{
-						while (!canSend && !mStop)
-						{
-							try
-							{
-								std::unique_lock<std::mutex> lok(mut);
-								condition_v.wait_for(lok, std::chrono::seconds(1));
-							}
-							catch (const std::exception& ex)
-							{
-								cout << ex.what() << std::endl;
-							}
-						}
-						framecount++;
-						if (framecount == inputFPS)
-						{
-							playbackFileStared = true;
-							if (this->initial_seek_time > 0) {
-								seek_video(this->initial_seek_time);
-							}
-						}
-					}
-					if (usejmuxer)
-					{
-						auto hdlList = connections[mp4];
-						vector<uint8_t> chunk(packet.data, packet.data + packet.buf->size);
-						for (auto hndl : hdlList) {
-							websocketCallback(hndl, chunk);
-						}
-					}
-					else
-					{
-						auto x = av_interleaved_write_frame(mp4OutContext, &packet);
-					}
-					canSend = false;
-				}
-			}
-			// Free the packet that was allocated by av_read_frame
-			av_free_packet(&packet);
+				// Free the packet that was allocated by av_read_frame
+				av_free_packet(&packet);
 		}
 		if (!isLiveMode())
 		{
@@ -557,9 +556,51 @@ void FFmpegWrapper::readInput()
 	}
 }
 
+void FFmpegWrapper::Pause_video() 
+{
+	try
+	{
+		if (isLiveMode()) { return; }
+		string cameraId_instring = to_string(cameraId);
+		std::string endpoint = "/url/PauseVideo?cameraId=" + cameraId_instring + "&time=" + to_string(start_time_ofplaybackfile) + "&sessionId=" + to_string(sessionid);
+		std::string url = "http://" + serverIp + ":" + to_string(port) + endpoint;
+		auto res = cpr::Get(cpr::Url{ url });
+		IsFilePaused = true;
+		//std::unique_lock<std::mutex> lok(mut);
+		//condition_v.wait(lok);
 
+	}
+	catch (const std::exception&)
+	{
+		IsFilePaused = false;
+		cout << "Exception while  pause video on recording server ";
+	}
+}
+
+void FFmpegWrapper::Resume_video() 
+{
+	try
+	{
+		if (isLiveMode()) { return; }
+		string cameraId_instring = to_string(cameraId);
+		std::string endpoint = "/url/ResumeVideo?cameraId=" + cameraId_instring + "&time=" + to_string(start_time_ofplaybackfile) + "&sessionId=" + to_string(sessionid);
+		std::string url = "http://" + serverIp + ":" + to_string(port) + endpoint;
+		auto res = cpr::Get(cpr::Url{ url });
+		std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+		//condition_v.notify_all();
+		IsFilePaused = false;
+
+	}
+	catch (const std::exception&)
+	{
+		IsFilePaused = false;
+		cout << "Exception while  Resume video on recording server ";
+	}
+}
 void FFmpegWrapper::seek_video(int time_toSeek_insec)
 {
+	if (isLiveMode()) { return; }
+
 	if (time_toSeek_insec > 0) 
 	{
 

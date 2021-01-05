@@ -31,8 +31,20 @@ class I2vSdk {
 
     SeekVideo(startTime)
     {
-        if (this.player) {
+        if (this.player && this.player.mode != "Live") {
             this.player.SeekVideo(startTime);
+        }
+    }
+
+    Pause()
+    {
+        if (this.player && this.player.mode !="Live") {
+            this.player.Pause();
+        }
+    }
+    Resume() {
+        if (this.player && this.player.mode != "Live") {
+            this.player.Resume();
         }
     }
 }
@@ -489,13 +501,17 @@ class I2vPlayer {
     Createjmuxerobject()
     {
         this.jmuxer = null;
-        this.jmuxer = new JMuxer({
-            node: this.v.id,
-            debug: false,
-            mode: 'video',
-            flushingTime: 0,
-            fps: 30
-        });
+        if (this.v)
+        {
+            this.jmuxer = new JMuxer({
+                node: this.v.id,
+                debug: false,
+                mode: 'video',
+                flushingTime: 0,
+                fps: 30
+            });
+        }
+
     }
 
     showErrorMessage(message) {
@@ -539,6 +555,20 @@ class I2vPlayer {
     {
         if (this.w) {
             this.w.send("seek_Time" + starttime);
+        }
+    }
+
+    Pause()
+    {
+        if (this.w) {
+            this.w.send("Pause");
+        }
+    }
+
+    Resume()
+    {
+        if (this.w) {
+            this.w.send("Resume");
         }
     }
 }

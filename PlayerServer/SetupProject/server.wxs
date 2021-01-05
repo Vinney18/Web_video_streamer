@@ -153,6 +153,9 @@
                     <Component Id="cmp49B1697E0E06A2E5EA2D3D9ED4D0D685" Guid="*">
                         <File Id="filAAD88CB9886C6CE0DD72970051E8D76F" KeyPath="yes" Source="$(var.serverPath)\wwwroot\player\index.html" />
                     </Component>
+                    <Component Id="cmp58BD01B4AAD1F0672064AB164C2AE40D" Guid="*">
+                        <File Id="fil6CEF1D0CAFAB59B6C161C904F370DC82" KeyPath="yes" Source="$(var.serverPath)\wwwroot\player\moment.min.js" />
+                    </Component>
                 </Directory>
             </Directory>
         </DirectoryRef>
@@ -200,6 +203,7 @@
             <ComponentRef Id="cmpD30666D9BE4BD52BE006A4A8E5E7B659" />
             <ComponentRef Id="cmp1442E61487A0C019020F53F7BAFA50E4" />
             <ComponentRef Id="cmp49B1697E0E06A2E5EA2D3D9ED4D0D685" />
+            <ComponentRef Id="cmp58BD01B4AAD1F0672064AB164C2AE40D" />
         </ComponentGroup>
     </Fragment>
 </Wix>
