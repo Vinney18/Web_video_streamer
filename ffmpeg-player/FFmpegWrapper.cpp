@@ -758,15 +758,25 @@ bool FFmpegWrapper::openInput()
 	const char* fileName = this->url.c_str();
 	// Open file
 	AVDictionary* options1 = nullptr;
-	try {
-		av_dict_set(&options1, "rtsp_transport", "tcp", 0);
-		if (connectionmode == "udp") 
+	try 
+	{
+		if (connectionmode == "tcp") 
+		{
+			av_dict_set(&options1, "rtsp_transport", "tcp", 0);
+		}
+		else if (connectionmode == "udp") 
 		{
 			av_dict_set(&options1, "rtsp_transport", "udp", 0);
 		}
+		else 
+		{
+			av_dict_set(&options1, "rtsp_transport", "tcp", 0);
+
+		}
 
 	}
-	catch (boost::bad_lexical_cast) {
+	catch (boost::bad_lexical_cast)
+	{
 		// bad parameter
 	}
 
@@ -775,7 +785,18 @@ bool FFmpegWrapper::openInput()
 
 	if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
 	{
-		return false;
+		if(connectionmode == "")
+		{
+			av_dict_set(&options1, "rtsp_transport", "udp", 0);
+			if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
+			{
+				return false;
+			}
+		}
+		else
+		{
+			return false;
+		}
 		//this->inputFormatCtx = avformat_alloc_context();
 		//this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
 		//this->inputFormatCtx->interrupt_callback.opaque = this;

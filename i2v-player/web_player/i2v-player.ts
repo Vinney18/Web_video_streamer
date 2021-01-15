@@ -89,13 +89,23 @@ class I2vPlayer {
         this.connectionmode = _connectionmode;
         this.playbackviaapache = _playbackviaapache;
         //TODO Check playback also working or not
-        if (!this.connectionmode) {
-            this.connectionmode = "tcp";
-        }
-        else if (this.connectionmode != "tcp" && this.connectionmode != "udp")
+        if (!this.connectionmode)
         {
-            this.connectionmode = "tcp";
+            this.connectionmode = "";
         }
+        else
+        {
+            this.connectionmode =  this.connectionmode.toLowerCase();
+        }
+
+        if (this.connectionmode != "tcp" && this.connectionmode != "udp")
+        {
+            this.connectionmode = "";
+        }
+        //else if (this.connectionmode != "tcp" && this.connectionmode != "udp")
+        //{
+        //    this.connectionmode = "tcp";
+        //}
 
 
         if (mode == "Live")
