@@ -15,15 +15,15 @@ class I2vSdk {
     }
 
 
-    GetLivePlayer(elId, cameraId, streamtype, advanceDecoding, connectionmode) {
-        this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, this.useSecureConnection, advanceDecoding, connectionmode, "1");
+    GetLivePlayer(elId, cameraId, streamtype,analyticType, advanceDecoding, connectionmode) {
+        this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, this.useSecureConnection, advanceDecoding, connectionmode, "1", analyticType);
         this.player.playerIp = this.playerIp;
         this.player.playerServerIp = this.playerServerIp;
         return this.player;
     }
    
     GetPlaybackPlayer(elId, cameraId, startTime, _playbackviaapache) {
-        this.player = new I2vPlayer(elId, cameraId, "PlayBack", "0", startTime, this.useSecureConnection, "0", "tcp", _playbackviaapache);
+        this.player = new I2vPlayer(elId, cameraId, "PlayBack", "0", startTime, this.useSecureConnection, "0", "tcp", _playbackviaapache, "");
         this.player.playerIp = this.playerIp;
         this.player.playerServerIp = this.playerServerIp;
         return this.player;
@@ -73,12 +73,14 @@ class I2vPlayer {
     doesStopRequested: boolean = false;
     isErrorMessageVisible: boolean = false;
     playrecursivetimeout: any;
+    mjpeg_over_httptimeout: any;
+    analyticType: string;
     jmuxer: any;
     useJmuxer: boolean = false;
     connectionmode: string = "tcp";
     playbackviaapache: boolean = true;
-
-    constructor(elId, cameraId, mode, streamtype, startTime, useSecureConnection, advanceDecoding, _connectionmode, _playbackviaapache) {
+    mjpeg_overhttpurl: string = "";
+    constructor(elId, cameraId, mode, streamtype, startTime, useSecureConnection, advanceDecoding, _connectionmode, _playbackviaapache, _analyticType) {
         this.elId = elId;
         this.cameraId = cameraId;
         this.mode = mode;
@@ -88,6 +90,7 @@ class I2vPlayer {
         this.useSecureConnection = useSecureConnection;
         this.connectionmode = _connectionmode;
         this.playbackviaapache = _playbackviaapache;
+        this.analyticType = _analyticType;
         //TODO Check playback also working or not
         if (!this.connectionmode)
         {
@@ -143,6 +146,10 @@ class I2vPlayer {
             this.doesStopRequested = true;
             if (this.playrecursivetimeout) {
                 clearTimeout(this.playrecursivetimeout);
+            }
+            if (this.mjpeg_over_httptimeout)
+            {
+                clearTimeout(this.mjpeg_over_httptimeout);
             }
             try {
                 if (this.w) {
@@ -257,7 +264,7 @@ class I2vPlayer {
         this.removeErrorMessage();
 
         this.showErrorMessage("Trying to Connect...");
-        this.w = new WebSocket(`${protocolType}://${this.playerIp}:${port}?cameraId~~${this.cameraId}&&id~~${this.elId}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}&&useJmuxer~~${this.useJmuxer}&&connectionmode~~${this.connectionmode}&&playbackviaapache~~${this.playbackviaapache}&&serverIp~~${this.playerServerIp}`);
+        this.w = new WebSocket(`${protocolType}://${this.playerIp}:${port}?cameraId~~${this.cameraId}&&id~~${this.elId}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}&&useJmuxer~~${this.useJmuxer}&&connectionmode~~${this.connectionmode}&&playbackviaapache~~${this.playbackviaapache}&&serverIp~~${this.playerServerIp}&&analyticType~~${this.analyticType}`);
         this.w.binaryType = 'arraybuffer';
 
         this.w.addEventListener('open', (event) => {
@@ -309,6 +316,19 @@ class I2vPlayer {
 
         });
 
+        this.mjpeg_over_httptimeout = setInterval(() => {
+            try {
+                if (this.mjpeg_overhttpurl != "") {
+                    this.i.setAttribute(
+                        'src', this.mjpeg_overhttpurl
+                    );
+                }
+               
+            } catch (ex) {
+
+            }
+        }, 3000);
+
         this.w.addEventListener('message', (e) => {
             switch (e.data) {     
                 case "Server_ip_not_provided":
@@ -325,6 +345,13 @@ class I2vPlayer {
                         this.errorCallback(errMsg);
                     }
                     this.stop();
+                    return;
+                case "Video_Started":
+                    var errMsg = "Video_Started";
+                    console.log(errMsg); 
+                    if (this.errorCallback) {
+                        this.errorCallback(errMsg);
+                    }
                     return;
                 case "unable_to_play":
                     var errMsg = "unable_to_play";
@@ -384,7 +411,8 @@ class I2vPlayer {
             if (!this.isPlayerSet) {               
                 if (e.data instanceof ArrayBuffer) {
                     return;
-                } else {
+                } else
+                {
                     if (e.data === "mp4")
                     {
                         this.removeErrorMessage();
@@ -427,6 +455,35 @@ class I2vPlayer {
                         this.i.setAttribute(
                             'src', `http://${this.playerIp}:4554/${this.elId}`
                         );
+                    }
+                    else if (e.data.indexOf("mjpeg_overhttp") !== -1)
+                    {
+                        this.mjpeg_overhttpurl = e.data.substring(14);
+
+                        this.useJmuxer = false;
+                        this.removeErrorMessage()
+                        this.i = document.createElement("img");
+                        var div = document.getElementById(this.elId);
+                        div.style.background = "black";
+                        div.appendChild(this.i);
+                        this.i.id = `${this.elId}_img`;
+                        this.i.style.height = "100%";
+                        this.i.style.width = "100%";
+                        this.i.style.display = "inline";
+                        this.isJpeg = true;
+                        this.i.setAttribute(
+                            'src', this.mjpeg_overhttpurl
+                        );
+                        this.doesStopRequested = true;
+                        try {
+                            if (this.w)
+                            {
+                                this.w.close();
+                            }
+                        } catch (ex)
+                        {
+
+                        }
                     }
                     this.isPlayerSet = true;
                     return;

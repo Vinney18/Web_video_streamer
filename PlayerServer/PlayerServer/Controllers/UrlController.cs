@@ -18,11 +18,11 @@ namespace PlayerServer.Controllers
 
         [HttpGet]
         [Route("~/url/GetLiveUrl")]
-        public async Task<IActionResult> GetLiveUrlAsync(int cameraId, int streamType)
+        public async Task<IActionResult> GetLiveUrlAsync(int cameraId, int streamType, string analyticType)
         {
             try
             {
-                var url = await _playerUrlService.GetLiveUrlAsync(cameraId, streamType);
+                var url = await _playerUrlService.GetLiveUrlAsync(cameraId, streamType, analyticType);
                 Console.WriteLine(url);
                 if (url.Contains("127.0.0.1") || url.Contains("localhost"))
                 {

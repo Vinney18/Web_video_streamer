@@ -84,7 +84,7 @@ private:
 	AVCodec* decoderCodec = NULL;
 	AVCodecContext* decoderCodecContext = NULL;
 	AVFormatContext* mp4OutContext = NULL;
-
+	bool isVideoStartedEventsent = false;
 	AVCodec *jpegCodec;
 	AVCodecContext *jpegContext;
 
@@ -169,7 +169,7 @@ public:
 	void seek_video(int offset_time);
 	void Pause_video(); 
 	void Resume_video();
-
+	void SendVideoStartedEvent();
 
 	InterruptParams params;
 

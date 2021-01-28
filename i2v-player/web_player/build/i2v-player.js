@@ -8,14 +8,14 @@ var I2vSdk = (function () {
             this.useSecureConnection = useSecureConnection;
         }
     }
-    I2vSdk.prototype.GetLivePlayer = function (elId, cameraId, streamtype, advanceDecoding, connectionmode) {
-        this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, this.useSecureConnection, advanceDecoding, connectionmode, "1");
+    I2vSdk.prototype.GetLivePlayer = function (elId, cameraId, streamtype, analyticType, advanceDecoding, connectionmode) {
+        this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, this.useSecureConnection, advanceDecoding, connectionmode, "1", analyticType);
         this.player.playerIp = this.playerIp;
         this.player.playerServerIp = this.playerServerIp;
         return this.player;
     };
     I2vSdk.prototype.GetPlaybackPlayer = function (elId, cameraId, startTime, _playbackviaapache) {
-        this.player = new I2vPlayer(elId, cameraId, "PlayBack", "0", startTime, this.useSecureConnection, "0", "tcp", _playbackviaapache);
+        this.player = new I2vPlayer(elId, cameraId, "PlayBack", "0", startTime, this.useSecureConnection, "0", "tcp", _playbackviaapache, "");
         this.player.playerIp = this.playerIp;
         this.player.playerServerIp = this.playerServerIp;
         return this.player;
@@ -38,7 +38,7 @@ var I2vSdk = (function () {
     return I2vSdk;
 }());
 var I2vPlayer = (function () {
-    function I2vPlayer(elId, cameraId, mode, streamtype, startTime, useSecureConnection, advanceDecoding, _connectionmode, _playbackviaapache) {
+    function I2vPlayer(elId, cameraId, mode, streamtype, startTime, useSecureConnection, advanceDecoding, _connectionmode, _playbackviaapache, _analyticType) {
         var _this = this;
         this.useSecureConnection = false;
         this.doesStopRequested = false;
@@ -46,6 +46,7 @@ var I2vPlayer = (function () {
         this.useJmuxer = false;
         this.connectionmode = "tcp";
         this.playbackviaapache = true;
+        this.mjpeg_overhttpurl = "";
         this.OnVideoVisiblityChange = function (event) {
             if (_this.useJmuxer) {
                 if (document.visibilityState == 'hidden') {
@@ -67,6 +68,7 @@ var I2vPlayer = (function () {
         this.useSecureConnection = useSecureConnection;
         this.connectionmode = _connectionmode;
         this.playbackviaapache = _playbackviaapache;
+        this.analyticType = _analyticType;
         if (!this.connectionmode) {
             this.connectionmode = "";
         }
@@ -103,6 +105,9 @@ var I2vPlayer = (function () {
             this.doesStopRequested = true;
             if (this.playrecursivetimeout) {
                 clearTimeout(this.playrecursivetimeout);
+            }
+            if (this.mjpeg_over_httptimeout) {
+                clearTimeout(this.mjpeg_over_httptimeout);
             }
             try {
                 if (this.w) {
@@ -196,7 +201,7 @@ var I2vPlayer = (function () {
         }
         this.removeErrorMessage();
         this.showErrorMessage("Trying to Connect...");
-        this.w = new WebSocket(protocolType + "://" + this.playerIp + ":" + port + "?cameraId~~" + this.cameraId + "&&id~~" + this.elId + "&&startTime~~" + this.startTime + "&&mode~~" + this.mode + "&&streamtype~~" + this.streamtype + "&&useJmuxer~~" + this.useJmuxer + "&&connectionmode~~" + this.connectionmode + "&&playbackviaapache~~" + this.playbackviaapache + "&&serverIp~~" + this.playerServerIp);
+        this.w = new WebSocket(protocolType + "://" + this.playerIp + ":" + port + "?cameraId~~" + this.cameraId + "&&id~~" + this.elId + "&&startTime~~" + this.startTime + "&&mode~~" + this.mode + "&&streamtype~~" + this.streamtype + "&&useJmuxer~~" + this.useJmuxer + "&&connectionmode~~" + this.connectionmode + "&&playbackviaapache~~" + this.playbackviaapache + "&&serverIp~~" + this.playerServerIp + "&&analyticType~~" + this.analyticType);
         this.w.binaryType = 'arraybuffer';
         this.w.addEventListener('open', function (event) {
             _this.doesStopRequested = false;
@@ -244,6 +249,15 @@ var I2vPlayer = (function () {
                 }, 3000);
             }
         });
+        this.mjpeg_over_httptimeout = setInterval(function () {
+            try {
+                if (_this.mjpeg_overhttpurl != "") {
+                    _this.i.setAttribute('src', _this.mjpeg_overhttpurl);
+                }
+            }
+            catch (ex) {
+            }
+        }, 3000);
         this.w.addEventListener('message', function (e) {
             switch (e.data) {
                 case "Server_ip_not_provided":
@@ -260,6 +274,13 @@ var I2vPlayer = (function () {
                         _this.errorCallback(errMsg);
                     }
                     _this.stop();
+                    return;
+                case "Video_Started":
+                    var errMsg = "Video_Started";
+                    console.log(errMsg);
+                    if (_this.errorCallback) {
+                        _this.errorCallback(errMsg);
+                    }
                     return;
                 case "unable_to_play":
                     var errMsg = "unable_to_play";
@@ -352,6 +373,29 @@ var I2vPlayer = (function () {
                         _this.i.style.display = "inline";
                         _this.isJpeg = true;
                         _this.i.setAttribute('src', "http://" + _this.playerIp + ":4554/" + _this.elId);
+                    }
+                    else if (e.data.indexOf("mjpeg_overhttp") !== -1) {
+                        _this.mjpeg_overhttpurl = e.data.substring(14);
+                        _this.useJmuxer = false;
+                        _this.removeErrorMessage();
+                        _this.i = document.createElement("img");
+                        var div = document.getElementById(_this.elId);
+                        div.style.background = "black";
+                        div.appendChild(_this.i);
+                        _this.i.id = _this.elId + "_img";
+                        _this.i.style.height = "100%";
+                        _this.i.style.width = "100%";
+                        _this.i.style.display = "inline";
+                        _this.isJpeg = true;
+                        _this.i.setAttribute('src', _this.mjpeg_overhttpurl);
+                        _this.doesStopRequested = true;
+                        try {
+                            if (_this.w) {
+                                _this.w.close();
+                            }
+                        }
+                        catch (ex) {
+                        }
                     }
                     _this.isPlayerSet = true;
                     return;

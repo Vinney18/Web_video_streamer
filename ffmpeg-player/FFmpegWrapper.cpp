@@ -81,11 +81,23 @@ void FFmpegWrapper::addConnection(websocketpp::connection_hdl connHdl)
 	}
 	else {
 
-		if (inputCodecID != AV_CODEC_ID_H264) {
-			websocketSCallback(connHdl, "mjpeg");
-			addConnToList(connHdl, mjpeg);
+		if (inputCodecID != AV_CODEC_ID_H264) 
+		{
+			string url = this->url.c_str();
+			if (inputCodecID == AV_CODEC_ID_MJPEG && url.find("http") != string::npos) 
+			{
+				websocketSCallback(connHdl, "mjpeg_overhttp" + url);
+				addConnToList(connHdl, mjpeg);
+			}
+			else 
+			{
+				websocketSCallback(connHdl, "mjpeg");
+				addConnToList(connHdl, mjpeg);
+			}
+
 		}
-		else {
+		else 
+		{
 			websocketSCallback(connHdl, "mp4");
 			addConnToList(connHdl, mp4);
 		}
@@ -455,6 +467,7 @@ void FFmpegWrapper::readInput()
 						{
 							vector<uint8_t> frame(packet.data, packet.data + packet.size);
 							send(frame);
+							SendVideoStartedEvent();
 						}
 						else {
 							avcodec_decode_video2(decoderCodecContext, pFrame, &frameFinished, &packet);
@@ -464,6 +477,7 @@ void FFmpegWrapper::readInput()
 								framecount++;
 								if (framecount == inputFPS)
 								{
+									SendVideoStartedEvent();
 									playbackFileStared = true;
 									if (this->initial_seek_time > 0)
 									{
@@ -509,6 +523,7 @@ void FFmpegWrapper::readInput()
 							framecount++;
 							if (framecount == inputFPS)
 							{
+								SendVideoStartedEvent();
 								playbackFileStared = true;
 								if (this->initial_seek_time > 0) {
 									seek_video(this->initial_seek_time);
@@ -519,13 +534,17 @@ void FFmpegWrapper::readInput()
 						{
 							auto hdlList = connections[mp4];
 							vector<uint8_t> chunk(packet.data, packet.data + packet.buf->size);
-							for (auto hndl : hdlList) {
+							SendVideoStartedEvent();
+							for (auto hndl : hdlList) 
+							{
 								websocketCallback(hndl, chunk);
 							}
 						}
 						else
 						{
 							auto x = av_interleaved_write_frame(mp4OutContext, &packet);
+							SendVideoStartedEvent();
+
 						}
 						canSend = false;
 					}
@@ -556,6 +575,22 @@ void FFmpegWrapper::readInput()
 	}
 }
 
+void FFmpegWrapper::SendVideoStartedEvent()
+{
+	if (isVideoStartedEventsent) {
+		return;
+	}
+	isVideoStartedEventsent = true;
+	auto hdlList = connections[mp4];
+	auto hdlList1 = connections[mjpeg];
+
+	for (auto hndl : hdlList) {
+		websocketSCallback(hndl, "Video_Started");
+	}
+	for (auto hndl1 : hdlList1) {
+		websocketSCallback(hndl1, "Video_Started");
+	}
+}
 void FFmpegWrapper::Pause_video() 
 {
 	try

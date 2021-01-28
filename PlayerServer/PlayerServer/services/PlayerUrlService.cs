@@ -27,9 +27,9 @@ namespace PlayerServer.services
             }
         }
 
-        public async Task<string> GetLiveUrlAsync(int cameraId, int streamType)
+        public async Task<string> GetLiveUrlAsync(int cameraId, int streamType, string analyticType)
         {
-            var httpResponse = await httpClient.GetAsync("/RestService/server/LiveUrl?cameraId=" + cameraId + "&streamType=" + streamType);
+            var httpResponse = await httpClient.GetAsync("/RestService/server/LiveUrl?cameraId=" + cameraId + "&streamType=" + streamType + "&analyticType=" + analyticType);
             if (httpResponse.StatusCode == System.Net.HttpStatusCode.OK)
             {
                 var responseString = await httpResponse.Content.ReadAsStringAsync();
