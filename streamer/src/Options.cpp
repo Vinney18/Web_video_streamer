@@ -10,48 +10,48 @@ extern char** environ;
 
 const Options gNullOptions;
 
-unsigned int Options::load(const std::string& prefix, bool replace)
-{
-    char** envPtr = environ;
-    int numOptions = 0;
-    while (*envPtr)
-    {
-        std::string env(*envPtr);
-        std::string::size_type pos = env.find_first_of("=", 1);
-        if (pos != std::string::npos)
-        {
-            if (env.substr(0, prefix.length()) == prefix)
-            {
-                std::string name = env.substr(prefix.length(), pos - prefix.length());
-                if (replace)
-                    mOptionMap.erase(name);
-                std::string value = env.substr(pos + 1);
-                if (value == "true" || value == "false")
-                {
-                    add(name, value == "true");
-                }
-                else if (value.find_first_not_of("0123456789.") == std::string::npos)
-                {
-                    if (value.find_first_of(".") == std::string::npos)
-                    {
-                        add(name, stoi(value));
-                    }
-                    else
-                    {
-                        add(name, stod(value));
-                    }
-                }
-                else
-                {
-                    add(name, value);
-                }
-                numOptions++;
-            }
-        }
-        envPtr++;
-    }
-    return(numOptions);
-}
+//unsigned int Options::load(const std::string& prefix, bool replace)
+//{
+//    char** envPtr = environ;
+//    int numOptions = 0;
+//    while (*envPtr)
+//    {
+//        std::string env(*envPtr);
+//        std::string::size_type pos = env.find_first_of("=", 1);
+//        if (pos != std::string::npos)
+//        {
+//            if (env.substr(0, prefix.length()) == prefix)
+//            {
+//                std::string name = env.substr(prefix.length(), pos - prefix.length());
+//                if (replace)
+//                    mOptionMap.erase(name);
+//                std::string value = env.substr(pos + 1);
+//                if (value == "true" || value == "false")
+//                {
+//                    add(name, value == "true");
+//                }
+//                else if (value.find_first_not_of("0123456789.") == std::string::npos)
+//                {
+//                    if (value.find_first_of(".") == std::string::npos)
+//                    {
+//                        add(name, stoi(value));
+//                    }
+//                    else
+//                    {
+//                        add(name, stod(value));
+//                    }
+//                }
+//                else
+//                {
+//                    add(name, value);
+//                }
+//                numOptions++;
+//            }
+//        }
+//        envPtr++;
+//    }
+//    return(numOptions);
+//}
 
 //void Options::dump( unsigned int level ) const
 //{

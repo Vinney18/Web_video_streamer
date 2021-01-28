@@ -1,6 +1,7 @@
 
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 
 #pragma once
 class Thread {

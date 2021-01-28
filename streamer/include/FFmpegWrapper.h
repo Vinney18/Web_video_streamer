@@ -30,7 +30,8 @@ extern "C"
 #include "libavutil/mem.h"
 }
 
-using namespace std;
+#ifndef FFMPEGWRAPPER_H
+#define FFMPEGWRAPPER_H
 #pragma once
 
 typedef std::set<websocketpp::connection_hdl, std::owner_less<websocketpp::connection_hdl>> con_list;
@@ -116,7 +117,17 @@ public:
 
 	~FFmpegWrapper();
 
-	static int interrupt_cb(void *ctx)
+#if __linux__
+    static double GetTickCount(void)
+    {
+        struct timespec now;
+        if (clock_gettime(CLOCK_MONOTONIC, &now))
+            return 0;
+        return now.tv_sec * 1000.0 + now.tv_nsec / 1000000.0;
+    }
+#endif
+
+    static int interrupt_cb(void *ctx)
 	{
 		FFmpegWrapper* thisObj = reinterpret_cast<FFmpegWrapper*>(ctx);
 		/*if (params->fmtCtx->start_time < 0) {
@@ -368,3 +379,4 @@ private:
 	
 };
 
+#endif

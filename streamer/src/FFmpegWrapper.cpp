@@ -427,7 +427,8 @@ void FFmpegWrapper::readInput()
 		sleepTime = 1000 / inputFPS;
 	}
 	std::mutex mut;
-	std::atomic<bool> canSend = true;
+	std::atomic<bool> canSend;
+	canSend = true;
 	std::condition_variable condition_v;
 	std::thread thread1;
 

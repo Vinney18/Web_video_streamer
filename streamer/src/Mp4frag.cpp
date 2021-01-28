@@ -339,7 +339,7 @@ void Mp4frag::_setSegment(vector<uint8_t> chunk)
 {
 	segment = chunk;
 	auto currentTime = time(0);
-	duration = max((currentTime - timestamp) / 1000, (long long)1);
+	duration = std::max((long long)((currentTime - timestamp) / 1000), (long long)1);
 	timestamp = currentTime;
 
 	if (!bufferList.empty())
