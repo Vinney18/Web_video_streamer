@@ -8,7 +8,7 @@ var I2vSdk = (function () {
             this.useSecureConnection = useSecureConnection;
         }
     }
-    I2vSdk.prototype.GetLivePlayer = function (elId, cameraId, streamtype, analyticType, advanceDecoding, connectionmode) {
+    I2vSdk.prototype.GetLivePlayer = function (elId, cameraId, streamtype, advanceDecoding, analyticType, connectionmode) {
         this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, this.useSecureConnection, advanceDecoding, connectionmode, "1", analyticType);
         this.player.playerIp = this.playerIp;
         this.player.playerServerIp = this.playerServerIp;
@@ -69,6 +69,9 @@ var I2vPlayer = (function () {
         this.connectionmode = _connectionmode;
         this.playbackviaapache = _playbackviaapache;
         this.analyticType = _analyticType;
+        if (!this.analyticType) {
+            this.analyticType = "";
+        }
         if (!this.connectionmode) {
             this.connectionmode = "";
         }

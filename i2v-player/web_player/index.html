@@ -57,7 +57,7 @@
             latestDivId = providedDiv.id;
 
             //create new player object, video will start automatically
-            playerObj = sdk.GetLivePlayer(latestDivId, cameraId, streamType, analyticType, advanceDecoding);
+            playerObj = sdk.GetLivePlayer(latestDivId, cameraId, streamType, advanceDecoding, analyticType);
 
             //set Error callback for play method
             playerObj.setErrorCallback(function (err) {

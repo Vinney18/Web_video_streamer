@@ -15,7 +15,7 @@ class I2vSdk {
     }
 
 
-    GetLivePlayer(elId, cameraId, streamtype,analyticType, advanceDecoding, connectionmode) {
+    GetLivePlayer(elId, cameraId, streamtype, advanceDecoding, analyticType, connectionmode) {
         this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, this.useSecureConnection, advanceDecoding, connectionmode, "1", analyticType);
         this.player.playerIp = this.playerIp;
         this.player.playerServerIp = this.playerServerIp;
@@ -92,6 +92,11 @@ class I2vPlayer {
         this.playbackviaapache = _playbackviaapache;
         this.analyticType = _analyticType;
         //TODO Check playback also working or not
+
+        if (!this.analyticType) {
+            this.analyticType = "";
+        }
+
         if (!this.connectionmode)
         {
             this.connectionmode = "";
