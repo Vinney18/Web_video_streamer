@@ -8,16 +8,6 @@
 #include <websocketpp/server.hpp>
 #include <websocketpp/endpoint.hpp>
 #include "FFmpegWrapper.h"
-#include "base64.h"
-#include "json.hpp"
-#include <cryptopp/aes.h>
-#include <cryptopp/secblock.h>
-#include <cryptopp/osrng.h>
-#include <cryptopp/modes.h>
-#include <cryptopp/rsa.h>
-#include <cryptopp/sha.h>
-#include <cryptopp/hex.h>
-#include <cryptopp/filters.h>
 #include <cpr/cpr.h>
 #include <json/value.h>
 #include <fstream>
@@ -27,221 +17,126 @@
 #include "Options.h"
 #include <ctime>
 #include "json/json.h"
+#include "CLI11.hpp"
+#include <spdlog/spdlog.h>
+#include <spdlog/async.h>
+#include "Util.h"
 
 using namespace std;
 using websocketpp::connection_hdl;
 using websocketpp::lib::bind;
+
 #pragma once
 
 // pull out the type of messages sent by our config
-typedef websocketpp::server<websocketpp::config::asio> server;
-typedef server::message_ptr message_ptr;
+typedef websocketpp::server<websocketpp::config::asio>::message_ptr message_ptr;
 unique_ptr<i2v::MjpegServer> mjpegServer;
 map<boost::asio::detail::socket_ops::shared_cancel_token_type, string> m_connectionsIdMap;
 map<string, shared_ptr<FFmpegWrapper>> ffmpegList;
-server echo_server;
-struct TIME
-{
-	int seconds;
-	int minutes;
-	int hours;
-};
+websocketpp::server<websocketpp::config::asio> websocket_server;
+
+void loadMainConfig();
+void setDefaultValues(Options& opt);
+void updateconfigFile(connection_hdl hdl , string previousServerIp, string currentServerIp);
 
 void on_open(connection_hdl hdl);
 void on_close(connection_hdl hdl);
-string executablePath();
-string getConfigFolderPath();
-void loadMainConfig();
-void updateconfigFile(connection_hdl hdl , string previousServerIp, string currentServerIp);
 string Get_LiveUrl(connection_hdl hdl, int cameraId, int streamtype, string analyticType);
 string Get_PlayBackUrl(connection_hdl hdl, int cameraId, int start_time_ofplaybackfile, int* seekTime_ofFile, int* sessionid, bool playbackviaapache);
 
-void on_message(server* s, connection_hdl hdl, message_ptr msg);
+void on_message(websocketpp::server<websocketpp::config::asio>* s, connection_hdl hdl, message_ptr msg);
 void SendData(websocketpp::connection_hdl& con_hndl, vector<uint8_t>& data);
 void SendStringData(websocketpp::connection_hdl& con_hndl, string sdata);
-string mainConfigFile;
-static const std::string CONFIG_FOLDER_NAME = "config";
-string serverIp = "";
-int port = 8890;
 
-const char* k = "30820222300D06092A864886F70D01010105000382020F003082020A0282020100CA6F4348BDD0963790AB94843252A34B66A6F2A8BCEE76429AD6C5F134F6779891607C2A4391BAC5E7A55B0C54D1B39D757BC7FB0C42278967A57B978F64A9748C01827B59B604D872CD0D39066AF5EFEFE8111482742AA8029E5B76449D90CA017E9542C35488CA32FFBAD8E6444DAD97E1C787ADE386FE78915D90B2D4199EAB7BDC7186F345DCC8E7929D5287D4EA536B31C8B0B326BC4330B44FDC0CF41BFA368BF4D8480A4C66E8474D0B2EFEE024B7E96332B3470EF784B37D052600A1C28237E7AE1FFA69E94EE037F282896E919F32171927BE07E83DC0A5D745997D2E698F2873BD615FA0722EE33EECE9E69187FC15956C176F6C35C541BF8FDFCB8405A5EB2549F3BBF63B547FD916219F0476A62745A192506C9AE810F0D1BD14675D08206BE4B22920F1BA1677F7E6626F1251A1486E437B2CEC82DE8992C6968574F2FC825D4609D8982D78B0D36E60E5E672C7C0A26F424ED882C1BB23DFA3CDDEF182D9BF7D3C0C850658C48D9E53447472322F6B98FAF4DEF396EDB83CCFD0A8E105F7D8ACEC69F9F02D8B75AB942E89EC58D5B9A187A9227E47B0D6C33C03E3A66779D7E090B2EE2B688964971A11C6CC5717FE2AEE60F8614C5F984F2CCBDE63B4490EB064AE6713078D7FD0D5F47427D7683F71549E95899128CAE16FB69823E5B3CFA044F3FCBB2B17553F38F79C5B2B470D69C6FEF17C55CEACD9650203010001";
-bool isVerifiedUser = false;
+std::string mainConfigFile;
+std::string playerServerIp = "";
+int playerServerPort, mjpeg_server_port, websocket_server_port;
+spdlog::level::level_enum log_level;
 
-const int MAX = 26;
+std::shared_ptr<spdlog::logger> mainLogger;
 
-// Returns a string of random alphabets of
-// length n.
-string printRandomString(int n)
+
+int main(int argc, char* argv[])
 {
-	char alphabet[MAX] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g',
-		'h', 'i', 'j', 'k', 'l', 'm', 'n',
-		'o', 'p', 'q', 'r', 's', 't', 'u',
-		'v', 'w', 'x', 'y', 'z' };
 
-	string res = "";
-	for (int i = 0; i < n; i++)
-		res = res + alphabet[rand() % MAX];
+    CLI::App app{ "i2V streamer" };
 
-	return res;
-}
-
-const std::string HexDecodeString(const std::string &string_to_decode) {
-
-	std::string hex_decoded_string;
-	CryptoPP::StringSource ss3(string_to_decode, true, new CryptoPP::HexDecoder(new CryptoPP::StringSink(hex_decoded_string)));
-
-	return hex_decoded_string;
-}
-
-bool VerifySignature(const std::string &data, const std::string &message) {
-
-	try {
-		std::string hex_decoded_data = HexDecodeString(data);
-
-		nlohmann::json  json_data = nlohmann::json::parse(hex_decoded_data);
-
-#if _LICENSING_DEBUG
-		std::cout << json_data.dump(4) << std::endl;
-#endif
-		auto license_data = json_data.at("Data").get<std::string>();
-		if (license_data != message) {
-			return false;
-		}
-		auto signature_base64 = json_data.at("Signature").get<std::string>();
-
-		std::string signature = base64_decode(signature_base64);
-
-		// load public key
-		CryptoPP::RSA::PublicKey publicKey;
-		publicKey.Load(CryptoPP::StringSource(k, true, new CryptoPP::HexDecoder()).Ref());
-
-		// validate key
-		CryptoPP::AutoSeededRandomPool rnd;
-		if (!publicKey.Validate(rnd, 3)) {
-			//std::cout << "Key validation failed" << std::endl;
-			/*result.Error = LicenseErrorType::PublicKeyLoadError;
-			result.Message = "Unable to load validate key";*/
-			return false;
-		}
-
-		// verify signature
-		//CryptoPP::RSASS<CryptoPP::PKCS1v15, CryptoPP::SHA1>::Verifier verifier(publicKey);
-		CryptoPP::RSASSA_PKCS1v15_SHA_Verifier verifier(publicKey);
-
-		bool signature_matched = verifier.VerifyMessage(reinterpret_cast<const CryptoPP::byte*>(license_data.c_str()), license_data.length(),
-			reinterpret_cast<const CryptoPP::byte*>(signature.c_str()), signature.length());
-
-		if (!signature_matched) {
-			/*result.Error = LicenseErrorType::LicenseSignatureMismatch;
-			result.Message = "Signature does not match";*/
-		}
-
-		return signature_matched;
-	}
-	catch (const std::exception & ex) {
-		/*result.Error = LicenseErrorType::Exception;
-		result.Message = ex.what();*/
-		cout << ex.what();
-	}
-	return false;
-}
-
-int main()
-{
     av_register_all();
 
-	//auto isVerified = VerifySignature("7B0D0A20202244617461223A20226D797465737464617461222C0D0A2020225369676E6174757265223A2022415678643857772B6570572F4F735255663252497156686A71346C4E5839626B2F5663464A6F2B75387358776F64596667306B4656766E483253646F614238724D5670304630494865685453643776425766676B626341364F31394A54666977694C4C4B57714F442F36654671595A33325572724D376C4E77735A614B34466A55534E4F314C636A3573573658787556577972317634453157355969524A4E385366786959657367632F593D220D0A7D");
-	mjpegServer = make_unique<i2v::MjpegServer>(4554);
+    bool show_logs_on_console = false;
+    app.add_option("-s,--show_log", show_logs_on_console, "Show logs on console");
+
+    CLI11_PARSE(app, argc, argv)
+
+    spdlog::init_thread_pool(8192, 4);
+
+    string config_dir_path = i2v::Util::getConfigFolderPath();
+    i2v::Util::createDirectories(config_dir_path); // log directory
+
+    mainConfigFile = config_dir_path + "/mainConf.json";
+    loadMainConfig();
+
+    std::string mainLogFolder = i2v::Util::getLogsFolderPath();
+    i2v::Util::createDirectories(mainLogFolder); // log directory
+    // create logger
+    std::string logFilePrefix = "log_";
+    mainLogger = i2v::Util::createAsyncLoggerAndRegister(i2v::MAIN_LOGGER_NAME, mainLogFolder, logFilePrefix, show_logs_on_console, log_level);
+
+    if (not mainLogger) { std::cout << "Unable to create logger !!!" << std::endl; }
+    else { mainLogger->info("Logger created Successfully"); }
+
+    //auto isVerified = VerifySignature("7B0D0A20202244617461223A20226D797465737464617461222C0D0A2020225369676E6174757265223A2022415678643857772B6570572F4F735255663252497156686A71346C4E5839626B2F5663464A6F2B75387358776F64596667306B4656766E483253646F614238724D5670304630494865685453643776425766676B626341364F31394A54666977694C4C4B57714F442F36654671595A33325572724D376C4E77735A614B34466A55534E4F314C636A3573573658787556577972317634453157355969524A4E385366786959657367632F593D220D0A7D");
+	mjpegServer = make_unique<i2v::MjpegServer>(mjpeg_server_port);
 	mjpegServer->start();
-	string dir_path = getConfigFolderPath();
+    if (mainLogger) { mainLogger->info("Started mjpeg server on port: {}", mjpeg_server_port); }
 
-	boost::filesystem::path dir(dir_path);
-	if (boost::filesystem::create_directory(dir)) {
-		std::cout << "Success" << "\n";
-	}
-
-	mainConfigFile = getConfigFolderPath() + "/mainConf.json";
-	loadMainConfig();
 	// Create a server endpoint
 	try {
 
+        if (mainLogger) { mainLogger->info("Starting websocket server on port: {}", websocket_server_port); }
+        if (mainLogger) { mainLogger->info("Player server IP is: {0} and port is: {1}", playerServerIp, playerServerPort); }
+
 		// Set logging settings
-		echo_server.set_access_channels(websocketpp::log::alevel::all);
-		echo_server.clear_access_channels(websocketpp::log::alevel::frame_payload);
+        websocket_server.clear_access_channels(websocketpp::log::alevel::all); // disable all logs
+        //websocket_server.set_access_channels(websocketpp::log::alevel::connect); // enable logging of new connections
 
 		// Initialize Asio
-		echo_server.init_asio();
+		websocket_server.init_asio();
 
 		// Register our message handler
-		echo_server.set_message_handler(bind(&on_message, &echo_server, websocketpp::lib::placeholders::_1, websocketpp::lib::placeholders::_2));
-		echo_server.set_open_handler(&on_open);
-		echo_server.set_close_handler(&on_close);
+		websocket_server.set_message_handler(bind(&on_message, &websocket_server, websocketpp::lib::placeholders::_1, websocketpp::lib::placeholders::_2));
+		websocket_server.set_open_handler(&on_open);
+		websocket_server.set_close_handler(&on_close);
 
 		// Listen on port 8181
-		echo_server.listen(8181);
+		websocket_server.listen(websocket_server_port);
 
 		// Start the server accept loop
-		echo_server.start_accept();
+		websocket_server.start_accept();
 
 		// Start the ASIO io_service run loop
-		echo_server.run();
+		websocket_server.run();
 	}
-	catch (websocketpp::exception const & e) {
-		std::cout << e.what() << std::endl;
+	catch (const websocketpp::exception& e) {
+        if (mainLogger) { mainLogger->error("main Error in websocket server: {}", e.what()); }
+        else { std::cout << e.what() << std::endl; }
 	}
-	catch (exception ex) {
-		std::cout << ex.what() << std::endl;
+	catch (const std::exception& ex) {
+        if (mainLogger) { mainLogger->error("main Error in websocket server: {}", ex.what()); }
+        else { std::cout << ex.what() << std::endl; }
 	}
 	mjpegServer->stop();
 
-}
-
-void loadMainConfig()
-{
-	Options opt;
-	if (boost::filesystem::exists(mainConfigFile))
-	{
-		opt.readFile(mainConfigFile);
-		serverIp = opt.get<string>("serverIp", "");
-		port = opt.get<int>("port", 8890);
-	}
-	else
-	{
-		opt.add("serverIp", "");
-		opt.add("port", 8890);
-		opt.writeFile(mainConfigFile, true);
-	}
-}
-
-std::string getConfigFolderPath()
-{
-	static const std::string mainConfigFolder = fmt::format("{0}/{1}", executablePath(), CONFIG_FOLDER_NAME);
-	return mainConfigFolder;
-}
-
-std::string executablePath()
-{
-#ifdef WIN32
-	wchar_t path[MAX_PATH];
-	GetModuleFileNameW(NULL, path, MAX_PATH);
-	std::wstring ws(path);
-	std::string str(ws.begin(), ws.end());
-	std::size_t found = str.find_last_of("/\\");;
-	str = str.substr(0, found);
-
-	return str;
-#else
-	return boost::filesystem::current_path().string();
-#endif
+    if (mainLogger) { mainLogger->info("Stopped mjpeg server"); }
 
 }
-
 
 void on_open(connection_hdl hdl) {
 	try
 	{
 		//websocketp get_con_from_hdl();
-		cout << "socket open" << endl;
+        if (mainLogger) { mainLogger->debug("new websocket connection"); }
+
 		string id;
 		string url;
 		int start_time_ofplaybackfile = 0;
@@ -254,7 +149,7 @@ void on_open(connection_hdl hdl) {
 		int cameraId;
 		int streamtype = 0;
 		string mode = "Live";
-		websocketpp::server<websocketpp::config::asio>::connection_ptr con = echo_server.get_con_from_hdl(hdl);
+		websocketpp::server<websocketpp::config::asio>::connection_ptr con = websocket_server.get_con_from_hdl(hdl);
 		websocketpp::uri_ptr uri = con->get_uri();
 		string query = uri->get_query();
 		if (!query.empty()) {
@@ -281,7 +176,7 @@ void on_open(connection_hdl hdl) {
 					streamtype = stoi(value);
 				}
 				else if (key == "serverIp") {
-					updateconfigFile(hdl, serverIp, value);
+					updateconfigFile(hdl, playerServerIp, value);
 				}
 				else if (key == "startTime") {
 					int myint1 = stoi(value);
@@ -310,8 +205,6 @@ void on_open(connection_hdl hdl) {
 				{
 					analyticType = value;
 				}
-
-
 			}
 		}
 
@@ -321,11 +214,12 @@ void on_open(connection_hdl hdl) {
 			else {
 				url = Get_PlayBackUrl(hdl, cameraId, start_time_ofplaybackfile, &seekTime_ofFile, &sessionid,  playbackviaapache);
 			}
-			cout << url;
+
+            if (mainLogger) { mainLogger->debug("on_open url returned is: {}", url); }
 
 			if (id.empty() || url.empty()) {
-				echo_server.send(hdl, "EmptyUrl", 8, websocketpp::frame::opcode::TEXT);
-				echo_server.close(hdl, 0, "EmptyUrl");
+				websocket_server.send(hdl, "EmptyUrl", 8, websocketpp::frame::opcode::TEXT);
+				websocket_server.close(hdl, 0, "EmptyUrl");
 				return;
 			}
 
@@ -344,13 +238,14 @@ void on_open(connection_hdl hdl) {
 
 			if (ffmpegList.count(id) > 0)
 			{
-				/*echo_server.send(hdl, "mp4", 3, websocketpp::frame::opcode::TEXT);
-				echo_server.send(hdl, mp4Parsers[id]->initialization.data(), mp4Parsers[id]->initialization.size(), websocketpp::frame::opcode::BINARY);*/
+				/*websocket_server.send(hdl, "mp4", 3, websocketpp::frame::opcode::TEXT);
+				websocket_server.send(hdl, mp4Parsers[id]->initialization.data(), mp4Parsers[id]->initialization.size(), websocketpp::frame::opcode::BINARY);*/
 				//return;
 			}
 			else
 			{
-				auto ffmpeg = make_shared<FFmpegWrapper>(cameraId , url, id, seekTime_ofFile, &SendData, &SendStringData, usejmuxer, connectionmode, playbackviaapache, mode, start_time_ofplaybackfile, serverIp , port, sessionid);
+				auto ffmpeg = make_shared<FFmpegWrapper>(cameraId , url, id, seekTime_ofFile, &SendData, &SendStringData,
+				        usejmuxer, connectionmode, playbackviaapache, mode, start_time_ofplaybackfile, playerServerIp , playerServerPort, sessionid, mainLogger);
                 ffmpegList.insert(std::make_pair(id, ffmpeg));
                 mjpegServer->addRoute(ffmpeg);
 				ffmpeg->startThread();
@@ -358,45 +253,16 @@ void on_open(connection_hdl hdl) {
 
 			ffmpegList[id]->addConnection(hdl);
 	}
-	catch (const std::exception & e)
+	catch (const std::exception & ex)
 	{
-		cout << e.what() << std::endl;
-	}
-}
-
-
-void updateconfigFile(connection_hdl hdl , string previousServerIp, string currentServerIp)
-{
-	if (currentServerIp == "")
-	{
-		echo_server.send(hdl, "Server_ip_not_provided", 22, websocketpp::frame::opcode::TEXT);
-	}
-	transform(currentServerIp.begin(), currentServerIp.end(), currentServerIp.begin(), ::tolower);
-	if (currentServerIp == "localhost")
-	{
-		currentServerIp = "127.0.0.1";
-	}
-	else if (previousServerIp != currentServerIp) {
-		Options opt;
-		serverIp = currentServerIp;
-		if (boost::filesystem::exists(mainConfigFile))
-		{
-			opt.readFile(mainConfigFile);
-			opt.set<string>("serverIp", serverIp);
-			opt.set<int>("port", port);
-			opt.writeFile(mainConfigFile, true);
-		}
-		else {
-			opt.add("serverIp", "");
-			opt.add("port", 8890);
-			opt.writeFile(mainConfigFile, true);
-		}
+        if (mainLogger) { mainLogger->error("Error in on_open: {}", ex.what()); }
+        else { std::cout << ex.what() << std::endl; }
 	}
 }
 
 void on_close(connection_hdl hdl) {
 	//hdl.lock();
-	cout << "socket Closed" << endl;
+    if (mainLogger) { mainLogger->debug("on_close websocket connection closed"); }
 	auto id = m_connectionsIdMap[hdl.lock()];
 	if (id != "")
 	{
@@ -412,7 +278,7 @@ void on_close(connection_hdl hdl) {
 	}
 }
 
-void on_message(server* s, connection_hdl hdl, message_ptr msg)
+void on_message(websocketpp::server<websocketpp::config::asio>* s, connection_hdl hdl, message_ptr msg)
 {
 	string messagestring = msg->get_payload();
 	if (boost::starts_with(messagestring, "seek_Time"))
@@ -471,11 +337,12 @@ void SendData(websocketpp::connection_hdl& con_hndl, vector<uint8_t>& data) {
 	{
 		auto dataPtr = data.data();
 		auto size = data.size();
-		echo_server.send(con_hndl, dataPtr, size, websocketpp::frame::opcode::BINARY);
+		websocket_server.send(con_hndl, dataPtr, size, websocketpp::frame::opcode::BINARY);
 	}
-	catch (const std::exception & e)
+	catch (const std::exception & ex)
 	{
-		cout << e.what();
+        if (mainLogger) { mainLogger->error("Error in SendData: {}", ex.what()); }
+        else { std::cout << ex.what() << std::endl; }
 	}
 }
 
@@ -484,12 +351,13 @@ void SendStringData(websocketpp::connection_hdl& con_hndl, string sdata) {
 	{
 		auto  str = sdata.c_str();
 		auto  size = sdata.size();
-		//echo_server.send(con_hndl, "mp4", 3, websocketpp::frame::opcode::TEXT);
-		echo_server.send(con_hndl, str, size, websocketpp::frame::opcode::TEXT);
+		//websocket_server.send(con_hndl, "mp4", 3, websocketpp::frame::opcode::TEXT);
+		websocket_server.send(con_hndl, str, size, websocketpp::frame::opcode::TEXT);
 	}
 	catch (const std::exception & ex)
 	{
-		std::cout << ex.what();
+        if (mainLogger) { mainLogger->error("Error in SendStringData: {}", ex.what()); }
+        else { std::cout << ex.what() << std::endl; }
 	}
 }
 
@@ -531,7 +399,7 @@ string GetDateStringFormat_ByUnix(int start_time_ofplaybackfile) {
 }
 
 string Get_PlayBackUrl(connection_hdl hdl, int cameraId, int start_time_ofplaybackfile, int* seekTime_ofFile, int*sessionid, bool streamviaapache) {
-	string response = "";
+	string response;
 	string cameraId_instring = to_string(cameraId);
 	string seekVideo = "";
 	string playviaapache = "false";
@@ -540,12 +408,11 @@ string Get_PlayBackUrl(connection_hdl hdl, int cameraId, int start_time_ofplayba
 		}
 	std::string endpoint = "/url/GetPlaybackUrl?cameraId=" + cameraId_instring + "&time=" + to_string(start_time_ofplaybackfile)+"&streamviaapache=" + playviaapache;
 	if (cameraId == -1) {
-		response = "";
 		return response;
 	}
 	try
 	{
-		std::string url = "http://" + serverIp + ":" + to_string(port) + endpoint;
+		std::string url = "http://" + playerServerIp + ":" + to_string(playerServerPort) + endpoint;
 		auto res = cpr::Get(cpr::Url{ url });
 
 		if (res.status_code == 200) {
@@ -576,41 +443,44 @@ string Get_PlayBackUrl(connection_hdl hdl, int cameraId, int start_time_ofplayba
 				response.erase(std::remove(response.begin(), response.end(), '\\'), response.end());
 			}
 			else if (res.status_code == 403) {
-				cout << "Server License Expired \n";
-				echo_server.send(hdl, "License Expired", 15, websocketpp::frame::opcode::TEXT);
+                if (mainLogger) { mainLogger->error("Get_PlayBackUrl Server License Expired"); }
+				else { cout << "Get_PlayBackUrl Server License Expired \n"; }
+
+				websocket_server.send(hdl, "License Expired", 15, websocketpp::frame::opcode::TEXT);
 			}
 			else if (res.status_code == 400) {
-				cout << "Some problem occured \n";
-				echo_server.send(hdl, "Some problem occured", 20, websocketpp::frame::opcode::TEXT);
+                if (mainLogger) { mainLogger->error("Get_PlayBackUrl Some Error occured status code: {}", res.status_code); }
+                else { cout << "Get_PlayBackUrl Some Error occured status code: " << res.status_code <<std::endl; }
+
+                websocket_server.send(hdl, "Some problem occured", 20, websocketpp::frame::opcode::TEXT);
 			}
 			else {
 				response = "";
 			}
 		}
-		else {
-			response = "";
-		}
 	}
-	catch (const std::exception & e)
+	catch (const std::exception & ex)
 	{
 		response = "";
+
+        if (mainLogger) { mainLogger->error("Error in Get_PlayBackUrl: {}", ex.what()); }
+        else { std::cout << ex.what() << std::endl; }
 	}
 	return response;
 }
 
 string Get_LiveUrl(connection_hdl hdl, int cameraId, int streamtype, string analyticType) {
 
-	string response = "";
+	string response;
 	string cameraId_instring = to_string(cameraId);
 
 	std::string endpoint = "/url/GetLiveUrl?cameraId=" + cameraId_instring + "&streamType=" + to_string(streamtype) + "&analyticType=" + analyticType;
 	if (cameraId == -1) {
-		response = "";
 		return response;
 	}
 	try
 	{
-		std::string url = "http://" + serverIp + ":" + to_string(port) + endpoint;
+		std::string url = "http://" + playerServerIp + ":" + to_string(playerServerPort) + endpoint;
 		auto res = cpr::Get(cpr::Url{ url });
 
 		if (res.status_code == 200) {
@@ -622,20 +492,95 @@ string Get_LiveUrl(connection_hdl hdl, int cameraId, int streamtype, string anal
 			response = command;
 		}
 		else if (res.status_code == 403) {
-			cout << "Server License Expired \n";
-			echo_server.send(hdl, "License Expired", 15, websocketpp::frame::opcode::TEXT);
+            if (mainLogger) { mainLogger->error("Get_LiveUrl Server License Expired"); }
+            else { cout << "Get_LiveUrl Server License Expired \n"; }
+
+			websocket_server.send(hdl, "License Expired", 15, websocketpp::frame::opcode::TEXT);
 		}
 		else if (res.status_code == 400) {
-			cout << "Some problem occured \n";
-			echo_server.send(hdl, "Some problem occured", 20, websocketpp::frame::opcode::TEXT);
-		}
-		else {
-			response = "";
+            if (mainLogger) { mainLogger->error("Get_LiveUrl Some Error occured status code: {}", res.status_code); }
+            else { cout << "Get_LiveUrl Some Error occured status code: " << res.status_code <<std::endl; }
+
+			websocket_server.send(hdl, "Some problem occured", 20, websocketpp::frame::opcode::TEXT);
 		}
 	}
-	catch (const std::exception & e)
+	catch (const std::exception & ex)
 	{
-		response = "";
+        if (mainLogger) { mainLogger->error("Error in Get_LiveUrl: {}", ex.what()); }
+        else { std::cout << ex.what() << std::endl; }
 	}
 	return response;
+}
+
+
+/// config related
+
+void loadMainConfig()
+{
+    Options configoptions;
+    if (boost::filesystem::exists(mainConfigFile)) {
+
+        configoptions.readFile(mainConfigFile);
+
+        mjpeg_server_port = configoptions.get<int>("mjpeg_server_port", i2v::MJPEG_SERVER_PORT);
+        websocket_server_port = configoptions.get<int>("websocket_server_port", i2v::WEBSOCKET_SERVER_PORT);
+        playerServerIp = configoptions.get<std::string>("playerServerIp", i2v::PLAYER_SERVER_IP);
+        playerServerPort = configoptions.get<int>("playerServerPort", i2v::PLAYER_SERVER_PORT);
+
+        // log level
+        int level = configoptions.get<int>("logLevel", -1);
+        if (level < 0 or level > 6) {
+            level = static_cast<int>(spdlog::level::level_enum::info);
+        }
+        log_level = static_cast<spdlog::level::level_enum>(level);
+    }
+    else
+    {
+        setDefaultValues(configoptions);
+        configoptions.writeFile(mainConfigFile, true);
+    }
+}
+
+void setDefaultValues(Options& opt)
+{
+    mjpeg_server_port = i2v::MJPEG_SERVER_PORT;
+    websocket_server_port = i2v::WEBSOCKET_SERVER_PORT;
+    playerServerIp = i2v::PLAYER_SERVER_IP;
+    playerServerPort = i2v::PLAYER_SERVER_PORT;
+    log_level = spdlog::level::level_enum::info;
+
+    opt.add("mjpeg_server_port", mjpeg_server_port);
+    opt.add("websocket_server_port", websocket_server_port);
+    opt.add("playerServerIp", playerServerIp);
+    opt.add("playerServerPort", playerServerPort);
+    opt.add("logLevel", static_cast<int>(log_level));
+}
+
+void updateconfigFile(connection_hdl hdl , string previousServerIp, string currentServerIp)
+{
+    if (currentServerIp == "")
+    {
+        websocket_server.send(hdl, "Server_ip_not_provided", 22, websocketpp::frame::opcode::TEXT);
+    }
+    transform(currentServerIp.begin(), currentServerIp.end(), currentServerIp.begin(), ::tolower);
+    if (currentServerIp == "localhost")
+    {
+        currentServerIp = "127.0.0.1";
+    }
+    else if (previousServerIp != currentServerIp) {
+        Options opt;
+        playerServerIp = currentServerIp;
+        if (boost::filesystem::exists(mainConfigFile))
+        {
+            opt.readFile(mainConfigFile);
+            opt.set<string>("playerServerIp", playerServerIp);
+            opt.set<int>("playerServerPort", playerServerPort);
+            opt.writeFile(mainConfigFile, true);
+        }
+        else {
+            opt.add("playerServerIp", i2v::PLAYER_SERVER_IP);
+            opt.add("playerServerPort", i2v::PLAYER_SERVER_PORT);
+            opt.writeFile(mainConfigFile, true);
+        }
+    }
 }

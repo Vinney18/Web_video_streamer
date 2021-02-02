@@ -14,6 +14,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/lexical_cast.hpp>
 #include <cpr/cpr.h>
+#include <spdlog/spdlog.h>
 
 extern "C"
 {
@@ -90,6 +91,7 @@ private:
 	AVCodecContext *jpegContext;
     InterruptParams params;
 
+    std::shared_ptr<spdlog::logger> logger;
 	/*AVCodecContext *decoder_ctx = NULL;
 	const AVCodec *decoder;
 	AVPacket pkt = { 0 };
@@ -97,7 +99,10 @@ private:
 	DecodeContext decode = { NULL };*/
 public:
 
-	FFmpegWrapper(int _cameraId , string _url, string _id, int start_seek_time, WebsocketDataCallback _websocketCallback, WebsocketSDataCallback _websocketSCallback, bool _usejmuxer, string _connectionmode, bool _playbackviaapache, string _playmode, int _start_time_ofplaybackfile, string _serverIp, int _port, int _sessionid) : Thread(), i2v::MjpegRoute(_id) {
+	FFmpegWrapper(int _cameraId , string _url, string _id, int start_seek_time, WebsocketDataCallback _websocketCallback,
+	        WebsocketSDataCallback _websocketSCallback, bool _usejmuxer, string _connectionmode, bool _playbackviaapache,
+	        string _playmode, int _start_time_ofplaybackfile, string _serverIp, int _port, int _sessionid,
+	        std::shared_ptr<spdlog::logger> _logger) : Thread(), i2v::MjpegRoute(_id), logger(std::move(_logger)) {
 		id = std::move(_id);
 		url = std::move(_url);
 		websocketCallback = _websocketCallback;

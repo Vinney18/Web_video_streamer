@@ -15,6 +15,7 @@ find_package(ZLIB REQUIRED)
 find_package(jsoncpp CONFIG REQUIRED)
 find_package(cryptopp CONFIG REQUIRED)
 find_package(fmt REQUIRED)
+find_package(spdlog REQUIRED)
 
 if(NOT WIN32)
 find_package(PkgConfig REQUIRED)
@@ -78,4 +79,7 @@ target_link_libraries(
 		jsoncpp_lib
 		cryptopp-static
 		fmt::fmt fmt::fmt-header-only
+		spdlog::spdlog
 )
+
+target_compile_definitions(${EXE_NAME} PUBLIC SPDLOG_FMT_EXTERNAL)

@@ -264,7 +264,7 @@ bool FFmpegWrapper::createMp4Output()
 
 bool FFmpegWrapper::createMjpegOutput()
 {
-	std::cout << "fps :" << this->inputFPS << std::endl;
+	//std::cout << "fps :" << this->inputFPS << std::endl;
 
 	if (this->inputCodecCtx == NULL )
 	{
@@ -412,7 +412,7 @@ void FFmpegWrapper::readInput()
 		if (inputFPS % 5 != 0)
 			interval++;
 	}
-	cout << "interval" << interval << endl;
+	//cout << "interval" << interval << endl;
 	int i = 1;
 	// Allocate video frame
 	pFrame = av_frame_alloc();
@@ -661,7 +661,7 @@ void FFmpegWrapper::seek_video(int time_toSeek_insec)
 				if (rv < 0)
 				{
 					fileseekingstarted = false;
-					cout << "Unable to seek video";
+                    if (logger) { logger->warn("Unable to seek video"); }
 				}
 				std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 				fileseekingstarted = false;
@@ -669,8 +669,8 @@ void FFmpegWrapper::seek_video(int time_toSeek_insec)
 			catch (const exception& ex)
 			{
 				fileseekingstarted = false;
-				cout << "Exception while  seek video";
-				cout << ex.what() << std::endl;
+				if (logger) { logger->error("Exception while seek video: {}", ex.what()); }
+                else { std::cout << "Exception while seek video: " << ex.what() << std::endl; }
 			}
 		}
 		else
@@ -683,9 +683,10 @@ void FFmpegWrapper::seek_video(int time_toSeek_insec)
 				std::string url = "http://" + serverIp + ":" + to_string(port) + endpoint;
 				auto res = cpr::Get(cpr::Url{ url });
 			}
-			catch (const std::exception&)
+			catch (const std::exception& ex)
 			{
-				cout << "Exception while  seek video on recording server ";
+                if (logger) { logger->error("EException while  seek video on recording server: {}", ex.what()); }
+                else { std::cout << "Exception while  seek video on recording server: " << ex.what() << std::endl; }
 			}
 
 
@@ -896,7 +897,7 @@ void FFmpegWrapper::receiveMp4Chunk(vector<uint8_t> data) {
 	//auto c = 0;
 	for (auto hndl : hdlList) {
 		//cout << "Counter Count:" << ++c << endl;
-		//echo_server.send(*it, dataPtr, size, websocketpp::frame::opcode::BINARY);
+		//websocket_server.send(*it, dataPtr, size, websocketpp::frame::opcode::BINARY);
 		websocketCallback(hndl, data);
 	}
 }
