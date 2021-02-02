@@ -16,6 +16,19 @@ find_package(jsoncpp CONFIG REQUIRED)
 find_package(cryptopp CONFIG REQUIRED)
 find_package(fmt REQUIRED)
 
+if(NOT WIN32)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
+		libavformat
+		libavcodec
+		libswresample
+		libswscale
+		libavutil
+		libavdevice
+		libavfilter
+		libpostproc
+		)
+endif()
 
 message("project source dir: ${PROJECT_SOURCE_DIR}")
 
@@ -34,7 +47,8 @@ if(MSVC)
 			ffmpeg/lib/avfilter ffmpeg/lib/avformat ffmpeg/lib/avutil ffmpeg/lib/postproc
 			ffmpeg/lib/swresample ffmpeg/lib/swscale)
 else()
-    set(FFmpeg_Libraries avcodec avformat avutil swresample swscale) # avdevice avfilter postproc
+    #set(FFmpeg_Libraries avcodec avformat avutil swresample swscale avdevice avfilter postproc)
+    set(FFmpeg_Libraries PkgConfig::LIBAV)
 endif()
 
 file(GLOB_RECURSE HEADER_FILES include/*.h include/*.hpp)

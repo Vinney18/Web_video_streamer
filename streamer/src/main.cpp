@@ -148,6 +148,8 @@ bool VerifySignature(const std::string &data, const std::string &message) {
 
 int main()
 {
+    av_register_all();
+
 	//auto isVerified = VerifySignature("7B0D0A20202244617461223A20226D797465737464617461222C0D0A2020225369676E6174757265223A2022415678643857772B6570572F4F735255663252497156686A71346C4E5839626B2F5663464A6F2B75387358776F64596667306B4656766E483253646F614238724D5670304630494865685453643776425766676B626341364F31394A54666977694C4C4B57714F442F36654671595A33325572724D376C4E77735A614B34466A55534E4F314C636A3573573658787556577972317634453157355969524A4E385366786959657367632F593D220D0A7D");
 	mjpegServer = make_unique<i2v::MjpegServer>(4554);
 	mjpegServer->start();
@@ -349,8 +351,8 @@ void on_open(connection_hdl hdl) {
 			else
 			{
 				auto ffmpeg = make_shared<FFmpegWrapper>(cameraId , url, id, seekTime_ofFile, &SendData, &SendStringData, usejmuxer, connectionmode, playbackviaapache, mode, start_time_ofplaybackfile, serverIp , port, sessionid);
-				mjpegServer->addRoute(ffmpeg);
-				ffmpegList.insert(std::make_pair(id, ffmpeg));
+                ffmpegList.insert(std::make_pair(id, ffmpeg));
+                mjpegServer->addRoute(ffmpeg);
 				ffmpeg->startThread();
 			}
 

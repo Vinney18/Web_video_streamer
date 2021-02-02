@@ -453,11 +453,11 @@ void FFmpegWrapper::readInput()
 	av_init_packet(&packetEncoded);
 	try
 	{
-		params.lastStopped = GetTickCount();
+        this->params.lastStopped = GetTickCount();
 		int framecount = 0;
 		while (av_read_frame(this->inputFormatCtx, &packet) >= 0 && !mStop)
 		{
-				params.lastStopped = GetTickCount();
+            this->params.lastStopped = GetTickCount();
 				// Is this a packet from the video stream?
 				if (packet.stream_index == videoStream)
 				{
@@ -816,8 +816,7 @@ bool FFmpegWrapper::openInput()
 		// bad parameter
 	}
 
-
-	params.lastStopped = GetTickCount();
+	this->params.lastStopped = GetTickCount();
 
 	if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
 	{
