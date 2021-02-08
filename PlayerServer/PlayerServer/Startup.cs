@@ -20,10 +20,7 @@ namespace PlayerServer
         {
             services.AddMvc()
           .AddXmlSerializerFormatters()
-          .AddJsonOptions(options =>
-          {
-              options.SerializerSettings.Formatting = Formatting.Indented;
-          });
+          .AddNewtonsoftJson(options => options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
 
             services.AddTransient<PlayerServer.services.PlayerUrlService>();
         }
@@ -76,13 +73,15 @@ namespace PlayerServer
                 }
             });
 
-            app.UseMvc(routes =>
-            {
-                routes.MapRoute(
-                     name: "default",
-                    template: "{controller}/{action}/{id?}");
-            });
+            app.UseRouting();
 
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapControllerRoute(
+                    name: "default",
+                    pattern: "{controller}/{action}/{id?}");
+            });
+                       
             DefaultFilesOptions options = new DefaultFilesOptions();
             options.DefaultFileNames.Clear();
             options.DefaultFileNames.Add("index.html");

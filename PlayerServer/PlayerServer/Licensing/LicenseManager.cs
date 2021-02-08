@@ -113,7 +113,7 @@ namespace PlayerServer.Licensing
                 return null;
 
             //var path = Path.Combine(Path.GetDirectoryName(executablePath), LicenseFileName);
-            var path = Path.Combine(Environment.CurrentDirectory, LicenseFileName);
+            var path = Path.Combine(Environment.CurrentDirectory, "data", LicenseFileName);
             if (File.Exists(path))
                 return path;
 

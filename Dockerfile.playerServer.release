@@ -1,0 +1,33 @@
+FROM mcr.microsoft.com/dotnet/core/aspnet:3.1-buster-slim AS base
+EXPOSE 8890
+
+FROM node:12.13 as node-build
+COPY . /app
+WORKDIR /app/ffmpeg-player-setup-win/web_player
+RUN npm i npm@latest && npm install && npm run build
+
+WORKDIR /app/PlayerServer/PlayerServer
+RUN npm i npm@latest && npm install && npm run build
+
+
+FROM mcr.microsoft.com/dotnet/core/sdk:3.1-buster AS build
+COPY . ./app
+WORKDIR /app
+RUN dotnet restore "PlayerServer/PlayerServer/PlayerServer.csproj"
+
+COPY --from=node-build /app/PlayerServer/PlayerServer/wwwroot /app/PlayerServer/PlayerServer/wwwroot/
+COPY --from=node-build /app/ffmpeg-player-setup-win/web_player/build/i2v_player.min.js /app/PlayerServer/PlayerServer/wwwroot/player/
+COPY --from=node-build /app/ffmpeg-player-setup-win/web_player/index.html /app/PlayerServer/PlayerServer/wwwroot/player/
+COPY --from=node-build /app/ffmpeg-player-setup-win/web_player/moment.min.js /app/PlayerServer/PlayerServer/wwwroot/player/
+
+WORKDIR /app/PlayerServer/PlayerServer
+RUN dotnet build "PlayerServer.csproj" -c Release -o /app/build
+
+
+FROM build AS publish
+RUN dotnet publish "PlayerServer.csproj" -c Release -o /app/publish
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "PlayerServer.dll"]

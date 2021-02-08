@@ -5,14 +5,15 @@
   "main": "webView/js/home.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "uglify": "uglifyjs --compress --mangle --output wwwroot/js/home.js -- webView/js/home.js",
-    "uglify1": "uglifyjs --compress --mangle --output wwwroot/js/license.js -- webView/js/license.js",
+    "uglify": "./node_modules/uglify-js/bin/uglifyjs --compress --mangle --output wwwroot/js/home.js -- webView/js/home.js",
+    "uglify1": "./node_modules/uglify-js/bin/uglifyjs --compress --mangle --output wwwroot/js/license.js -- webView/js/license.js",
     "build": "npm run uglify && npm run uglify1"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {},
   "dependencies": {
-    "uglifyjs": "^2.4.11"
+    "uglifyjs": "^2.4.11",
+    "uglify-js": "3.12.6"
   }
 }

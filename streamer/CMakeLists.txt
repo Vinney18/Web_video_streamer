@@ -76,7 +76,8 @@ target_link_libraries(
 		${FFmpeg_Libraries}
 		websocketpp::websocketpp
 		cpr
-		jsoncpp_lib
+		#jsoncpp_lib
+		jsoncpp_static
 		cryptopp-static
 		fmt::fmt fmt::fmt-header-only
 		spdlog::spdlog

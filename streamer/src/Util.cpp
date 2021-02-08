@@ -19,6 +19,9 @@
 #include <cryptopp/hex.h>
 #include <cryptopp/filters.h>
 
+#include <spdlog/spdlog.h>
+#include <spdlog/async.h>
+
 namespace fs = boost::filesystem;
 using namespace i2v;
 
@@ -29,13 +32,13 @@ std::string Util::executablePath()
 
 std::string Util::getLogsFolderPath()
 {
-    static const std::string logsFolder =  fmt::format("{0}/{1}", Util::executablePath(), i2v::LOG_FOLDER_NAME);
+    static const std::string logsFolder =  fmt::format("{0}/data/{1}", Util::executablePath(), i2v::LOG_FOLDER_NAME);
     return logsFolder;
 }
 
 std::string Util::getConfigFolderPath()
 {
-    static const std::string mainConfigFolder = fmt::format("{0}/{1}", executablePath(), i2v::CONFIG_FOLDER_NAME);
+    static const std::string mainConfigFolder = fmt::format("{0}/data/{1}", executablePath(), i2v::CONFIG_FOLDER_NAME);
     return mainConfigFolder;
 }
 
