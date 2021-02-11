@@ -112,22 +112,28 @@ namespace PlayerServer.Licensing
             if (String.IsNullOrWhiteSpace(executablePath))
                 return null;
 
+            string folderpath = Path.Combine(Directory.GetCurrentDirectory(), "data");
+
+            if (!Directory.Exists(folderpath))
+            {
+                Directory.CreateDirectory(folderpath);
+            }
             //var path = Path.Combine(Path.GetDirectoryName(executablePath), LicenseFileName);
-            var path = Path.Combine(Environment.CurrentDirectory, "data", LicenseFileName);
-            if (File.Exists(path))
+            var path = Path.Combine(folderpath, LicenseFileName);
+            //if (File.Exists(path))
                 return path;
 
-            try
-            {
-                // 2nd attempt is license file located in shared documents folder
-                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments),
-                    LicenseFileName);
-            }
-            catch (PlatformNotSupportedException)
-            {
-                // 3rd attempt...something weird, I can't find SpecialFolder.CommonDocuments
-                return Path.Combine(Environment.CurrentDirectory, LicenseFileName);
-            }
+            //try
+            //{
+            //    // 2nd attempt is license file located in shared documents folder
+            //    return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments),
+            //        LicenseFileName);
+            //}
+            //catch (PlatformNotSupportedException)
+            //{
+            //    // 3rd attempt...something weird, I can't find SpecialFolder.CommonDocuments
+            //    return Path.Combine(Environment.CurrentDirectory, LicenseFileName);
+            //}
         }
 
         // This is useful, primary for testing purposes because we're testing
@@ -248,7 +254,7 @@ namespace PlayerServer.Licensing
 
                 if (license != null && license.IsValid())
                 {
-                    var path = Path.Combine(Directory.GetCurrentDirectory(), LicenseFileName);
+                    var path = GetLicenseFilePath();
                     if (!File.Exists(path))
                     {
 

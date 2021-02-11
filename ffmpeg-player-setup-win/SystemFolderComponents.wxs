@@ -62,6 +62,10 @@
         <File Id="filA804FE7264B6C5149D3FAFCCD50945CD" KeyPath="yes" Source="../streamer/external_libs/zlib1.dll" />
       </Component>
 
+		<Component Id="e3b918838e414c3282ec5b449f9e6c98" Guid="*">
+			<File Id="a009201ddb194ee4ac0fee81c8a1cb0e" KeyPath="yes" Source="../streamer/external_libs/fmt.dll" />
+		</Component>
+
       <Component Id="f1f3d889fada4284a59e50d7800db911" Guid="*">
         <File Id="ba6990a1a08a4c9083842177c8d49497" KeyPath="yes" Source="lib/postproc-55.dll" />
       </Component>

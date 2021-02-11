@@ -42,7 +42,8 @@
 			<Directory Id="ProgramFilesFolder">
         <Directory Id="INSTALLFOLDER" Name="i2v_Player_Server" >
           <Directory Id="server_Path" Name="server"/>
-        </Directory>
+
+		</Directory>
 			</Directory>
 		</Directory>
 	</Fragment>
