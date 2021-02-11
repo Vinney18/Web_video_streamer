@@ -11,11 +11,20 @@
             <Component Id="cmpEEC72832A30BB1F9192464822043AF1B" Guid="*">
                 <File Id="filD6A9E18CD6D4C384E285DD8533738CFE" KeyPath="yes" Source="$(var.serverPath)\Licensing.dll" />
             </Component>
-            <Component Id="cmp753D30BB0B44F936936FFC888F744F24" Guid="*">
-                <File Id="fil4223797050A0ED52A0AAF198AEF10663" KeyPath="yes" Source="$(var.serverPath)\Microsoft.Win32.Registry.dll" />
+            <Component Id="cmp44E977D19328AEC156816FF6C1206CFF" Guid="*">
+                <File Id="fil6A1E8DFDD8B029BD61114A758409BD17" KeyPath="yes" Source="$(var.serverPath)\Microsoft.AspNetCore.JsonPatch.dll" />
+            </Component>
+            <Component Id="cmp8CD615391687D600BD632017D433E58C" Guid="*">
+                <File Id="fil7CF5BEDEF7E997DAC263D67CA6951791" KeyPath="yes" Source="$(var.serverPath)\Microsoft.AspNetCore.Mvc.NewtonsoftJson.dll" />
             </Component>
             <Component Id="cmp7097FBCC97F425D8BFF3B46CE27F51EF" Guid="*">
                 <File Id="fil7DF976F083B346D29B99FEEBABF7A3B9" KeyPath="yes" Source="$(var.serverPath)\networkSetting.json" />
+            </Component>
+            <Component Id="cmpDFFBAC61E5D439A9437809693C1AA3EC" Guid="*">
+                <File Id="fil0B471885BD9E1A28708F24923075D718" KeyPath="yes" Source="$(var.serverPath)\Newtonsoft.Json.Bson.dll" />
+            </Component>
+            <Component Id="cmp2B02E829CF1171D65F053CF7B96C09B6" Guid="*">
+                <File Id="fil03CBA29B5DF11ED01B0B9EE8524203CA" KeyPath="yes" Source="$(var.serverPath)\Newtonsoft.Json.dll" />
             </Component>
             <Component Id="cmpE593D3BBE259517471DA4BBA1A455A22" Guid="*">
                 <File Id="fil1E47DAA690F9C4AC6A98EABB4E9C2ABF" KeyPath="yes" Source="$(var.serverPath)\package-lock.json" />
@@ -31,6 +40,9 @@
             </Component>
             <Component Id="cmp22D5E6DC9CCD15349989BE58989FFF14" Guid="*">
                 <File Id="filB6F025DDDDA23604E56E79BA2C900D2C" KeyPath="yes" Source="$(var.serverPath)\PlayerServer.dll" />
+            </Component>
+            <Component Id="cmpA248CE911AF34455A29F0375D1DDA89F" Guid="*">
+                <File Id="fil1E3719C8DAE8901A2ED1C6466D2A2344" KeyPath="yes" Source="$(var.serverPath)\PlayerServer.exe" />
             </Component>
             <Component Id="cmp726C8BA5F2AA5677A873821D1B0E94A7" Guid="*">
                 <File Id="fil670D949305EFAE8C9A4C3E3D699D2439" KeyPath="yes" Source="$(var.serverPath)\PlayerServer.pdb" />
@@ -50,12 +62,6 @@
             <Component Id="cmp83054C5BEE8F2138103B77EA73604F75" Guid="*">
                 <File Id="fil73DC08D8FB354036C9FFFEF994B1F848" KeyPath="yes" Source="$(var.serverPath)\System.Net.Http.Formatting.dll" />
             </Component>
-            <Component Id="cmp42C0DB969397BEF83BC720D2C1FC20BB" Guid="*">
-                <File Id="fil7FA90DD9AE7B29DDA5372DDA2695709C" KeyPath="yes" Source="$(var.serverPath)\System.Security.AccessControl.dll" />
-            </Component>
-            <Component Id="cmp362AADB58830446E04C1D717F4BE918F" Guid="*">
-                <File Id="fil5C33B8BE29FC2AA940A7A86EDE69E477" KeyPath="yes" Source="$(var.serverPath)\System.Security.Principal.Windows.dll" />
-            </Component>
             <Component Id="cmp3855F00DC943F8B18742E72836C12740" Guid="*">
                 <File Id="filB3150C9FE207FD97354181C8A7C236FB" KeyPath="yes" Source="$(var.serverPath)\System.Web.Http.dll" />
             </Component>
@@ -63,38 +69,11 @@
                 <File Id="fil49142CD995D529EF694E8C7C405EEB0B" KeyPath="yes" Source="$(var.serverPath)\web.config" />
             </Component>
             <Directory Id="dirBC558506C8A023E0680F442260DE47C4" Name="runtimes">
-                <Directory Id="dirFD405B9D0C42E5432D8B7467661DF4F2" Name="unix">
-                    <Directory Id="dir93B68E38339AD36549E70B11A9AE8DBF" Name="lib">
-                        <Directory Id="dirFE396FEEB04A287EAAA247C52E1853D5" Name="netcoreapp2.1">
-                            <Component Id="cmp5F8885EBC3878E35514E466ACF49AFCC" Guid="*">
-                                <File Id="filA39C07A301E608D06CED82C4DA968D50" KeyPath="yes" Source="$(var.serverPath)\runtimes\unix\lib\netcoreapp2.1\System.Security.Principal.Windows.dll" />
-                            </Component>
-                        </Directory>
-                        <Directory Id="dir5BE9601F439E6B2246A35F4A190ADE77" Name="netstandard2.0">
-                            <Component Id="cmp15598BCDB8950CA9D5832DFE83B0DBC0" Guid="*">
-                                <File Id="fil36B203038F70970E457C2B2E5A6B1E04" KeyPath="yes" Source="$(var.serverPath)\runtimes\unix\lib\netstandard2.0\Microsoft.Win32.Registry.dll" />
-                            </Component>
-                        </Directory>
-                    </Directory>
-                </Directory>
                 <Directory Id="dir1EFAB80BD4C008F5038C45A41014DBAE" Name="win">
                     <Directory Id="dir81766293FB8FA5C7F7BFED10066AEDCF" Name="lib">
                         <Directory Id="dirA0D30724AA34C67206920A4804C89056" Name="netcoreapp2.0">
                             <Component Id="cmp76E2CAED7B8D806643DAEFA957FE72EC" Guid="*">
                                 <File Id="filD2BBA194742EA0BEFB690F0D235E2665" KeyPath="yes" Source="$(var.serverPath)\runtimes\win\lib\netcoreapp2.0\System.Management.dll" />
-                            </Component>
-                            <Component Id="cmp642EDDB765CC1DCBE20F2EE5F60AEC9F" Guid="*">
-                                <File Id="filBBB0C24DED621378BDB4EA1B29ED057B" KeyPath="yes" Source="$(var.serverPath)\runtimes\win\lib\netcoreapp2.0\System.Security.AccessControl.dll" />
-                            </Component>
-                        </Directory>
-                        <Directory Id="dir6BA4BEE133FAC53670101F351671C5DE" Name="netcoreapp2.1">
-                            <Component Id="cmp168CCCB2DE655B8A60328812EDFD013C" Guid="*">
-                                <File Id="fil966FC68430A40DCEB1C99D3F25C7BE5A" KeyPath="yes" Source="$(var.serverPath)\runtimes\win\lib\netcoreapp2.1\System.Security.Principal.Windows.dll" />
-                            </Component>
-                        </Directory>
-                        <Directory Id="dir07CA5584C36389C4B4106D5EAA2FEE75" Name="netstandard2.0">
-                            <Component Id="cmp8BDF7F2D572058EEF5BEB0DEDB5194BD" Guid="*">
-                                <File Id="fil22E7A01DA1AB4333304DD56272F38DD0" KeyPath="yes" Source="$(var.serverPath)\runtimes\win\lib\netstandard2.0\Microsoft.Win32.Registry.dll" />
                             </Component>
                         </Directory>
                     </Directory>
@@ -165,29 +144,26 @@
             <ComponentRef Id="cmpE53B744293A53C2996CB5DEB23D98430" />
             <ComponentRef Id="cmpC15DCDD613E04D681744ED67D352F6E4" />
             <ComponentRef Id="cmpEEC72832A30BB1F9192464822043AF1B" />
-            <ComponentRef Id="cmp753D30BB0B44F936936FFC888F744F24" />
+            <ComponentRef Id="cmp44E977D19328AEC156816FF6C1206CFF" />
+            <ComponentRef Id="cmp8CD615391687D600BD632017D433E58C" />
             <ComponentRef Id="cmp7097FBCC97F425D8BFF3B46CE27F51EF" />
+            <ComponentRef Id="cmpDFFBAC61E5D439A9437809693C1AA3EC" />
+            <ComponentRef Id="cmp2B02E829CF1171D65F053CF7B96C09B6" />
             <ComponentRef Id="cmpE593D3BBE259517471DA4BBA1A455A22" />
             <ComponentRef Id="cmp9CA5C0F7D6E012DF67F805BFB427D610" />
             <ComponentRef Id="cmp26258580F622C387F20F112DE630F1C0" />
             <ComponentRef Id="cmp1DB813760D2BB7C6A1664AD5CAB32BDC" />
             <ComponentRef Id="cmp22D5E6DC9CCD15349989BE58989FFF14" />
+            <ComponentRef Id="cmpA248CE911AF34455A29F0375D1DDA89F" />
             <ComponentRef Id="cmp726C8BA5F2AA5677A873821D1B0E94A7" />
             <ComponentRef Id="cmp5F889F68C9908B747566AD99277F5B4C" />
             <ComponentRef Id="cmpF438BDA967CE1938C923F51626946148" />
             <ComponentRef Id="cmp3F11D26652F14A272DBF34EE8C408427" />
             <ComponentRef Id="cmp15822BD38662172FCD53C9BF252DF303" />
             <ComponentRef Id="cmp83054C5BEE8F2138103B77EA73604F75" />
-            <ComponentRef Id="cmp42C0DB969397BEF83BC720D2C1FC20BB" />
-            <ComponentRef Id="cmp362AADB58830446E04C1D717F4BE918F" />
             <ComponentRef Id="cmp3855F00DC943F8B18742E72836C12740" />
             <ComponentRef Id="cmpB424347BC0B3F0DCE70F88E4AD0A5B43" />
-            <ComponentRef Id="cmp5F8885EBC3878E35514E466ACF49AFCC" />
-            <ComponentRef Id="cmp15598BCDB8950CA9D5832DFE83B0DBC0" />
             <ComponentRef Id="cmp76E2CAED7B8D806643DAEFA957FE72EC" />
-            <ComponentRef Id="cmp642EDDB765CC1DCBE20F2EE5F60AEC9F" />
-            <ComponentRef Id="cmp168CCCB2DE655B8A60328812EDFD013C" />
-            <ComponentRef Id="cmp8BDF7F2D572058EEF5BEB0DEDB5194BD" />
             <ComponentRef Id="cmpA9C4380868ABE902B0228B3873876F43" />
             <ComponentRef Id="cmp5DB8203593E21202460A12B60169B289" />
             <ComponentRef Id="cmp14514D1768FC5B27A14E345760544CEA" />

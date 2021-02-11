@@ -44,9 +44,9 @@ if(WIN32)
 endif()
 
 if(MSVC)
-    set(FFmpeg_Libraries ffmpeg/lib/avcodec ffmpeg/lib/avdevice
-			ffmpeg/lib/avfilter ffmpeg/lib/avformat ffmpeg/lib/avutil ffmpeg/lib/postproc
-			ffmpeg/lib/swresample ffmpeg/lib/swscale)
+	#message("inside msvc check checking libs")
+    set(FFmpeg_Libraries "${PROJECT_SOURCE_DIR}/ffmpeg/lib/avcodec.lib" "${PROJECT_SOURCE_DIR}/ffmpeg/lib/avdevice.lib"	"${PROJECT_SOURCE_DIR}/ffmpeg/lib/avfilter.lib" "${PROJECT_SOURCE_DIR}/ffmpeg/lib/avformat.lib" "${PROJECT_SOURCE_DIR}/ffmpeg/lib/avutil.lib" "${PROJECT_SOURCE_DIR}/ffmpeg/lib/postproc.lib" "${PROJECT_SOURCE_DIR}/ffmpeg/lib/swresample.lib" "${PROJECT_SOURCE_DIR}/ffmpeg/lib/swscale.lib")
+    #message("FFmpeg_Libraries: ", ${FFmpeg_Libraries})
 else()
     #set(FFmpeg_Libraries avcodec avformat avutil swresample swscale avdevice avfilter postproc)
     set(FFmpeg_Libraries PkgConfig::LIBAV)
@@ -77,10 +77,23 @@ target_link_libraries(
 		websocketpp::websocketpp
 		cpr
 		#jsoncpp_lib
-		jsoncpp_static
+		#jsoncpp_static
 		cryptopp-static
-		fmt::fmt fmt::fmt-header-only
+		fmt::fmt
 		spdlog::spdlog
 )
+
+if (WIN32)
+target_link_libraries(
+	${EXE_NAME}
+	jsoncpp_lib	
+)
+else()
+target_link_libraries(
+	${EXE_NAME}
+	jsoncpp_static
+	fmt::fmt-header-only
+)
+endif()
 
 target_compile_definitions(${EXE_NAME} PUBLIC SPDLOG_FMT_EXTERNAL)

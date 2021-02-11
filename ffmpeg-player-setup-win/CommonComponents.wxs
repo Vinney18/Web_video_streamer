@@ -11,7 +11,7 @@
       <ComponentGroup Id="MainApplicationComponents" Directory="INSTALLFOLDER">
 
       <Component Id="MainApplicationchildComponents" Guid="DF8B23B810454113A66CCE9567347FCD">
-        <File Source="nssm.exe" />
+        <File Source="lib/nssm.exe" />
         <File Source="run_service.bat" />
         <File Source="remove_service.bat" />
         <File Source="web_player/build/i2v_player.min.js" />
@@ -20,7 +20,7 @@
       </Component>
 
       <Component Id="cmpC6B2FD4081FBBD949069F3ADA8A834AD" Guid="*">
-        <File Id="fil454F1792F5591DA0839206ADC2D661CD" KeyPath="yes" Source="$(var.HarvestPath)\i2v_webPlayer.exe" />
+        <File Id="fil454F1792F5591DA0839206ADC2D661CD" KeyPath="yes" Source="../build/streamer/Release/streamer.exe" />
       </Component>
       
      

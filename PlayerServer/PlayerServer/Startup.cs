@@ -64,6 +64,11 @@ namespace PlayerServer
                             context.Request.Path = "/index.html";
                         }
                         await next();
+                        if (context.Response.StatusCode == 404 && !Path.HasExtension(context.Request.Path.Value))
+                        {
+                            context.Request.Path = "/index.html";
+                            await next();
+                        }
                     }
 
                 }
@@ -84,8 +89,8 @@ namespace PlayerServer
                        
             DefaultFilesOptions options = new DefaultFilesOptions();
             options.DefaultFileNames.Clear();
-            options.DefaultFileNames.Add("index.html");
-            app.UseDefaultFiles(options);
+            //options.DefaultFileNames.Add("index.html");
+            app.UseDefaultFiles();
 
             app.UseStaticFiles();
 

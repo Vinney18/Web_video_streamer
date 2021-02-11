@@ -1,3 +1,5 @@
+//#define SPDLOG_FMT_EXTERNAL
+
 #include <string>
 #include <iostream>
 #include <atomic>
@@ -14,7 +16,6 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/lexical_cast.hpp>
 #include <cpr/cpr.h>
-#include <spdlog/spdlog.h>
 
 extern "C"
 {
@@ -30,6 +31,8 @@ extern "C"
 //#include "libavutil/hwcontext_qsv.h"
 #include "libavutil/mem.h"
 }
+
+#include <spdlog/spdlog.h>
 
 #ifndef FFMPEGWRAPPER_H
 #define FFMPEGWRAPPER_H

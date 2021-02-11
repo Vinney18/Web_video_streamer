@@ -1,3 +1,5 @@
+//#define SPDLOG_FMT_EXTERNAL
+
 #include <boost/algorithm/string_regex.hpp>
 #include <boost/regex.hpp>
 #include "Mp4frag.h"
@@ -18,9 +20,10 @@
 #include <ctime>
 #include "json/json.h"
 #include "CLI11.hpp"
+#include "Util.h"
+
 #include <spdlog/spdlog.h>
 #include <spdlog/async.h>
-#include "Util.h"
 
 using namespace std;
 using websocketpp::connection_hdl;

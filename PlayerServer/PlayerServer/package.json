@@ -5,8 +5,8 @@
   "main": "webView/js/home.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "uglify": "./node_modules/uglify-js/bin/uglifyjs --compress --mangle --output wwwroot/js/home.js -- webView/js/home.js",
-    "uglify1": "./node_modules/uglify-js/bin/uglifyjs --compress --mangle --output wwwroot/js/license.js -- webView/js/license.js",
+    "uglify": "node ./node_modules/uglify-js/bin/uglifyjs --compress --mangle --output wwwroot/js/home.js -- webView/js/home.js",
+    "uglify1": "node ./node_modules/uglify-js/bin/uglifyjs --compress --mangle --output wwwroot/js/license.js -- webView/js/license.js",
     "build": "npm run uglify && npm run uglify1"
   },
   "author": "",

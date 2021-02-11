@@ -8,7 +8,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <OutputName>i2v_player</OutputName>
     <OutputType>Package</OutputType>
-    <DefineConstants>HarvestPath=$(SolutionDir)x64\Release</DefineConstants>
+    <DefineConstants>HarvestPath=$(SolutionDir)build\streamer\Release</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
     <OutputPath>bin\$(Configuration)\</OutputPath>
@@ -43,6 +43,7 @@
     </WixExtension>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="lib\nssm.exe" />
     <Content Include="lib\postproc-55.dll" />
     <Content Include="lib\ucrtbased.dll" />
     <Content Include="lib\vcruntime140d.dll" />
