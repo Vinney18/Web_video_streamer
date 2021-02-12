@@ -2,6 +2,20 @@
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Fragment>
         <DirectoryRef Id="server_Path">
+
+			<Component Id="fa324bd3310d44e9852b8d899faa2a9b" Guid="*">
+				<File Id="b4287c8a1da945729a2f998c1a872503" KeyPath="yes" Source="../PlayerServer/lib/boost_filesystem-vc140-mt-x64-1_70.dll" />
+			</Component>
+
+			<Component Id="dd9457cfcac240be9e59c540e5d9633f" Guid="*">
+				<File Id="bed34aced5384706b8ef279d2afc37c6" KeyPath="yes" Source="../PlayerServer/lib/libliblicenser.so" />
+			</Component>
+
+			<Component Id="b323b6c35f614e618d171bf60b518a54" Guid="*">
+				<File Id="acf21dd8621243bfb98c169f5e31c80e" KeyPath="yes" Source="../PlayerServer/lib/liblicenser.dll" />
+			</Component>
+			
+			
             <Component Id="cmpE53B744293A53C2996CB5DEB23D98430" Guid="*">
                 <File Id="filEC0A82FCDEBB399D5651C3B56D7B6133" KeyPath="yes" Source="$(var.serverPath)\appsettings.Development.json" />
             </Component>
@@ -145,7 +159,14 @@
     <Fragment>
         <ComponentGroup Id="playerServerComponent">
             <ComponentRef Id="cmpE53B744293A53C2996CB5DEB23D98430" />
-            <ComponentRef Id="cmpC15DCDD613E04D681744ED67D352F6E4" />
+			<ComponentRef Id="fa324bd3310d44e9852b8d899faa2a9b" />
+			<ComponentRef Id="dd9457cfcac240be9e59c540e5d9633f" />
+			<ComponentRef Id="b323b6c35f614e618d171bf60b518a54" />
+
+
+
+			
+			<ComponentRef Id="cmpC15DCDD613E04D681744ED67D352F6E4" />
             <ComponentRef Id="cmp311148B2A7753F1F9899B09F38CA3894" />
             <ComponentRef Id="cmpEEC72832A30BB1F9192464822043AF1B" />
             <ComponentRef Id="cmp44E977D19328AEC156816FF6C1206CFF" />

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-	<Product Id="*" Name="i2v_player" Language="1033" Version="5.6" Manufacturer="i2v" UpgradeCode="56e8ff32-9406-4f0a-bfe5-bc1ead2f4351">
+	<Product Id="*" Name="i2v_player" Language="1033" Version="5.9" Manufacturer="i2v" UpgradeCode="56e8ff32-9406-4f0a-bfe5-bc1ead2f4351">
 		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
 
 		<MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
@@ -23,6 +23,11 @@
       ExeCommand="cmd.exe /c &quot;run_service.bat"
       Directory="INSTALLFOLDER"  Impersonate="no" Execute="deferred" Return="ignore" />
 
+		<CustomAction Id="REINSTALL"
+	 ExeCommand="cmd.exe /c &quot;run_service.bat"
+	 Directory="INSTALLFOLDER"  Impersonate="no" Execute="deferred" Return="ignore" />
+		
+	
     <CustomAction Id="uninstallBatFile" 
      ExeCommand="cmd.exe /c &quot;remove_service.bat"
      Directory="INSTALLFOLDER"  Impersonate="no" Execute="deferred" Return="ignore" />
@@ -31,7 +36,13 @@
       <Custom Action="RUN" Before="InstallFinalize">NOT Installed AND NOT UPGRADINGPRODUCTCODE</Custom>
     </InstallExecuteSequence>
 
-    <InstallExecuteSequence>
+	<InstallExecuteSequence>
+		<Custom Action="REINSTALL" Before="InstallFinalize">UPGRADINGPRODUCTCODE</Custom>
+	</InstallExecuteSequence>
+
+
+
+		<InstallExecuteSequence>
       <Custom Action="uninstallBatFile" Before="RemoveFiles">Installed AND NOT UPGRADINGPRODUCTCODE </Custom>
     </InstallExecuteSequence>
     

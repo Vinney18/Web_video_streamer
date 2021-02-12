@@ -2,12 +2,14 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using PlayerServer.Licensing;
 using PlayerServer.requestModel;
 using Radev.Licensing;
 using Radev.Licensing.Client;
+using Newtonsoft.Json;
 
 // For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -15,6 +17,8 @@ namespace PlayerServer.Controllers
 {
     public class LicenseController : Controller
     {
+        private static readonly string machine_key_file_path = "machine_keyy.txt";
+
         public LicenseController()
         {
 
@@ -27,15 +31,26 @@ namespace PlayerServer.Controllers
 
             try
             {
-                if (System.IO.File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "public_key.xml")))
+                IntPtr intPtr_machinekey, intPtrError;
+                bool isDeviceKeyGenrated = LicenseManager.generateMachineKey(machine_key_file_path, out intPtr_machinekey, out intPtrError);
+                if (isDeviceKeyGenrated)
                 {
-                    string publicKey = System.IO.File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "public_key.xml"));
-                    return Ok(ContactWriter.ToString(ContactFactory.Create<Contact>(), publicKey));
+                    if (System.IO.File.Exists(Path.Combine(Directory.GetCurrentDirectory(), machine_key_file_path)))
+                    {
+                        string machinekey = System.IO.File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), machine_key_file_path));
+                        return Ok(machinekey);
+                    }
+                    else
+                    {
+                        return BadRequest("Cannot Generate Device Key.");
+
+                    }
                 }
                 else
                 {
                     return BadRequest("Cannot Generate Device Key.");
                 }
+
             }
             catch (Exception ex)
             {
@@ -46,16 +61,25 @@ namespace PlayerServer.Controllers
 
         [HttpPost]
         [Route("~/api/License")]
-        public async Task<IActionResult> ActivateLicense([FromBody]ActivateLicenseReq req)
+        public async Task<IActionResult> ActivateLicense([FromBody] ActivateLicenseReq req)
         {
             try
             {
-                if(req == null)
+                if (req == null)
                 {
                     return BadRequest();
                 }
-                var license = LicenseManager.UpdateLicense(req.license_data);
-                Licensing.LicenseInfo.IsValid = true;
+                bool islicenceActivated = LicenseManager.UpdateLicense(req.license_data);
+                if (islicenceActivated)
+                {
+                    return Ok();
+
+                }
+                else
+                {
+                    return BadRequest("Not able to activate");
+
+                }
                 return Ok();
             }
             catch (Exception ex)
