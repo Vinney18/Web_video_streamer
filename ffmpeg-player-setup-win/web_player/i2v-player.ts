@@ -643,5 +643,28 @@ class I2vPlayer {
             this.w.send("Resume");
         }
     }
+
+    getBase64SnapshotUrl() {
+        var dataURI = "";
+        try {
+            var canvas = document.createElement('canvas');
+            canvas.width = 640;
+            canvas.height = 480;
+            var ctx = canvas.getContext('2d');
+            if (this.isJpeg) {
+                this.i.crossOrigin = "anonymous";
+                ctx.drawImage(this.i, 0, 0, canvas.width, canvas.height);
+            } else {
+                ctx.drawImage(this.v, 0, 0, canvas.width, canvas.height);
+            }
+            dataURI = canvas.toDataURL('image/png');
+            if (this.i) {
+                this.i.crossOrigin = null;
+            }
+        } catch (ex) {
+            console.log(ex);
+        }
+        return dataURI;
+    }
 }
 
