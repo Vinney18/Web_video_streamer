@@ -23,28 +23,25 @@
       ExeCommand="cmd.exe /c &quot;run_service.bat"
       Directory="INSTALLFOLDER"  Impersonate="no" Execute="deferred" Return="ignore" />
 
-		<CustomAction Id="REINSTALL"
-	 ExeCommand="cmd.exe /c &quot;run_service.bat"
-	 Directory="INSTALLFOLDER"  Impersonate="no" Execute="deferred" Return="ignore" />
-		
-	
-    <CustomAction Id="uninstallBatFile" 
-     ExeCommand="cmd.exe /c &quot;remove_service.bat"
-     Directory="INSTALLFOLDER"  Impersonate="no" Execute="deferred" Return="ignore" />
-    
-    <InstallExecuteSequence>
-      <Custom Action="RUN" Before="InstallFinalize">NOT Installed AND NOT UPGRADINGPRODUCTCODE</Custom>
-    </InstallExecuteSequence>
+		<CustomAction Id="SetCustomActionDataValue" Return="check"
+					   Property="OnAfterInstallAction" Value="INSTALLEDPATH=[INSTALLFOLDER];" />
 
-	<InstallExecuteSequence>
-		<Custom Action="REINSTALL" Before="InstallFinalize">UPGRADINGPRODUCTCODE</Custom>
-	</InstallExecuteSequence>
-
+		<CustomAction Id="SetCustomActionDataValue1" Return="check"
+				   Property="OnUninstallAction" Value="INSTALLEDPATH=[INSTALLFOLDER];" />
 
 
 		<InstallExecuteSequence>
-      <Custom Action="uninstallBatFile" Before="RemoveFiles">Installed AND NOT UPGRADINGPRODUCTCODE </Custom>
-    </InstallExecuteSequence>
+
+			<Custom Action="SetCustomActionDataValue" Before="OnAfterInstallAction" />
+			<Custom Action="OnAfterInstallAction" Before="InstallFinalize">
+				NOT REMOVE
+			</Custom>
+
+			<Custom Action="SetCustomActionDataValue1" Before="OnUninstallAction" />
+			<Custom Action="OnUninstallAction" Before="RemoveFiles">Installed AND NOT UPGRADINGPRODUCTCODE </Custom>
+
+
+		</InstallExecuteSequence>
     
   </Product>
 
@@ -68,5 +65,25 @@
 				<!-- TODO: Insert files, registry keys, and other resources here. -->
 			<!-- </Component> -->
 		</ComponentGroup>
+	</Fragment>
+
+	<Fragment>
+		<Binary Id="SetupCA2"  SourceFile="$(var.StreamerCustomAction.TargetDir)/StreamerCustomAction.CA.dll" />
+		<CustomAction Id="OnAfterInstallAction"
+				  BinaryKey="SetupCA2"
+				  DllEntry="OnAfterInstall"
+				  Execute="deferred"
+				  Return="check"
+             />
+
+
+		<CustomAction Id="OnUninstallAction"
+				 BinaryKey="SetupCA2"
+				 DllEntry="OnUninstall"
+				 Execute="deferred"
+				 Return="check"
+             />
+
+
 	</Fragment>
 </Wix>
