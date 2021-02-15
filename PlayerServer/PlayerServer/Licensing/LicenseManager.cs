@@ -36,9 +36,6 @@ using Radev.Licensing;
 
 namespace PlayerServer.Licensing
 {
-
-   
-
     // Do not put this in a shared assembly.
     // For improved security this source file must be included in each
     // project you need to check for license (added as reference).
@@ -76,31 +73,28 @@ namespace PlayerServer.Licensing
 
         static LicenseManager()
         {
-
             var timer = new System.Threading.Timer(
                 e => CheckLicenceValidation(),
                 null,
                 TimeSpan.Zero,
                 TimeSpan.FromHours(1));
-
-
         }
+        
         public static License License
         {
             [SecurityCritical, MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-
                 return GetLicenceModel();
             }
         }
-
 
         private static void CheckLicenceValidation()
         {
 
             LicenseInfo.IsValid = isLicenceActivated();
         }
+
         public static License GetLicenceModel()
         {
             License model = null;
@@ -162,19 +156,5 @@ namespace PlayerServer.Licensing
             bool islicencevalid = isLicenseValid(out intPtrError, true);
             return islicencevalid;
         }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     }
 }

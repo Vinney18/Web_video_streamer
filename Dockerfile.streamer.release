@@ -1,17 +1,17 @@
 FROM streamer_build_base as compile
 
-RUN mkdir /home/Development/app
-COPY . /home/Development/app
+RUN mkdir /app
+COPY . /app
 
-RUN mkdir /home/Development/app/build
-RUN cd /home/Development/app/build && cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake && make -j 4
+RUN mkdir /app/build
+RUN cd /app/build && cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake && make -j 4
 
 FROM ubuntu:18.04 as release
 
 RUN apt-get update && apt-get install -y libavformat57 libavcodec57 libswresample2 libswscale4 libavutil55 libavdevice57 libavfilter6 libpostproc54 ffmpeg
 RUN mkdir /home/app 
-COPY --from=compile /home/Development/app/build/streamer/streamer /home/Development/app/
-WORKDIR /home/Development/app/
+COPY --from=compile /app/build/streamer/streamer /app/
+WORKDIR /app
 
 EXPOSE 8181
 CMD ./streamer -s 1
