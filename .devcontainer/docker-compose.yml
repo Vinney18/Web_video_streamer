@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  streamer_dev:
+    image: streamer_dev_img
+    build: 
+      context: ..
+      dockerfile: Dockerfile.streamer.base
+    ports:
+      - 8181:8181
+    volumes:      
+      - ..:/home/Developement/projects/app
+      - ~/.gitconfig:/root/.gitconfig
+    environment:      
+      DISPLAY:
+      XAUTHORITY:
+    container_name: streamer-devel
+    command: sleep infinity
+    
