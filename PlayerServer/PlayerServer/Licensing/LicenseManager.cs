@@ -55,14 +55,11 @@ namespace PlayerServer.Licensing
     // Be aware malicious plug-ins may alter license information (also) via Reflection!
     public static class LicenseManager
     {
-
-
-        #if (LINUX)
-            const string LIBRARYNETSDK = "liblicenser.so";
+        #if Linux
+           const string LIBRARYNETSDK = "liblicenser.so";
         #else
            const string LIBRARYNETSDK = "liblicenser.dll";
         #endif
-
 
         [DllImport(LIBRARYNETSDK, CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         public static extern bool generateMachineKey([MarshalAs(UnmanagedType.LPStr)] string file_path, out IntPtr machine_key, out IntPtr error);

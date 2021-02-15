@@ -14,7 +14,7 @@ docker rmi i2v_player_streamer
 docker build -t i2v_player_streamer -f ./Dockerfile.streamer.release .
 
 # TODO: build player server release image
-# echo "building release image ..."
-# docker build -t pawanyadavi2v/i2v_analytic_server_gpu -f ./Dockerfile.release .
+echo ">>>>> building player server image ..."
+docker build -t player_server -f ./Dockerfile.playerServer.release .
 
 echo ">>>>> images built"
