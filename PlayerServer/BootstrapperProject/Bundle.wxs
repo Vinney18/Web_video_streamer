@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
      xmlns:bal="http://schemas.microsoft.com/wix/BalExtension">
-  <Bundle Name="i2V Web Player Msi Installer" Version="5.13" Manufacturer="I2V"
+  <Bundle Name="i2V Web Player Msi Installer" Version="5.14" Manufacturer="I2V"
           UpgradeCode="b052a793-219b-4ae4-b160-406cf2986e83" >
 
 
