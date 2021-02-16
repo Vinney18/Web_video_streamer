@@ -21,6 +21,8 @@ COPY --from=node-build /app/ffmpeg-player-setup-win/web_player/index.html /app/P
 COPY --from=node-build /app/ffmpeg-player-setup-win/web_player/moment.min.js /app/PlayerServer/PlayerServer/wwwroot/player/ 
 
 WORKDIR /app/PlayerServer/PlayerServer
+RUN sed -i 's/serverIp = "127.0.0.1";/serverIp = "player_server";/g' wwwroot/player/index.html
+RUN sed -i 's/playerIp = "127.0.0.1";/playerIp = "player_streamer";/g' wwwroot/player/index.html
 RUN dotnet build "PlayerServer.csproj" -c Release -o /app/build
 
 FROM build AS publish

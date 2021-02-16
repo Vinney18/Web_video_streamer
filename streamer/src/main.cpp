@@ -137,8 +137,8 @@ int main(int argc, char* argv[])
 void on_open(connection_hdl hdl) {
 	try
 	{
-		//websocketp get_con_from_hdl();
-        if (mainLogger) { mainLogger->debug("new websocket connection"); }
+		//websocketp get_con_from_hdl();       
+		if (mainLogger) { mainLogger->trace("inside on_open"); }
 
 		string id;
 		string url;
@@ -153,6 +153,10 @@ void on_open(connection_hdl hdl) {
 		int streamtype = 0;
 		string mode = "Live";
 		websocketpp::server<websocketpp::config::asio>::connection_ptr con = websocket_server.get_con_from_hdl(hdl);
+		std::string remote_endpoint = con->get_remote_endpoint();
+		
+		if (mainLogger) { mainLogger->debug("on_open new websocket connection from : {}", remote_endpoint); }
+
 		websocketpp::uri_ptr uri = con->get_uri();
 		string query = uri->get_query();
 		if (!query.empty()) {
@@ -283,8 +287,9 @@ void on_close(connection_hdl hdl) {
 }
 
 void on_message(websocketpp::server<websocketpp::config::asio>* s, connection_hdl hdl, message_ptr msg)
-{
+{	
 	string messagestring = msg->get_payload();
+	if (mainLogger) { mainLogger->debug("on_message, data received: {}", messagestring); }
 	if (boost::starts_with(messagestring, "seek_Time"))
 	{
 		auto id = m_connectionsIdMap[hdl.lock()];
@@ -403,6 +408,8 @@ string GetDateStringFormat_ByUnix(int start_time_ofplaybackfile) {
 }
 
 string Get_PlayBackUrl(connection_hdl hdl, int cameraId, int start_time_ofplaybackfile, int* seekTime_ofFile, int*sessionid, bool streamviaapache) {
+	
+	if (mainLogger) { mainLogger->debug("Get_PlayBackUrl, cameraId: {}, start_time_ofplaybackfile: {}", cameraId, start_time_ofplaybackfile); }
 	string response;
 	string cameraId_instring = to_string(cameraId);
 	string seekVideo = "";
@@ -470,11 +477,13 @@ string Get_PlayBackUrl(connection_hdl hdl, int cameraId, int start_time_ofplayba
         if (mainLogger) { mainLogger->error("Error in Get_PlayBackUrl: {}", ex.what()); }
         else { std::cout << ex.what() << std::endl; }
 	}
+	if (mainLogger) { mainLogger->debug("Get_PlayBackUrl, response: {}", response); }
 	return response;
 }
 
 string Get_LiveUrl(connection_hdl hdl, int cameraId, int streamtype, string analyticType) {
 
+	if (mainLogger) { mainLogger->debug("Get_LiveUrl, cameraId: {}, streamtype: {}, analyticType: {}", cameraId, streamtype, analyticType); }
 	string response;
 	string cameraId_instring = to_string(cameraId);
 
@@ -513,6 +522,7 @@ string Get_LiveUrl(connection_hdl hdl, int cameraId, int streamtype, string anal
         if (mainLogger) { mainLogger->error("Error in Get_LiveUrl: {}", ex.what()); }
         else { std::cout << ex.what() << std::endl; }
 	}
+	if (mainLogger) { mainLogger->debug("Get_LiveUrl, response: {}", response); }
 	return response;
 }
 
@@ -562,6 +572,7 @@ void setDefaultValues(Options& opt)
 
 void updateconfigFile(connection_hdl hdl , string previousServerIp, string currentServerIp)
 {
+	if (mainLogger) { mainLogger->debug("Updating config file, previousServerIp: {}, currentServerIp: {}", previousServerIp, currentServerIp); }
     if (currentServerIp == "")
     {
         websocket_server.send(hdl, "Server_ip_not_provided", 22, websocketpp::frame::opcode::TEXT);
