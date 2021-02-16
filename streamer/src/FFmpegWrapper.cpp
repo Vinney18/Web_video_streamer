@@ -810,6 +810,7 @@ bool FFmpegWrapper::openInput()
 			av_dict_set(&options1, "rtsp_transport", "tcp", 0);
 
 		}
+		av_dict_set(&options1, "stimeout", "5000000", 0);//The unit us is 3s
 
 	}
 	catch (boost::bad_lexical_cast)

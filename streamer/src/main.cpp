@@ -212,7 +212,8 @@ void on_open(connection_hdl hdl) {
 		}
 
 			if (mode == "Live") {
-				url = Get_LiveUrl(hdl, cameraId, streamtype, analyticType);
+				//url = Get_LiveUrl(hdl, cameraId, streamtype, analyticType);
+				url = "rtsp://127.0.0.1:8554/test1";
 			}
 			else {
 				url = Get_PlayBackUrl(hdl, cameraId, start_time_ofplaybackfile, &seekTime_ofFile, &sessionid,  playbackviaapache);
