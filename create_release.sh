@@ -10,10 +10,10 @@ else
 fi
 
 echo ">>>>> building streamer release ..."
-docker build -t i2v_player_streamer -f ./Dockerfile.streamer.release .
+docker build -t pawanyadavi2v/player_streamer:1.0 -f ./Dockerfile.streamer.release .
 
 # TODO: build player server release image
 echo ">>>>> building player server image ..."
-docker build -t player_server -f ./Dockerfile.playerServer.release .
+docker build -t pawanyadavi2v/player_server:1.0 -f ./Dockerfile.playerServer.release .
 
 echo ">>>>> images built"
