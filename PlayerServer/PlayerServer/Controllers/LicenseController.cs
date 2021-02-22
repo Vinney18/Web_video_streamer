@@ -33,6 +33,8 @@ namespace PlayerServer.Controllers
             {
                 IntPtr intPtr_machinekey, intPtrError;
                 bool isDeviceKeyGenrated = LicenseManager.generateMachineKey(machine_key_file_path, out intPtr_machinekey, out intPtrError);
+                string errordetails = System.Runtime.InteropServices.Marshal.PtrToStringAnsi(intPtrError);
+
                 if (isDeviceKeyGenrated)
                 {
                     if (System.IO.File.Exists(Path.Combine(Directory.GetCurrentDirectory(), machine_key_file_path)))
@@ -42,13 +44,13 @@ namespace PlayerServer.Controllers
                     }
                     else
                     {
-                        return BadRequest("Cannot Generate Device Key.");
+                        return BadRequest("Machine key file not found, error: " + errordetails);
 
                     }
                 }
                 else
                 {
-                    return BadRequest("Cannot Generate Device Key.");
+                    return BadRequest("Cannot Generate Device Key: " + errordetails);
                 }
 
             }
@@ -69,7 +71,8 @@ namespace PlayerServer.Controllers
                 {
                     return BadRequest();
                 }
-                bool islicenceActivated = LicenseManager.UpdateLicense(req.license_data);
+                string errorDetails = string.Empty;
+                bool islicenceActivated = LicenseManager.UpdateLicense(req.license_data, out errorDetails);
                 if (islicenceActivated)
                 {
                     return Ok();
@@ -77,7 +80,7 @@ namespace PlayerServer.Controllers
                 }
                 else
                 {
-                    return BadRequest("Not able to activate");
+                    return BadRequest("Not able to activate" + errorDetails);
 
                 }
                 return Ok();

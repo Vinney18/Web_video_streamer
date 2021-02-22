@@ -137,13 +137,19 @@ namespace PlayerServer.Licensing
                 }
             }
         }
-        public static bool UpdateLicense(string LicenseKey)
+        public static bool UpdateLicense(string LicenseKey, out string errordetails)
         {
             IntPtr intPtrError;
+            errordetails = string.Empty;
             bool islicenceActivated = LicenseManager.activateLicense(LicenseKey, out intPtrError);
             if (islicenceActivated)
             {
                  LoadLicense();
+            }
+            else
+            {
+                errordetails = System.Runtime.InteropServices.Marshal.PtrToStringAnsi(intPtrError);
+
             }
 
             return islicenceActivated;

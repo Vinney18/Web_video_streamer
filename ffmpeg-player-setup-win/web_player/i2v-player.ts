@@ -648,13 +648,18 @@ class I2vPlayer {
         var dataURI = "";
         try {
             var canvas = document.createElement('canvas');
-            canvas.width = 640;
-            canvas.height = 480;
-            var ctx = canvas.getContext('2d');
+            
+            
             if (this.isJpeg) {
+                canvas.width = this.i.naturalWidth;
+                canvas.height = this.i.naturalHeight;
+                var ctx = canvas.getContext('2d');
                 this.i.crossOrigin = "anonymous";
                 ctx.drawImage(this.i, 0, 0, canvas.width, canvas.height);
             } else {
+                canvas.width = this.v.videoWidth;
+                canvas.height = this.v.videoHeight;
+                var ctx = canvas.getContext('2d');
                 ctx.drawImage(this.v, 0, 0, canvas.width, canvas.height);
             }
             dataURI = canvas.toDataURL('image/png');
