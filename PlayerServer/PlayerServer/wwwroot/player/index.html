@@ -25,8 +25,9 @@
         var serverIp = "127.0.0.1"; //This is Ip of Player Server Module (Same as VMS if player server installed on same machine)
         var playerIp = "127.0.0.1"; //This is Ip of Player Stramer
         var UseSecureConnection = false;
+        var playerserverport = 8890;
 
-        var sdk = new I2vSdk(playerIp, serverIp, UseSecureConnection);
+        var sdk = new I2vSdk(playerIp, serverIp, UseSecureConnection, playerserverport);
 
         var latestDivId = "someUniqueId"
 

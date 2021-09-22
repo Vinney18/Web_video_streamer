@@ -44,7 +44,14 @@ namespace PlayerServer.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest();
+                if(ex.Message.Contains("No connection could be made because the target machine actively refused it."))
+                {
+                    return Ok("URL_Server_Not_Connected");
+                }
+                else
+                {
+                    return BadRequest();
+                }
             }
         }
 
@@ -57,13 +64,16 @@ namespace PlayerServer.Controllers
                 var url = await _playerUrlService.GetPlaybackUrl(cameraId, time, streamviaapache);
                 var obj = JsonConvert.DeserializeObject<dynamic>(url);
                 string currentUrl = "";
-                if (url.Contains("GetEventPlaybackUrlResult"))
+                if (obj != null)
                 {
-                    currentUrl = obj.GetEventPlaybackUrlResult.ToString();
-                }
-                else
-                {
-                    currentUrl = obj.getEventPlaybackUrlResult.ToString();
+                    if (url.Contains("GetEventPlaybackUrlResult"))
+                    {
+                        currentUrl = obj.GetEventPlaybackUrlResult.ToString();
+                    }
+                    else
+                    {
+                        currentUrl = obj.getEventPlaybackUrlResult.ToString();
+                    } 
                 }
                
                 if (currentUrl.Contains("127.0.0.1") || currentUrl.Contains("localhost"))
@@ -82,14 +92,24 @@ namespace PlayerServer.Controllers
                     }
 
                 }
-                obj.GetEventPlaybackUrlResult = currentUrl;
+                if(obj != null)
+                {
+                    obj.GetEventPlaybackUrlResult = currentUrl;
+                }
                 url = JsonConvert.SerializeObject(obj);
 
                 return Ok(url);
             }
             catch (Exception ex)
             {
-                return BadRequest();
+                if (ex.Message.Contains("No connection could be made because the target machine actively refused it."))
+                {
+                    return Ok("URL_Server_Not_Connected");
+                }
+                else
+                {
+                    return BadRequest();
+                }
             }
         }
 

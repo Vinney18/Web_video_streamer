@@ -4,10 +4,12 @@ class I2vSdk {
     playerIp: string = "localhost";
     useSecureConnection: boolean = false;
     player: I2vPlayer;
-    playerServerIp:string;
+    playerServerIp: string;
+    playerServerPort: any = 8890;
     
-    constructor(_playerip, _playerserverip, useSecureConnection?: boolean) {
+    constructor(_playerip, _playerserverip, useSecureConnection?: boolean, _playerServerPort?:any) {
         this.playerServerIp = _playerserverip;
+        this.playerServerPort = _playerServerPort;
         this.playerIp = _playerip;
         if (useSecureConnection) {
             this.useSecureConnection = useSecureConnection;
@@ -16,16 +18,20 @@ class I2vSdk {
 
 
     GetLivePlayer(elId, cameraId, streamtype, advanceDecoding, analyticType, connectionmode) {
-        this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, this.useSecureConnection, advanceDecoding, connectionmode, "1", analyticType);
+        this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, this.useSecureConnection, advanceDecoding, connectionmode, "1", analyticType, this.playerServerPort);
         this.player.playerIp = this.playerIp;
         this.player.playerServerIp = this.playerServerIp;
+        this.player.PlayerServerPort = this.playerServerPort;
+
         return this.player;
     }
    
     GetPlaybackPlayer(elId, cameraId, startTime, _playbackviaapache) {
-        this.player = new I2vPlayer(elId, cameraId, "PlayBack", "0", startTime, this.useSecureConnection, "0", "tcp", _playbackviaapache, "");
+        this.player = new I2vPlayer(elId, cameraId, "PlayBack", "0", startTime, this.useSecureConnection, "0", "tcp", _playbackviaapache, "", this.playerServerPort);
         this.player.playerIp = this.playerIp;
         this.player.playerServerIp = this.playerServerIp;
+        this.player.PlayerServerPort = this.playerServerPort;
+
         return this.player;
     }
 
@@ -80,7 +86,13 @@ class I2vPlayer {
     connectionmode: string = "tcp";
     playbackviaapache: boolean = true;
     mjpeg_overhttpurl: string = "";
-    constructor(elId, cameraId, mode, streamtype, startTime, useSecureConnection, advanceDecoding, _connectionmode, _playbackviaapache, _analyticType) {
+    IsEmptyUrl: boolean = false;
+    IsPlayerServerConnected: boolean = false;
+    URL_Server_Not_Connected: boolean = false;
+
+    PlayerServerPort: any = 8890;
+
+    constructor(elId, cameraId, mode, streamtype, startTime, useSecureConnection, advanceDecoding, _connectionmode, _playbackviaapache, _analyticType, playerServerPort) {
         this.elId = elId;
         this.cameraId = cameraId;
         this.mode = mode;
@@ -92,7 +104,7 @@ class I2vPlayer {
         this.playbackviaapache = _playbackviaapache;
         this.analyticType = _analyticType;
         //TODO Check playback also working or not
-
+        this.PlayerServerPort = playerServerPort;
         if (!this.analyticType) {
             this.analyticType = "";
         }
@@ -269,7 +281,10 @@ class I2vPlayer {
         this.removeErrorMessage();
 
         this.showErrorMessage("Trying to Connect...");
-        this.w = new WebSocket(`${protocolType}://${this.playerIp}:${port}?cameraId~~${this.cameraId}&&id~~${this.elId}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}&&useJmuxer~~${this.useJmuxer}&&connectionmode~~${this.connectionmode}&&playbackviaapache~~${this.playbackviaapache}&&serverIp~~${this.playerServerIp}&&analyticType~~${this.analyticType}`);
+        this.IsEmptyUrl = false;
+        this.IsPlayerServerConnected = false;
+        this.URL_Server_Not_Connected = false;
+        this.w = new WebSocket(`${protocolType}://${this.playerIp}:${port}?cameraId~~${this.cameraId}&&id~~${this.elId}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}&&useJmuxer~~${this.useJmuxer}&&connectionmode~~${this.connectionmode}&&playbackviaapache~~${this.playbackviaapache}&&serverIp~~${this.playerServerIp}&&analyticType~~${this.analyticType}&&PlayerServerPort~~${this.PlayerServerPort}`);
         this.w.binaryType = 'arraybuffer';
 
         this.w.addEventListener('open', (event) => {
@@ -283,9 +298,33 @@ class I2vPlayer {
                 this.removeErrorMessage();
             } else {
                 console.log('socket closed and retrying...');
-                if (!this.isErrorMessageVisible) {
-                    this.showErrorMessage("Trying to Connect...");
+                if (this.IsPlayerServerConnected) {
+                    var errMsg = "Player Server Not Connected ";
+
+                    this.showErrorMessage(errMsg);
+
                 }
+                else if (this.URL_Server_Not_Connected) {
+                    var errMsg = "URL Server Not Connected";
+
+                    this.showErrorMessage(errMsg);
+
+                }
+                else if (this.IsEmptyUrl) {
+                    var errMsg = this.mode == "Live" ? "Url not configured" : "Recording not Found";
+
+                    this.showErrorMessage(errMsg);
+
+                }
+                else {
+                    this.showErrorMessage("Player Not Connected...");
+
+                }
+
+
+                //if (!this.isErrorMessageVisible) {
+                //    this.showErrorMessage("Trying to Connect...");
+                //}
                 delete this.w;
                 if (this.b) {
                     this.b.abort();
@@ -335,6 +374,9 @@ class I2vPlayer {
         }, 3000);
 
         this.w.addEventListener('message', (e) => {
+            this.IsEmptyUrl = false;
+            this.IsPlayerServerConnected = false;
+            this.URL_Server_Not_Connected = false;
             switch (e.data) {     
                 case "Server_ip_not_provided":
                     var errMsg = "Please Provide Valid Server Ip";
@@ -367,7 +409,26 @@ class I2vPlayer {
                     this.stop();
                     return;                 
                 case "EmptyUrl":
+                    this.IsEmptyUrl = true;
                     var errMsg = this.mode == "Live" ? "Url not configured" : "Recording not Found";
+                    if (this.errorCallback) {
+                        this.errorCallback(errMsg);
+                    }
+                    this.showErrorMessage(errMsg);
+                    return;
+                case "Player_Server_Not_Connected":
+                    this.IsPlayerServerConnected = true;
+
+                    var errMsg = "Player Server Not Connected ";
+                    if (this.errorCallback) {
+                        this.errorCallback(errMsg);
+                    }
+                    this.showErrorMessage(errMsg);
+                    return;
+                case "URL_Server_Not_Connected":
+                    this.URL_Server_Not_Connected = true;
+
+                    var errMsg = "URL Server Not Connected";
                     if (this.errorCallback) {
                         this.errorCallback(errMsg);
                     }

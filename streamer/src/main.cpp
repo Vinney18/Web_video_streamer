@@ -212,6 +212,12 @@ void on_open(connection_hdl hdl) {
 				{
 					analyticType = value;
 				}
+				else if (key == "PlayerServerPort")
+				{
+					playerServerPort = stoi(value);
+					updateconfigFile(hdl, "playerServerPort", value);
+
+				}
 			}
 		}
 
@@ -224,9 +230,26 @@ void on_open(connection_hdl hdl) {
 
             if (mainLogger) { mainLogger->debug("on_open url returned is: {}", url); }
 
-			if (id.empty() || url.empty()) {
-				websocket_server.send(hdl, "EmptyUrl", 8, websocketpp::frame::opcode::TEXT);
-				websocket_server.close(hdl, 0, "EmptyUrl");
+			if (id.empty() || url.empty() || boost::starts_with(url, "Player_Server_Not_Connected") || boost::starts_with(url, "URL_Server_Not_Connected")) {
+				std::string const reason = "EmptyUrl";
+
+				if (boost::starts_with(url, "Player_Server_Not_Connected")) {
+					websocket_server.send(hdl, "Player_Server_Not_Connected", 27, websocketpp::frame::opcode::TEXT);
+					websocket_server.close(hdl, 0, "Player_Server_Not_Connected");
+
+				}
+				else if (boost::starts_with(url, "URL_Server_Not_Connected")) {
+					websocket_server.send(hdl, "URL_Server_Not_Connected", 24, websocketpp::frame::opcode::TEXT);
+					websocket_server.close(hdl, 0, "URL_Server_Not_Connected");
+
+				}
+				else 
+				{
+					websocket_server.send(hdl, "EmptyUrl", 8, websocketpp::frame::opcode::TEXT);
+					websocket_server.close(hdl, 0, "EmptyUrl");
+
+				}
+
 				return;
 			}
 
@@ -426,6 +449,7 @@ string Get_PlayBackUrl(connection_hdl hdl, int cameraId, int start_time_ofplayba
 		auto res = cpr::Get(cpr::Url{ url });
 
 		if (res.status_code == 200) {
+			if (res.text == "URL_Server_Not_Connected") { return "URL_Server_Not_Connected"; }
 			string json = res.text;
 			Json::Reader reader;
 			Json::Value root;
@@ -465,8 +489,11 @@ string Get_PlayBackUrl(connection_hdl hdl, int cameraId, int start_time_ofplayba
                 websocket_server.send(hdl, "Some problem occured", 20, websocketpp::frame::opcode::TEXT);
 			}
 			else {
-				response = "";
+				response = "Player_Server_Not_Connected";
 			}
+		}
+		else {
+			response = "Player_Server_Not_Connected";
 		}
 	}
 	catch (const std::exception & ex)
@@ -476,7 +503,7 @@ string Get_PlayBackUrl(connection_hdl hdl, int cameraId, int start_time_ofplayba
         if (mainLogger) { mainLogger->error("Error in Get_PlayBackUrl: {}", ex.what()); }
         else { std::cout << ex.what() << std::endl; }
 	}
-	if (mainLogger) { mainLogger->debug("Get_PlayBackUrl, response: {}", response); }
+	if (mainLogger) { mainLogger->debug("Get_PlayBackUrl, response: {}", response); } 
 	return response;
 }
 
@@ -514,6 +541,9 @@ string Get_LiveUrl(connection_hdl hdl, int cameraId, int streamtype, string anal
             else { cout << "Get_LiveUrl Some Error occured status code: " << res.status_code <<std::endl; }
 
 			websocket_server.send(hdl, "Some problem occured", 20, websocketpp::frame::opcode::TEXT);
+		}
+		else {
+			response = "Player_Server_Not_Connected";
 		}
 	}
 	catch (const std::exception & ex)
@@ -577,24 +607,41 @@ void updateconfigFile(connection_hdl hdl , string previousServerIp, string curre
         websocket_server.send(hdl, "Server_ip_not_provided", 22, websocketpp::frame::opcode::TEXT);
     }
     transform(currentServerIp.begin(), currentServerIp.end(), currentServerIp.begin(), ::tolower);
-    if (currentServerIp == "localhost")
-    {
-        currentServerIp = "127.0.0.1";
-    }
-    else if (previousServerIp != currentServerIp) {
-        Options opt;
-        playerServerIp = currentServerIp;
-        if (boost::filesystem::exists(mainConfigFile))
-        {
-            opt.readFile(mainConfigFile);
-            opt.set<string>("playerServerIp", playerServerIp);
-            opt.set<int>("playerServerPort", playerServerPort);
-            opt.writeFile(mainConfigFile, true);
-        }
-        else {
-            opt.add("playerServerIp", i2v::PLAYER_SERVER_IP);
-            opt.add("playerServerPort", i2v::PLAYER_SERVER_PORT);
-            opt.writeFile(mainConfigFile, true);
-        }
-    }
+	if (previousServerIp == "playerServerPort") {
+		Options opt;
+		if (boost::filesystem::exists(mainConfigFile))
+		{
+			opt.readFile(mainConfigFile);
+			opt.set<int>("playerServerPort", stoi(currentServerIp));
+			opt.writeFile(mainConfigFile, true);
+		}
+		else {
+			opt.add("playerServerIp", i2v::PLAYER_SERVER_IP);
+			opt.add("playerServerPort", i2v::PLAYER_SERVER_PORT);
+			opt.writeFile(mainConfigFile, true);
+		}
+	}
+	else {
+		if (currentServerIp == "localhost")
+		{
+			currentServerIp = "127.0.0.1";
+		}
+		else if (previousServerIp != currentServerIp) {
+			Options opt;
+			playerServerIp = currentServerIp;
+			if (boost::filesystem::exists(mainConfigFile))
+			{
+				opt.readFile(mainConfigFile);
+				opt.set<string>("playerServerIp", playerServerIp);
+				opt.set<int>("playerServerPort", playerServerPort);
+				opt.writeFile(mainConfigFile, true);
+			}
+			else {
+				opt.add("playerServerIp", i2v::PLAYER_SERVER_IP);
+				opt.add("playerServerPort", i2v::PLAYER_SERVER_PORT);
+				opt.writeFile(mainConfigFile, true);
+			}
+		}
+	}
+
 }
