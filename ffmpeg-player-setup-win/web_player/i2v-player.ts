@@ -54,6 +54,8 @@ class I2vSdk {
         }
     }
 }
+
+
 class I2vPlayer {
     elId: any;
     cameraId: any;

@@ -87,6 +87,7 @@ namespace PlayerServer.services
             DateTimeOffset dateTime = DateTimeOffset.FromUnixTimeSeconds(time);
             string timePlayback = dateTime.LocalDateTime.ToString("MM/dd/yyyy, hh:mm:ss tt", CultureInfo.InvariantCulture);
             var httpResponse = await httpClient.GetAsync("/RestService/server/PauseVideo?cameraId=" + cameraId + "&eventDateTime=" + timePlayback + "&sessionId=" + sessionId);
+            Console.WriteLine(httpResponse.StatusCode);
             if (httpResponse.StatusCode == System.Net.HttpStatusCode.OK)
             {
                 return await httpResponse.Content.ReadAsStringAsync();

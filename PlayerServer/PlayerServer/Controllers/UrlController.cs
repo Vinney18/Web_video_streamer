@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
@@ -20,6 +18,7 @@ namespace PlayerServer.Controllers
         [Route("~/url/GetLiveUrl")]
         public async Task<IActionResult> GetLiveUrlAsync(int cameraId, int streamType, string analyticType)
         {
+            Console.WriteLine("Route -> ~/url/GetLiveUrl");
             try
             {
                 var url = await _playerUrlService.GetLiveUrlAsync(cameraId, streamType, analyticType);
@@ -59,6 +58,7 @@ namespace PlayerServer.Controllers
         [Route("~/url/GetPlaybackUrl")]
         public async Task<IActionResult> GetPlaybackUrl(int cameraId, long time, bool streamviaapache)
         {
+            Console.WriteLine("Route -> ~/url/GetPlaybackUrl");
             try
             {
                 var url = await _playerUrlService.GetPlaybackUrl(cameraId, time, streamviaapache);
@@ -117,6 +117,7 @@ namespace PlayerServer.Controllers
         [Route("~/url/PauseVideo")]
         public async Task<IActionResult> PauseVideo(int cameraId, long time, int sessionId)
         {
+            Console.WriteLine("Route -> ~/url/PauseVideo");
             try
             {
                 var url = await _playerUrlService.PauseVideo(cameraId, time, sessionId);

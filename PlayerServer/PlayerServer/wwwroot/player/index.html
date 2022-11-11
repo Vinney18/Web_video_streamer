@@ -22,7 +22,7 @@
     <script src="i2v_player.min.js"></script>
     <script>
         var playerObj;
-        var serverIp = "127.0.0.1"; //This is Ip of Player Server Module (Same as VMS if player server installed on same machine)
+        var serverIp = "1.1.1.1"; //This is Ip of Player Server Module (Same as VMS if player server installed on same machine)
         var playerIp = "127.0.0.1"; //This is Ip of Player Stramer
         var UseSecureConnection = false;
         var playerserverport = 8890;
@@ -75,11 +75,14 @@
         }
 
         function seekVideo() {
-            if (playerObj) {
-                playerObj.SeekVideo("10");
-            }
-
-        }
+			var date = document.getElementById("date").value;
+            var time = document.getElementById("time").value;
+            var datetime = moment(date + " " + time);
+            var startTime = datetime.unix();
+			console.log(startTime);
+            playerObj.Pause();
+		}
+		
         function Play_Playback() {
             if (playerObj) {
                 playerObj.stop();

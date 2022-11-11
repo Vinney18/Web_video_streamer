@@ -13,6 +13,7 @@ protected:
 
 	bool  mRunning;                     ///< Flag indicating whether this thread has begun and is running
 	bool  mStop;                        ///< Flag indicating whether this thread has been signalled to stop
+	bool  mPaused;						///< Flag indicating whether this thread is in sleep
 
 protected:
 	Thread();
@@ -46,4 +47,8 @@ public:
 		return(mStop);
 	}
 
+	bool paused() const        ///< Indicate whether the thread has been signalled to pause
+	{
+		return(mPaused);
+	}
 };

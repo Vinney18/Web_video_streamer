@@ -17,9 +17,10 @@ void Thread::startThread() {
 
 	std::lock_guard<std::mutex> locker(mThreadMutex);
 	if (!mRunning) {
-		mStop = false;
-		mThread = std::thread(&Thread::run, this);
 		mRunning = true;
+		mStop = false;
+		mPaused = false;
+		mThread = std::thread(&Thread::run, this);
 	}
 	else {
 		// print error

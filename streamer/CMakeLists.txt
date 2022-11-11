@@ -67,7 +67,24 @@ set_target_properties(
 		LINKER_LANGUAGE CXX
 )
 
-target_link_libraries(
+if (WIN32)
+	target_link_libraries(
+			${EXE_NAME}
+			${Boost_LIBRARIES}
+			Poco::Net
+			Poco::Foundation
+			Poco::Util
+			${FFmpeg_Libraries}
+			websocketpp::websocketpp
+			cpr::cpr
+			jsoncpp_lib
+			#jsoncpp_static
+			cryptopp-static
+			fmt::fmt
+			spdlog::spdlog
+	)
+else()
+	target_link_libraries(
 		${EXE_NAME}
 		${Boost_LIBRARIES}
 		Poco::Net
@@ -76,23 +93,11 @@ target_link_libraries(
 		${FFmpeg_Libraries}
 		websocketpp::websocketpp
 		cpr
-		#jsoncpp_lib
-		#jsoncpp_static
+		jsoncpp_static
 		cryptopp-static
 		fmt::fmt
+		fmt::fmt-header-only
 		spdlog::spdlog
-)
-
-if (WIN32)
-target_link_libraries(
-	${EXE_NAME}
-	jsoncpp_lib	
-)
-else()
-target_link_libraries(
-	${EXE_NAME}
-	jsoncpp_static
-	fmt::fmt-header-only
 )
 endif()
 
