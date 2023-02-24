@@ -1,14 +1,16 @@
 #include "Mp4frag.h"
+#include <iostream>
 
+using namespace std;
 using namespace std::placeholders;
 
 Mp4frag::Mp4frag(SendSegmentCallback callback) 
 {
 	sendSegment = callback;
-	_parseChunk = std::bind(&Mp4frag::_findFtyp, this, _1); // &this->_findFtyp;
+	_parseChunk = std::bind(&Mp4frag::_findFtyp, this, _1, _2); // &this->_findFtyp;
 }
 
-void Mp4frag::_findFtyp(vector<uint8_t> chunk)
+void Mp4frag::_findFtyp(vector<uint8_t> chunk, int64_t position)
 {
 	int chunkLength = chunk.size();
 	if (chunkLength < 8 || chunk[4] != 102 || chunk[5] != 116 || chunk[6] != 121 || chunk[7] != 112)
@@ -25,15 +27,15 @@ void Mp4frag::_findFtyp(vector<uint8_t> chunk)
 
 		vector<uint8_t> _ftyp(start, start + _ftypLength);
 		this->_ftyp = _ftyp;
-		_parseChunk = std::bind(&Mp4frag::_findMoov, this, _1);// this->_findMoov;
+		_parseChunk = std::bind(&Mp4frag::_findMoov, this, _1, _2);// this->_findMoov;
 
 		vector<uint8_t> tempChunk(start + _ftypLength, end);
-		_parseChunk(tempChunk);
+		_parseChunk(tempChunk, position);
 	}
 	else if (_ftypLength == chunkLength)
 	{
 		this->_ftyp = chunk;
-		_parseChunk = std::bind(&Mp4frag::_findMoov, this, _1); //this->_findMoov;
+		_parseChunk = std::bind(&Mp4frag::_findMoov, this, _1, _2); //this->_findMoov;
 	}
 	else
 	{
@@ -43,7 +45,7 @@ void Mp4frag::_findFtyp(vector<uint8_t> chunk)
 	}
 }
 
-void Mp4frag::_findMoov(vector<uint8_t> chunk)
+void Mp4frag::_findMoov(vector<uint8_t> chunk, int64_t position)
 {
 	int chunkLength = chunk.size();
 	if (chunkLength < 8 || chunk[4] != 109 || chunk[5] != 111 || chunk[6] != 111 || chunk[7] != 118)
@@ -57,23 +59,23 @@ void Mp4frag::_findMoov(vector<uint8_t> chunk)
 		vector<uint8_t> tempBuf(_ftypLength + moovLength);
 		copy_n(_ftyp.begin(), _ftypLength, tempBuf.begin());
 		copy_n(chunk.begin(), moovLength, tempBuf.begin() + _ftypLength);
-		_parseMoov(tempBuf);
+		_parseMoov(tempBuf, position);
 		_ftyp.clear();
 		_ftypLength = 0;
-		_parseChunk = std::bind(&Mp4frag::_findMoof, this, _1); //this->_findMoof;
+		_parseChunk = std::bind(&Mp4frag::_findMoof, this, _1, _2); //this->_findMoof;
 
 		vector<uint8_t> tempChunk(chunk.begin() + moovLength, chunk.end());
-		_parseChunk(tempChunk);
+		_parseChunk(tempChunk, position);
 	}
 	else if (moovLength == chunkLength)
 	{
 		vector<uint8_t> tempBuf(_ftypLength + moovLength);
 		copy_n(_ftyp.begin(), _ftypLength, tempBuf.begin());
 		copy_n(chunk.begin(), moovLength, tempBuf.begin() + _ftypLength);
-		_parseMoov(tempBuf);
+		_parseMoov(tempBuf, position);
 		_ftyp.clear();
 		_ftypLength = 0;
-		_parseChunk = std::bind(&Mp4frag::_findMoof, this, _1); // this->_findMoof;
+		_parseChunk = std::bind(&Mp4frag::_findMoof, this, _1, _2); // this->_findMoof;
 	}
 	else
 	{
@@ -84,7 +86,7 @@ void Mp4frag::_findMoov(vector<uint8_t> chunk)
 	}
 }
 
-void Mp4frag::_parseMoov(vector<uint8_t> value)
+void Mp4frag::_parseMoov(vector<uint8_t> value, int64_t position)
 {
 	initialization = value;
 	string audioString = "";
@@ -113,7 +115,7 @@ void Mp4frag::_parseMoov(vector<uint8_t> value)
 	//sendSegment(initialization);
 }
 
-void Mp4frag::_findMoof(vector<uint8_t> chunk)
+void Mp4frag::_findMoof(vector<uint8_t> chunk, int64_t position)
 {
 	if (!_moofBuffer.empty())
 	{
@@ -139,7 +141,7 @@ void Mp4frag::_findMoof(vector<uint8_t> chunk)
 
 			_moofBuffer.clear();
 			_moofBufferSize = 0;
-			this->_parseChunk = std::bind(&Mp4frag::_findMdat, this, _1); // &this->_findMdat;
+			this->_parseChunk = std::bind(&Mp4frag::_findMdat, this, _1,_2); // &this->_findMdat;
 		}
 		else if (_moofLength < _moofBufferSize)
 		{
@@ -160,9 +162,9 @@ void Mp4frag::_findMoof(vector<uint8_t> chunk)
 			auto sliceIndex = chunkLength - (_moofBufferSize - _moofLength);
 			_moofBuffer.clear();
 			_moofBufferSize = 0;
-			_parseChunk = std::bind(&Mp4frag::_findMdat, this, _1); // &this->_findMdat;
+			_parseChunk = std::bind(&Mp4frag::_findMdat, this, _1,_2); // &this->_findMdat;
 			vector<uint8_t> tempChunk(chunk.begin() + sliceIndex, chunk.end());
-			_parseChunk(tempChunk);
+			_parseChunk(tempChunk, position);
 		}
 	}
 	else
@@ -180,8 +182,8 @@ void Mp4frag::_findMoof(vector<uint8_t> chunk)
 			//console.warn('Failed to find MOOF. Starting MOOF hunt. Ignore this if your file stream input has ended.');
 			_moofHunts = 0;
 			_moofHuntsLimit = 40;
-			_parseChunk = std::bind(&Mp4frag::_moofHunt, this, _1); // &this->_moofHunt;
-			_parseChunk(chunk);
+			_parseChunk = std::bind(&Mp4frag::_moofHunt, this, _1,_2); // &this->_moofHunt;
+			_parseChunk(chunk, position);
 			return;
 		}
 		_moofLength = read_32s(chunk, 0, true);
@@ -194,15 +196,15 @@ void Mp4frag::_findMoof(vector<uint8_t> chunk)
 		{
 			_moof.assign(_moofLength, 0);
 			copy_n(chunk.begin(), _moofLength, _moof.begin());
-			_parseChunk = std::bind(&Mp4frag::_findMdat, this, _1); //  &this->_findMdat;
+			_parseChunk = std::bind(&Mp4frag::_findMdat, this, _1,_2); //  &this->_findMdat;
 			vector<uint8_t> tempChunk(chunk.begin() + _moofLength, chunk.end());
-			_parseChunk(tempChunk);
+			_parseChunk(tempChunk, position);
 		}
 		else if (_moofLength == chunkLength)
 		{
 			//todo verify this works
 			_moof = chunk;
-			_parseChunk = std::bind(&Mp4frag::_findMdat, this, _1); //  &this->_findMdat;
+			_parseChunk = std::bind(&Mp4frag::_findMdat, this, _1,_2); //  &this->_findMdat;
 		}
 		else
 		{
@@ -212,7 +214,7 @@ void Mp4frag::_findMoof(vector<uint8_t> chunk)
 	}
 }
 
-void Mp4frag::_moofHunt(vector<uint8_t> chunk)
+void Mp4frag::_moofHunt(vector<uint8_t> chunk, int64_t position)
 {
 	if (_moofHunts < _moofHuntsLimit)
 	{
@@ -223,9 +225,9 @@ void Mp4frag::_moofHunt(vector<uint8_t> chunk)
 		{
 			_moofHunts = 0;
 			_moofHuntsLimit = 0;
-			_parseChunk = std::bind(&Mp4frag::_findMoof, this, _1); //   &this->_findMoof;
+			_parseChunk = std::bind(&Mp4frag::_findMoof, this, _1,_2); //   &this->_findMoof;
 			vector<uint8_t> tempChunk(chunk.begin() + (index - 4), chunk.end());
-			_parseChunk(tempChunk);
+			_parseChunk(tempChunk, position);
 		}
 	}
 	else
@@ -235,7 +237,7 @@ void Mp4frag::_moofHunt(vector<uint8_t> chunk)
 	}
 }
 
-void Mp4frag::_findMdat(vector<uint8_t> chunk)
+void Mp4frag::_findMdat(vector<uint8_t> chunk, int64_t position)
 {
 	if (!_mdatBuffer.empty())
 	{
@@ -258,13 +260,13 @@ void Mp4frag::_findMdat(vector<uint8_t> chunk)
 				else
 					break;
 			}
-			_setSegment(tempChunk);
+			_setSegment(tempChunk, position);
 			_moof.clear();
 			_mdatBuffer.clear();
 			_mdatBufferSize = 0;
 			_mdatLength = 0;
 			_moofLength = 0;
-			_parseChunk = std::bind(&Mp4frag::_findMoof, this, _1); //  &this->_findMoof;
+			_parseChunk = std::bind(&Mp4frag::_findMoof, this, _1,_2); //  &this->_findMoof;
 		}
 		else if (_mdatLength < _mdatBufferSize)
 		{
@@ -281,16 +283,16 @@ void Mp4frag::_findMdat(vector<uint8_t> chunk)
 				else
 					break;
 			}
-			_setSegment(tempChunk);
+			_setSegment(tempChunk, position);
 			auto sliceIndex = chunkLength - (_mdatBufferSize - _mdatLength);
 			_moof.clear();
 			_mdatBuffer.clear();
 			_mdatBufferSize = 0;
 			_mdatLength = 0;
 			_moofLength = 0;
-			_parseChunk = std::bind(&Mp4frag::_findMoof, this, _1); //  &this->_findMoof;
+			_parseChunk = std::bind(&Mp4frag::_findMoof, this, _1,_2); //  &this->_findMoof;
 			vector<uint8_t> temp(chunk.begin() + sliceIndex, chunk.end());
-			_parseChunk(temp);
+			_parseChunk(temp, position);
 		}
 	}
 	else
@@ -312,30 +314,30 @@ void Mp4frag::_findMdat(vector<uint8_t> chunk)
 			vector<uint8_t> tempChunk(_moofLength + chunkLength);
 			copy_n(_moof.begin(), _moofLength, tempChunk.begin());
 			copy_n(chunk.begin(), chunkLength, tempChunk.begin() + _moofLength);
-			_setSegment(tempChunk);
+			_setSegment(tempChunk, position);
 			_moof.clear();
 			_moofLength = 0;
 			_mdatLength = 0;
-			_parseChunk = std::bind(&Mp4frag::_findMoof, this, _1); //  &this->_findMoof;
+			_parseChunk = std::bind(&Mp4frag::_findMoof, this, _1,_2); //  &this->_findMoof;
 		}
 		else
 		{
 			vector<uint8_t> tempChunk(_moofLength + _mdatLength);
 			copy_n(_moof.begin(), _moofLength, tempChunk.begin());
 			copy_n(chunk.begin(), _mdatLength, tempChunk.begin() + _moofLength);
-			_setSegment(tempChunk);
+			_setSegment(tempChunk, position);
 			auto sliceIndex = _mdatLength;
 			_moof.clear();
 			_moofLength = 0;
 			_mdatLength = 0;
-			_parseChunk = std::bind(&Mp4frag::_findMoof, this, _1); // &this->_findMoof;
+			_parseChunk = std::bind(&Mp4frag::_findMoof, this, _1,_2); // &this->_findMoof;
 			vector<uint8_t> tempParseChunk(chunk.begin() + sliceIndex, chunk.end());
-			_parseChunk(tempParseChunk);
+			_parseChunk(tempParseChunk, position);
 		}
 	}
 }
 
-void Mp4frag::_setSegment(vector<uint8_t> chunk)
+void Mp4frag::_setSegment(vector<uint8_t> chunk, int64_t position)
 {
 	segment = chunk;
 	auto currentTime = time(0);
@@ -350,7 +352,7 @@ void Mp4frag::_setSegment(vector<uint8_t> chunk)
 			bufferList.erase(bufferList.begin());
 		}
 	}
-	sendSegment(segment);
+	sendSegment(segment, position);
 }
 
 

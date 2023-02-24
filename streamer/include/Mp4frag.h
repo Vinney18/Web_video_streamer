@@ -8,17 +8,18 @@
 #include <functional>
 
 using namespace std;
-typedef function<void(vector<uint8_t>)> SendSegmentCallback;
+typedef function<void(vector<uint8_t>, int64_t position)> SendSegmentCallback;
 
 #pragma once
 class Mp4frag
 {
 public:
+	int64_t vidTimeStamp;
 	SendSegmentCallback	sendSegment;
 	//void(*sendSegment)(vector<uint8_t> chunk, string id);
 	//void(*_parseChunk)(vector<uint8_t> chunk);
 
-	typedef std::function<void(vector<uint8_t>)> ParseChunkCallback;
+	typedef std::function<void(vector<uint8_t>, int64_t position)> ParseChunkCallback;
 	ParseChunkCallback _parseChunk;
 
 	vector<uint8_t> _FTYP{ 102, 116, 121, 112 };// ftyp
@@ -36,13 +37,13 @@ public:
 	long duration;
 
 	Mp4frag(SendSegmentCallback sendSegment);
-	void _findFtyp(vector<uint8_t> chunk);
-	void _findMoov(vector<uint8_t> chunk);
-	void _parseMoov(vector<uint8_t> value);
-	void _findMoof(vector<uint8_t> chunk);
-	void _moofHunt(vector<uint8_t> chunk);
-	void _findMdat(vector<uint8_t> chunk);
-	void _setSegment(vector<uint8_t> chunk);
+	void _findFtyp(vector<uint8_t> chunk, int64_t position);
+	void _findMoov(vector<uint8_t> chunk, int64_t position);
+	void _parseMoov(vector<uint8_t> value, int64_t position);
+	void _findMoof(vector<uint8_t> chunk, int64_t position);
+	void _moofHunt(vector<uint8_t> chunk, int64_t position);
+	void _findMdat(vector<uint8_t> chunk, int64_t position);
+	void _setSegment(vector<uint8_t> chunk, int64_t position);
 
 	int32_t read_32s(const std::vector<uint8_t> &buf, const unsigned offset,
 		const bool bswap = false) {

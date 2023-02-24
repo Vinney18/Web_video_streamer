@@ -5,7 +5,6 @@
 #include <atomic>
 #include "Thread.h"
 #include "Mp4frag.h"
-#include "MjpegServer.h"
 #include <map>
 #include <set>
 #include <functional>
@@ -26,9 +25,10 @@ extern "C"
 #include <libswscale/swscale.h>
 #include <libavformat/avio.h>
 #include "libavutil/buffer.h"
+#include "libavutil/imgutils.h"
 #include "libavutil/error.h"
-//#include "libavutil/hwcontext.h"
-//#include "libavutil/hwcontext_qsv.h"
+	//#include "libavutil/hwcontext.h"
+	//#include "libavutil/hwcontext_qsv.h"
 #include "libavutil/mem.h"
 }
 
@@ -38,13 +38,10 @@ extern "C"
 #define FFMPEGWRAPPER_H
 #pragma once
 
-typedef std::set<websocketpp::connection_hdl, std::owner_less<websocketpp::connection_hdl>> con_list;
-typedef std::function<void(websocketpp::connection_hdl& con_hndl, vector<uint8_t>& data)> WebsocketDataCallback;
-typedef std::function<void(websocketpp::connection_hdl& con_hndl, string sdata)> WebsocketSDataCallback;
-
-//typedef struct DecodeContext {
-//	AVBufferRef *hw_device_ref;
-//} DecodeContext;
+typedef websocketpp::connection_hdl webConnHdl;
+typedef std::set<webConnHdl, std::owner_less<websocketpp::connection_hdl>> con_list;
+typedef std::function<void(webConnHdl& con_hndl, vector<uint8_t>& data, int64_t timestamp)> WebsocketDataCallback;
+typedef std::function<void(webConnHdl& con_hndl, string sdata)> WebsocketSDataCallback;
 
 struct InterruptParams {
 	double lastStopped;
@@ -53,84 +50,72 @@ struct InterruptParams {
 
 enum OutputType {
 	mp4,
-	mjpeg
+	rgba
 };
 
-class FFmpegWrapper : public virtual Thread, public virtual i2v::MjpegRoute
+class FFmpegWrapper : public virtual Thread
 {
 private:
-	string id;
+	int cameraId = 0;
 	string url;
+	string playmode;
 	int initial_seek_time = 0;
 	WebsocketDataCallback websocketCallback;
 	WebsocketSDataCallback websocketSCallback;
-	bool usejmuxer;
-	string playmode;
+	string connectionmode;
+	string serverIp;
+	int port = 8890;
+
 	bool fileseekingstarted = false;
 	bool playbackFileStared = false;
-	bool IsFilePaused = false;
-	string connectionmode;
-	bool playbackviaapache;
 	std::unique_ptr<Mp4frag> mp4FragCreator;
-	std::map<OutputType, con_list> connections; //keys mp4 and mjpeg
+	std::map<OutputType, con_list> connections; //keys mp4 and rgba
 	std::vector<std::pair<websocketpp::connection_hdl, bool>> tempConnections;
-	int start_time_ofplaybackfile;
 	//std::mutex connectionlock;
 	AVFormatContext* inputFormatCtx = NULL;
 	AVCodecContext* inputCodecCtx = NULL;
 	AVCodecID inputCodecID = AV_CODEC_ID_NONE;
-	AVFrame *pFrame = NULL;
+
+	AVFrame* pFrame = NULL;
+	AVFrame* rgb_frame = NULL;
+	SwsContext* conversion_context = NULL;
+	uint8_t* buffer = NULL;
+
 	int inputFPS = 0;
 	int videoStream = -1;
-	int cameraId = 0;
-	string serverIp;
-	int port = 8890;
-	int sessionid = 0;
+	
 	AVCodec* decoderCodec = NULL;
 	AVCodecContext* decoderCodecContext = NULL;
 	AVFormatContext* mp4OutContext = NULL;
 	bool isVideoStartedEventsent = false;
-	AVCodec *jpegCodec;
-	AVCodecContext *jpegContext;
-    InterruptParams params;
+	InterruptParams params;
 
-    std::shared_ptr<spdlog::logger> logger;
-	/*AVCodecContext *decoder_ctx = NULL;
-	const AVCodec *decoder;
-	AVPacket pkt = { 0 };
-	AVFrame *frame = NULL, *sw_frame = NULL;
-	DecodeContext decode = { NULL };*/
+	std::shared_ptr<spdlog::logger> logger;
+	
 public:
+	static int64_t position;
 
-	FFmpegWrapper(int _cameraId , string _url, string _id, int start_seek_time, WebsocketDataCallback _websocketCallback,
-	        WebsocketSDataCallback _websocketSCallback, bool _usejmuxer, string _connectionmode, bool _playbackviaapache,
-	        string _playmode, int _start_time_ofplaybackfile, string _serverIp, int _port, int _sessionid,
-	        std::shared_ptr<spdlog::logger> _logger) : Thread(), i2v::MjpegRoute(_id), logger(std::move(_logger)) {
-		id = std::move(_id);
+	FFmpegWrapper(int _cameraId, string _url, string _playmode, int start_seek_time, WebsocketDataCallback _websocketCallback,
+			WebsocketSDataCallback _websocketSCallback, string _connectionmode, string _serverIp, int _port,
+			std::shared_ptr<spdlog::logger> _logger) : Thread(), logger(std::move(_logger)) {
+		cameraId = _cameraId;
 		url = std::move(_url);
+		playmode = _playmode;
+		initial_seek_time = start_seek_time;
 		websocketCallback = _websocketCallback;
 		websocketSCallback = _websocketSCallback;
-		usejmuxer = _usejmuxer;
 		connectionmode = _connectionmode;
-		initial_seek_time = start_seek_time;
-		playbackviaapache = _playbackviaapache;
-		playmode = _playmode;
-		connections = { {mp4, con_list()}, { mjpeg , con_list()} };
-		start_time_ofplaybackfile = _start_time_ofplaybackfile;
-		cameraId = _cameraId;
+		connections = { {mp4, con_list()}, { rgba , con_list()} };
 		serverIp = _serverIp;
 		port = _port;
-		sessionid = _sessionid;
-		//av_log_set_level(AV_LOG_QUIET);
 	}
 
 	~FFmpegWrapper();
 
-	void addConnection(websocketpp::connection_hdl connHdl);
-	bool removeConnection(websocketpp::connection_hdl connHdl);
+	void addConnection(webConnHdl connHdl);
+	bool removeConnection(webConnHdl connHdl);
 	void seek_video(int offset_time);
-	void Pause_video(); 
-	void Resume_video();
+	void Pause_video();
 	void SendVideoStartedEvent();
 
 
@@ -138,85 +123,74 @@ protected:
 	virtual int run() override;
 
 private:
+	void addConnToList(webConnHdl hdl, OutputType outType);
+
 	bool openInput();
+	
 	bool GetInputCodecInfo();
+	bool createMp4Output();
+	bool createRgbaOutput();
+
 	void readInput();
+
+	void freeMp4OutMemory();
+	void freeRgbaOutMemory();
 	void closeInput();
 
-	void addConnToList(websocketpp::connection_hdl hdl, OutputType outType);
-	bool createOutput(OutputType outType);
-	bool createMp4Output();
-	bool createMjpegOutput();
-
-	bool removeOutput(OutputType outType);
-	void freeMp4OutMemory();
-	void freeMjpegOutMemory();
-
-	int save_frame_as_jpeg(AVCodecContext *pCodecCtx, AVFrame *pFrame, AVPacket* packet);
-	void receiveMp4Chunk(vector<uint8_t> data);
-	void Backwardseek_video(int offset_time);
+	void receiveMp4Chunk(vector<uint8_t> data, int64_t _vidPosition);
 	bool isLiveMode();
 
 
 public:
 #if __linux__
-    static double GetTickCount(void)
-    {
-        struct timespec now;
-        if (clock_gettime(CLOCK_MONOTONIC, &now))
-            return 0;
-        auto v = now.tv_sec * 1000.0 + now.tv_nsec / 1000000.0;
-        return v;
-    }
+	static double GetTickCount(void)
+	{
+		struct timespec now;
+		if (clock_gettime(CLOCK_MONOTONIC, &now))
+			return 0;
+		auto v = now.tv_sec * 1000.0 + now.tv_nsec / 1000000.0;
+		return v;
+	}
 #endif
 
-    static int interrupt_cb(void *ctx)
-    {
-        FFmpegWrapper* thisObj = reinterpret_cast<FFmpegWrapper*>(ctx);
-        /*if (params->fmtCtx->start_time < 0) {
-            params->num++;
-        }
-        else {
-            params->num = 0;
-        }*/
+	static int interrupt_cb(void* ctx)
+	{
+		FFmpegWrapper* thisObj = reinterpret_cast<FFmpegWrapper*>(ctx);
+		if (thisObj->mStop)
+		{
+			return 1;
+		}
+		auto tickCount = GetTickCount64();
 
-        //cout << params->num << std::endl;
-        if (thisObj->mStop)
-        {
-            return 1;
-        }
-        auto tickCount = GetTickCount();
+		//timeout after 20 seconds of no activity
+		if (thisObj->params.isRunning && (tickCount - thisObj->params.lastStopped > 20000.0))
+			return 1;
 
-        //timeout after 20 seconds of no activity
-        if (thisObj->params.isRunning && (tickCount - thisObj->params.lastStopped > 20000.0))
-            return 1;
+		//timeout after 7 seconds of no activity
+		if (!thisObj->params.isRunning && (tickCount - thisObj->params.lastStopped > 7000.0))
+			return 1;
 
-        //timeout after 7 seconds of no activity
-        if (!thisObj->params.isRunning && (tickCount - thisObj->params.lastStopped > 7000.0))
-            return 1;
+		return 0;
+	}
 
-        return 0;
-    }
+	static int ffmpegMp4Callback(void* ptr, uint8_t* buf, int buf_size) {
+		auto data = buf;
+		vector<uint8_t> chunk(data, data + buf_size);
+		static_cast<FFmpegWrapper*>(ptr)->createMp4chunck(chunk, position);
+		return buf_size;
+	}
 
-    static int ffmpegMp4Callback(void* ptr, uint8_t* buf, int buf_size) {
-        auto data = buf;
-        vector<uint8_t> chunk(data, data + buf_size);
+	/*static int ffmpegDecodeCallback(void* ptr, uint8_t* buf, int buf_size) {
+		auto data = buf;
+		vector<uint8_t> chunk(data, data + buf_size);
 
-        static_cast<FFmpegWrapper*>(ptr)->createMp4chunck(chunk);
-        return buf_size;
-    }
+		static_cast<FFmpegWrapper*>(ptr)->createMp4chunck(chunk);
+		return buf_size;
+	}*/
 
-    static int ffmpegDecodeCallback(void* ptr, uint8_t* buf, int buf_size) {
-        auto data = buf;
-        vector<uint8_t> chunk(data, data + buf_size);
-
-        static_cast<FFmpegWrapper*>(ptr)->createMp4chunck(chunk);
-        return buf_size;
-    }
-
-    void createMp4chunck(vector<uint8_t>& data) {
-        mp4FragCreator->_parseChunk(data);
-    }
+	void createMp4chunck(vector<uint8_t>& data, int64_t position) {
+		mp4FragCreator->_parseChunk(data, position);
+	}
 
 };
 

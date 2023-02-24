@@ -4,11 +4,14 @@
 #include <string>
 #include <spdlog/logger.h>
 #include "common.h"
+#include "json.hpp"
+
+using namespace std;
+using json = nlohmann::json;
 
 namespace i2v {
 
     class Util {
-
     public:
         static std::string executablePath();
         static std::string getLogsFolderPath();
@@ -22,6 +25,5 @@ namespace i2v {
 
     };
 }
-
 
 #endif

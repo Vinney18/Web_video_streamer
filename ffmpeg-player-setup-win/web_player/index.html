@@ -8,31 +8,53 @@
 </head>
 
 <body>
-    <input style="width:500px" id="cameraId" />
-
+    <input style="width:200px" id="cameraId" placeholder="cameraId" />
+    <input style="width:94px" id="elementId" placeholder="elementId" />
+    <input style="width:94px" id="streamType" placeholder="streamType" />
+    <input style="width:210px" id="analyticType" placeholder="analyticType" />
     <button onClick="Play_Live()">Play Live</button>
+
+    <button onClick="snapshot()">Snapshot</button>
+    <button onClick="version()">Version</button>
+    <button onClick="servStatus()">Serv Status</button>
+    <button onClick="closeView()">Close</button>
+
+
+    <br>
+    <input style="width:200px" id="wServerIp" placeholder="wServerIp" />
+    <input style="width:200px" id="wStreamerIp" placeholder="wStreamerIp" />
     <input id="date" type="date">
-    <input id="time" type="time" step="1" value="18:00">
-    <button onClick="Play_Playback()">Play Playback</button>
+    <input id="time" type="time" step="1" value="08:00">
+    <button onClick="Play_Playback()">Playback</button>
+    <button onClick="logData()">Log Data</button>
+    <button onClick="playPause()">Play Pause</button>
+    <input style="width:50px" id="seekInput" placeholder=" seek" />
     <button onClick="seekVideo()">Seek Video</button>
 
+    <br><br>
     <!-- div where video will be played -->
-    <div style="height: 500px;width:100%" id="someUniqueId"></div>
+    <div style="height: 500px; width:100%;display: flex;justify-content: center;" id="viewInit"></div>
+    
+    <script src="i2v-player.js"></script>
 
-    <script src="i2v_player.min.js"></script>
     <script>
+        var sdk;
         var playerObj;
         var serverIp = "127.0.0.1"; //This is Ip of Player Server Module (Same as VMS if player server installed on same machine)
         var playerIp = "127.0.0.1"; //This is Ip of Player Stramer
         var UseSecureConnection = false;
         var playerserverport = 8890;
-
-        var sdk = new I2vSdk(playerIp, serverIp, UseSecureConnection, playerserverport);
-
-        var latestDivId = "someUniqueId"
-
+        var viewIdManager = "viewInit";
 
         document.getElementById("date").defaultValue = moment().format('YYYY-MM-DD');
+
+        function initI2vSdk() {
+            if (document.getElementById("wServerIp").value)
+                serverIp = document.getElementById("wServerIp").value;
+            if (document.getElementById("wStreamerIp").value)
+                playerIp = document.getElementById("wStreamerIp").value;
+            sdk = new I2vSdk(playerIp, serverIp, playerserverport, UseSecureConnection);
+        }
 
         function Play_Live() {
             // Check if player is running then stop first
@@ -40,25 +62,26 @@
                 playerObj.stop();
             }
 
-            //get url to play
+            initI2vSdk();
             var cameraId = document.getElementById("cameraId").value;
+            var playerDiv = document.getElementById(viewIdManager);
+            var inputElementId = document.getElementById("elementId").value;
+            if (inputElementId) playerDiv.id = inputElementId;
+            else playerDiv.id = Math.trunc(Math.random() * 1000);
+            viewIdManager = playerDiv.id;
 
-            var streamType = "0";
+            var streamType = 0;
+            if (document.getElementById("streamType").value)
+                streamType = document.getElementById("streamType").value;
 
-
-            if (streamType == "") {
-                streamType = "0";
-            }
-
-            var advanceDecoding = "0";
             var analyticType = "";
+            var connectionMode = "tcp";
+            if (document.getElementById("analyticType").value)
+                analyticType = document.getElementById("analyticType").value;
 
-            var providedDiv = document.getElementById(latestDivId);
-            providedDiv.id = Math.trunc(Math.random() * 1000);
-            latestDivId = providedDiv.id;
 
             //create new player object, video will start automatically
-            playerObj = sdk.GetLivePlayer(latestDivId, cameraId, streamType, advanceDecoding, analyticType);
+            playerObj = sdk.GetLivePlayer(viewIdManager, cameraId, streamType, analyticType, connectionMode);
 
             //set Error callback for play method
             playerObj.setErrorCallback(function (err) {
@@ -74,34 +97,27 @@
             playerObj.play();
         }
 
-        function seekVideo() {
-            if (playerObj) {
-                playerObj.SeekVideo("10");
-            }
-
-        }
         function Play_Playback() {
             if (playerObj) {
                 playerObj.stop();
             }
 
-            //get url to play
+            initI2vSdk();
             var cameraId = document.getElementById("cameraId").value;
+            var playerDiv = document.getElementById(viewIdManager);
+            var inputElementId = document.getElementById("elementId").value;
+            if (inputElementId) playerDiv.id = inputElementId;
+            else playerDiv.id = Math.trunc(Math.random() * 1000);
+            viewIdManager = playerDiv.id;
 
             var date = document.getElementById("date").value;
             var time = document.getElementById("time").value;
             var datetime = moment(date + " " + time);
             var startTime = datetime.unix();
-
             var _playbackviaapache = "0";
 
-
-            var providedDiv = document.getElementById(latestDivId);
-            providedDiv.id = Math.trunc(Math.random() * 100);
-            latestDivId = providedDiv.id;
-
             //create new player object, video will start automatically
-            playerObj = sdk.GetPlaybackPlayer(latestDivId, cameraId, startTime, _playbackviaapache);
+            playerObj = sdk.GetPlaybackPlayer(viewIdManager, cameraId, startTime, _playbackviaapache);
 
             //set Error callback for play method
             playerObj.setErrorCallback(function (err) {
@@ -116,6 +132,54 @@
             //call play method
             playerObj.play();
         }
+
+        function snapshot() {
+            var imgData = playerObj.getBase64SnapshotUrl()
+            var a = document.createElement("a"); //Create <a>
+            a.href = imgData; //Image Base64 Goes here
+            a.download = "Image.jpeg"; //File name Here
+            a.click();
+        }
+
+        function version() {
+            if (playerObj) {
+                playerObj.Version();
+            } else {
+                console.log("Please Connect to server via Play Live or Playback");
+            }
+        }
+
+        function servStatus() {
+            if (playerObj) {
+                playerObj.servStatus();
+            }
+        }
+
+        function closeView() {
+            if (playerObj) {
+                playerObj.Close();
+            }
+        }
+
+        function logData() {
+            if (playerObj) {
+                console.log(playerObj.status);
+            }
+        }
+
+        function playPause() {
+            if (playerObj) {
+                playerObj.Pause();
+            }
+        }
+
+        function seekVideo() {
+            if (playerObj) {
+                var seekValue = document.getElementById("seekInput").value;
+                playerObj.SeekVideo(seekValue);
+            }
+        }
+
     </script>
 
 </body>

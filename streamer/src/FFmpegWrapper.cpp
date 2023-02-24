@@ -1,5 +1,7 @@
 #include "FFmpegWrapper.h"
 
+int64_t FFmpegWrapper::position;
+
 int FFmpegWrapper::run()
 {
 	while (!mStop)
@@ -8,17 +10,13 @@ int FFmpegWrapper::run()
 		auto opened = openInput();
 		if (opened)
 		{
-			for (auto connHdl : connections[mjpeg])
-			{
-				websocketSCallback(connHdl, "connected");
-			}
 			params.isRunning = true;
 			GetInputCodecInfo();
 			createMp4Output();
-			createMjpegOutput();
+			createRgbaOutput();
 
 			if (!tempConnections.empty()) {
-				for (auto el : tempConnections)
+				for (auto& el : tempConnections)
 				{
 					if (inputCodecID == AV_CODEC_ID_NONE)
 					{
@@ -41,18 +39,17 @@ int FFmpegWrapper::run()
 			{
 				readInput();
 				freeMp4OutMemory();
-				freeMjpegOutMemory();
+				freeRgbaOutMemory();
 				closeInput();
 			}
-
 		}
 
 		if (!mStop) {
-			for (auto connHdl : connections[mjpeg])
+			for (webConnHdl connHdl : connections[rgba])
 			{
 				websocketSCallback(connHdl, "retrying");
 			}
-			for (auto connHdl : connections[mp4])
+			for (webConnHdl connHdl : connections[mp4])
 			{
 				websocketSCallback(connHdl, "retrying");
 			}
@@ -62,164 +59,304 @@ int FFmpegWrapper::run()
 			this_thread::sleep_for(std::chrono::seconds(1));
 		}
 	}
-	for (auto connHdl : connections[mjpeg])
+	for (webConnHdl connHdl : connections[rgba])
 	{
 		websocketSCallback(connHdl, "Stopped");
 	}
-	for (auto connHdl : connections[mp4])
+	for (webConnHdl connHdl : connections[mp4])
 	{
 		websocketSCallback(connHdl, "Stopped");
 	}
 	return 0;
 }
 
-void FFmpegWrapper::addConnection(websocketpp::connection_hdl connHdl)
+FFmpegWrapper::~FFmpegWrapper() {
+
+}
+
+void FFmpegWrapper::readInput()
 {
-	if (inputCodecID == AV_CODEC_ID_NONE)
-	{
-		tempConnections.push_back(std::make_pair(connHdl, false));
+	int frameFinished;
+	AVPacket packet;
+	AVPixelFormat pixFormat;
+
+	//Control input frame rate
+	auto sleepTime = 0;
+	if (inputFPS == 0 || inputFPS < 0 || inputFPS > 100) {
+		inputFPS = 25;
 	}
-	else {
+	sleepTime = 1000 / inputFPS;
 
-		if (inputCodecID != AV_CODEC_ID_H264)
+
+	std::mutex mut;
+	std::atomic<bool> canSend = true;
+	std::condition_variable condition_v;
+	std::thread thread1;
+
+	if (!isLiveMode()) {
+		thread1 = std::thread([&]()
+			{
+				while (!mStop)
+				{
+					if (!fileseekingstarted)
+					{
+						std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
+						canSend = true;
+						condition_v.notify_all();
+					}
+				}
+			});
+	}
+
+	AVPacket packetEncoded;
+	packetEncoded.data = NULL, packetEncoded.size = 0;
+	av_init_packet(&packetEncoded);
+
+	try
+	{
+		this->params.lastStopped = GetTickCount64();
+		int framecount = 0;
+		int64_t firstDts = this->inputFormatCtx->streams[videoStream]->first_dts;
+		while (av_read_frame(this->inputFormatCtx, &packet) >= 0 && !mStop)
 		{
-			string url = this->url.c_str();
-			if (inputCodecID == AV_CODEC_ID_MJPEG && url.find("http") != string::npos)
-			{
-				websocketSCallback(connHdl, "mjpeg_overhttp" + url);
-				addConnToList(connHdl, mjpeg);
-			}
-			else
-			{
-				websocketSCallback(connHdl, "mjpeg");
-				addConnToList(connHdl, mjpeg);
-			}
+			std::unique_lock<std::mutex> lck(mThreadMutex);
+			cv.wait(lck, [&]() { return !mPaused; });
+			this->params.lastStopped = GetTickCount64();
 
+			// Is this a packet from the video stream?
+			if (packet.stream_index == videoStream)
+			{
+				//int64_t position;
+				if (isLiveMode()) position = -2;
+				else {
+					position = round((this->inputFormatCtx->streams[videoStream]->cur_dts - firstDts) * this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den);
+				}
+
+				if (!connections[rgba].empty())
+				{
+					avcodec_decode_video2(decoderCodecContext, pFrame, &frameFinished, &packet);
+
+					// Did we get a video frame?
+					if (frameFinished) {
+						framecount++;
+						if (framecount == 1)
+						{
+							switch ((AVPixelFormat)pFrame->format) {
+							case AV_PIX_FMT_YUVJ420P:
+								pixFormat = AV_PIX_FMT_YUV420P;
+								break;
+							case AV_PIX_FMT_YUVJ422P:
+								pixFormat = AV_PIX_FMT_YUV422P;
+								break;
+							case AV_PIX_FMT_YUVJ444P:
+								pixFormat = AV_PIX_FMT_YUV444P;
+								break;
+							case AV_PIX_FMT_YUVJ440P:
+								pixFormat = AV_PIX_FMT_YUV440P;
+								break;
+							default:
+								pixFormat = (AVPixelFormat)pFrame->format;
+								break;
+							}
+
+							// Set up the conversion context
+							conversion_context = sws_getContext(pFrame->width, pFrame->height, pixFormat,
+								pFrame->width, pFrame->height, AV_PIX_FMT_RGBA, SWS_BILINEAR, NULL, NULL, NULL);
+
+							// Allocate the buffer for the RGB frame
+							int num_bytes = av_image_get_buffer_size(AV_PIX_FMT_RGBA, pFrame->width, pFrame->height, 1);
+							buffer = (uint8_t*)av_malloc(num_bytes * sizeof(uint8_t));
+							av_image_fill_arrays(rgb_frame->data, rgb_frame->linesize, buffer, AV_PIX_FMT_RGBA, pFrame->width, pFrame->height, 1);
+
+
+							for (webConnHdl connHdl : connections[rgba])
+							{
+								string data = "rgba " + to_string(pFrame->width) + "x" + to_string(pFrame->height);
+								websocketSCallback(connHdl, data);
+							}
+
+							SendVideoStartedEvent();
+							playbackFileStared = true;
+							if (this->initial_seek_time > 0) seek_video(this->initial_seek_time);
+
+						}
+						if (!isLiveMode())
+						{
+							while (!canSend && !mStop)
+							{
+								try
+								{
+									std::unique_lock<std::mutex> lok(mut);
+									condition_v.wait_for(lok, std::chrono::seconds(1));
+								}
+								catch (const std::exception& ex)
+								{
+									cout << ex.what() << std::endl;
+								}
+							}
+						}
+
+						// Convert the YUV frame to RGB
+						sws_scale(conversion_context, pFrame->data, pFrame->linesize, 0, pFrame->height, rgb_frame->data, rgb_frame->linesize);
+
+						uint8_t* frameData = rgb_frame->data[0];
+
+						std::vector<uint8_t> data(&frameData[0], &frameData[pFrame->width * pFrame->height * 4]);
+
+						for (webConnHdl hndl : connections[rgba])
+						{
+							websocketCallback(hndl, data, position);
+						}
+						canSend = false;
+					}
+				}
+
+				if (!connections[mp4].empty()) {
+					if (!isLiveMode())
+					{
+						while (!canSend && !mStop)
+						{
+							try
+							{
+								std::unique_lock<std::mutex> lok(mut);
+								condition_v.wait_for(lok, std::chrono::seconds(1));
+							}
+							catch (const std::exception& ex)
+							{
+								cout << ex.what() << std::endl;
+							}
+						}
+						framecount++;
+						if (framecount == 1)
+						{
+							SendVideoStartedEvent();
+							playbackFileStared = true;
+							if (this->initial_seek_time > 0) seek_video(this->initial_seek_time);
+
+						}
+					}
+					/*vector<uint8_t> chunk(packet.data, packet.data + packet.buf->size);
+					SendVideoStartedEvent();
+					for (webConnHdl hndl : connections[mp4])
+					{
+						websocketCallback(hndl, chunk, position);
+					}*/
+
+					av_interleaved_write_frame(mp4OutContext, &packet);
+					canSend = false;
+
+				}
+			}
+			// Free the packet that was allocated by av_read_frame
+			av_free_packet(&packet);
+		}
+		if (!isLiveMode())
+		{
+			for (webConnHdl hndl : connections[mp4]) {
+				websocketSCallback(hndl, "Playback_Finished");
+			}
+			for (webConnHdl hndl1 : connections[rgba]) {
+				websocketSCallback(hndl1, "Playback_Finished");
+			}
+			mStop = true;
+			thread1.join();
+			cout << "Thread 1 join";
+		}
+	}
+	catch (const exception& ex) {
+		cout << ex.what() << std::endl;
+	}
+}
+
+bool FFmpegWrapper::openInput()
+{
+	this->inputFormatCtx = avformat_alloc_context();
+	this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
+	this->inputFormatCtx->interrupt_callback.opaque = this;
+	const char* fileName = this->url.c_str();
+	//const char* fileName = "rtsp://192.168.0.40:8556/test";
+	//cout << fileName << endl;
+	// Open file
+	AVDictionary* options1 = nullptr;
+	try
+	{
+		if (connectionmode == "tcp")
+		{
+			av_dict_set(&options1, "rtsp_transport", "tcp", 0);
+		}
+		else if (connectionmode == "udp")
+		{
+			av_dict_set(&options1, "rtsp_transport", "udp", 0);
 		}
 		else
 		{
-			websocketSCallback(connHdl, "mp4");
-			addConnToList(connHdl, mp4);
+			av_dict_set(&options1, "rtsp_transport", "tcp", 0);
+		}
+		av_dict_set(&options1, "stimeout", "5000000", 0);//The unit us is 3s
+
+	}
+	catch (boost::bad_lexical_cast)
+	{
+		// bad parameter
+	}
+
+	this->params.lastStopped = GetTickCount64();
+
+	if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
+	{
+		if (connectionmode == "")
+		{
+			av_dict_set(&options1, "rtsp_transport", "udp", 0);
+			if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
+			{
+				return false;
+			}
+		}
+		else
+		{
+			return false;
 		}
 	}
+
+	// Dump information about file onto standard error
+	av_dump_format(this->inputFormatCtx, 0, fileName, 0);
+
+	return true;
 }
 
-bool FFmpegWrapper::removeConnection(websocketpp::connection_hdl connHdl)
+bool FFmpegWrapper::GetInputCodecInfo()
 {
-	if (!tempConnections.empty()) {
-		auto foundInTemp = false;
-		std::vector<std::pair<websocketpp::connection_hdl, bool>>::iterator foundPair;
+	// Get infromation about streams
+	if (avformat_find_stream_info(this->inputFormatCtx, NULL) < 0)
+		return false; // Couldn't find stream information
 
-		for (std::vector<std::pair<websocketpp::connection_hdl, bool>>::iterator it = tempConnections.begin(); it != tempConnections.end(); ++it) {
-			if (it->first.lock() == connHdl.lock())
-			{
-				foundInTemp = true;
-				foundPair = it;
-			}
+	int i;
+	// Find the first video stream
+	for (i = 0; i < this->inputFormatCtx->nb_streams; i++)
+		if (this->inputFormatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+			videoStream = i;
+			break;
 		}
-		if (foundInTemp)
-		{
-			tempConnections.erase(foundPair);
-		}
-		if (connections[mp4].empty() && connections[mjpeg].empty()) {
-			// no more connections so tell 
-			return true;
-		}
-	}
+	if (videoStream == -1)
+		return false; // Didn't find a video stream
 
-	bool isFound = false;
-	OutputType type;
-	if (!connections[mp4].empty())
-	{
-		for (auto conn : connections[mp4])
-		{
-			if (conn.lock() == connHdl.lock())
-			{
-				isFound = true;
-				type = mp4;
-			}
-		}
-	}
-	if (!connections[mjpeg].empty())
-	{
-		for (auto conn : connections[mjpeg])
-		{
-			if (conn.lock() == connHdl.lock())
-			{
-				isFound = true;
-				type = mjpeg;
-			}
-		}
-	}
-
-	if (isFound)
-	{
-		//std::unique_lock<std::mutex> lock(connectionlock);
-		connections[type].erase(connHdl);
-		/*if (connections[type].empty()) {
-			removeOutput(type);
-		}*/
-
-		if (connections[mp4].empty() && connections[mjpeg].empty()) {
-			// no more connections so tell 
-			return true;
-		}
-	}
-	return false;
-}
-
-int FFmpegWrapper::save_frame_as_jpeg(AVCodecContext* pCodecCtx, AVFrame* pFrame, AVPacket* packet) {
-	/*AVCodec *jpegCodec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
-	if (!jpegCodec) {
-		return -1;
-	}
-	AVCodecContext *jpegContext = avcodec_alloc_context3(jpegCodec);
-	if (!jpegContext) {
-		return -1;
-	}
-
-	jpegContext->pix_fmt = AV_PIX_FMT_YUVJ420P;
-
-	jpegContext->height = pFrame->height;
-	jpegContext->width = pFrame->width;
-	jpegContext->time_base.num = 1;
-	jpegContext->time_base.den = 25;
-
-	if (avcodec_open2(jpegContext, jpegCodec, NULL) < 0) {
-		return -1;
-	}*/
-	//FILE *JPEGFile;
-	//char JPEGFName[256];
-
-
-	int gotFrame;
-
-	if (avcodec_encode_video2(jpegContext, packet, pFrame, &gotFrame) < 0) {
-		return -1;
-	}
-
-	vector<uint8_t> frame(packet->data, packet->data + packet->size);
-	send(frame);
-
-	/*sprintf(JPEGFName, "dvr-%06d.jpg", FrameNo);
-	JPEGFile = fopen(JPEGFName, "wb");
-	fwrite(packet.data, 1, packet.size, JPEGFile);
-	fclose(JPEGFile);*/
-
-	av_free_packet(packet);
-	return 0;
+	// Get a pointer to the codec context for the video stream
+	this->inputCodecCtx = this->inputFormatCtx->streams[videoStream]->codec;
+	this->inputCodecID = this->inputFormatCtx->streams[videoStream]->codec->codec_id;
+	this->inputFPS = av_q2d(this->inputFormatCtx->streams[videoStream]->r_frame_rate);
+	return true;
 }
 
 bool FFmpegWrapper::createMp4Output()
 {
-	mp4FragCreator = make_unique<Mp4frag>(std::bind(&FFmpegWrapper::receiveMp4Chunk, this, std::placeholders::_1));
+	mp4FragCreator = make_unique<Mp4frag>(std::bind(&FFmpegWrapper::receiveMp4Chunk, this, std::placeholders::_1, std::placeholders::_2));
 
 	AVOutputFormat* outFmt = av_guess_format("mp4", NULL, NULL);
 
 	AVStream* outStrm;
 	avformat_alloc_output_context2(&this->mp4OutContext, outFmt, NULL, NULL);
 	if (!(outStrm = avformat_new_stream(this->mp4OutContext, 0))) {
-		return -1;
+		return false;
 	}
 	AVDictionary* metadata = nullptr;
 	av_dict_copy(&metadata, this->inputFormatCtx->metadata, 0);
@@ -247,25 +384,20 @@ bool FFmpegWrapper::createMp4Output()
 
 	AVDictionary* options = nullptr;
 	av_dict_set(&options, "movflags", "frag_keyframe+empty_moov+default_base_moof", 0);
-	//av_dict_set(&options, "frag_duration", "700000", 0);
 	av_dict_set(&options, "reset_timestamps", "1", 0);
-	//av_dict_set(&options, "ss", "30", 0);
-	//av_dict_set(&options, "b:v", "1024k", 0);
+
 
 	uint8_t* buffer2 = NULL;
 	int numBytes2 = 320 * 1024;
 	buffer2 = (uint8_t*)av_malloc(numBytes2 * sizeof(uint8_t));
 	AVIOContext* pIOCtx = avio_alloc_context(buffer2, numBytes2, 1, (void*)this, 0, ffmpegMp4Callback, 0);
 	this->mp4OutContext->pb = pIOCtx;
-	//avio_open(&outFmtCtx->pb, "test.mp4", AVIO_FLAG_WRITE);
 	avformat_write_header(this->mp4OutContext, &options);
 	return true;
 }
 
-bool FFmpegWrapper::createMjpegOutput()
+bool FFmpegWrapper::createRgbaOutput()
 {
-	//std::cout << "fps :" << this->inputFPS << std::endl;
-
 	if (this->inputCodecCtx == NULL)
 	{
 		fprintf(stderr, "Unsupported codec!\n");
@@ -284,467 +416,21 @@ bool FFmpegWrapper::createMjpegOutput()
 		fprintf(stderr, "Couldn't copy codec context");
 		return false; // Error copying codec context
 	}
-
+	//this->decoderCodecContext->
 	// Open codec
 	if (avcodec_open2(this->decoderCodecContext, this->decoderCodec, NULL) < 0)
 		return false; // Could not open codec
 
-
-
-	jpegCodec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
-	if (!jpegCodec) {
-		return false;
-	}
-	jpegContext = avcodec_alloc_context3(jpegCodec);
-	if (!jpegContext) {
-		return false;
-	}
-
-	jpegContext->pix_fmt = AV_PIX_FMT_YUVJ420P;
-
-	jpegContext->height = this->inputFormatCtx->streams[videoStream]->codecpar->height;
-	jpegContext->width = this->inputFormatCtx->streams[videoStream]->codecpar->width;
-	jpegContext->time_base.num = 1;
-	jpegContext->time_base.den = 25;
-
-	if (avcodec_open2(jpegContext, jpegCodec, NULL) < 0) {
-		return false;
-	}
-
-	/*-------------------------------------------*/
-	/* open the hardware device */
-
-	//int ret = av_hwdevice_ctx_create(&decode.hw_device_ref, AV_HWDEVICE_TYPE_QSV, "auto_any", NULL, 0);
-	//if (ret < 0) {
-	//	fprintf(stderr, "Cannot open the hardware device\n");
-	//	return false;
-	//}
-
-	///* initialize the decoder */
-	//decoder = avcodec_find_decoder_by_name("h264_qsv");
-	//if (!decoder) {
-	//	fprintf(stderr, "The QSV decoder is not present in libavcodec\n");
-	//	return false;
-	//}
-	//decoder_ctx = avcodec_alloc_context3(decoder);
-	//if (!decoder_ctx) {
-	//	ret = AVERROR(ENOMEM);
-	//	return false;
-	//}
-	//decoder_ctx->codec_id = AV_CODEC_ID_H264;
-	//if (this->inputFormatCtx->streams[videoStream]->codecpar->extradata_size) {
-	//	decoder_ctx->extradata = reinterpret_cast<uint8_t*>(av_mallocz(this->inputFormatCtx->streams[videoStream]->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE));
-	//	if (!decoder_ctx->extradata) {
-	//		ret = AVERROR(ENOMEM);
-	//		return false;
-	//	}
-
-	//	memcpy(decoder_ctx->extradata, this->inputFormatCtx->streams[videoStream]->codecpar->extradata,
-	//		this->inputFormatCtx->streams[videoStream]->codecpar->extradata_size);
-	//	decoder_ctx->extradata_size = this->inputFormatCtx->streams[videoStream]->codecpar->extradata_size;
-	//}
-
-	//decoder_ctx->refcounted_frames = 1;
-	//decoder_ctx->opaque = &decode;
-	//decoder_ctx->get_format = get_format;
-
-	//ret = avcodec_open2(decoder_ctx, NULL, NULL);
-
-	//if (ret < 0) {
-	//	fprintf(stderr, "Error opening the decoder: ");
-	//	return false;
-	//}
-
-	return true;
-}
-
-bool FFmpegWrapper::createOutput(OutputType outType)
-{
-	switch (outType)
-	{
-	case mp4:
-		createMp4Output();
-		break;
-	case mjpeg:
-		createMjpegOutput();
-		break;
-	default:
-		break;
-	}
-
-	return true;
-}
-
-void FFmpegWrapper::addConnToList(websocketpp::connection_hdl connHdl, OutputType outType)
-{
-	//std::unique_lock<std::mutex> lock(connectionlock);	
-	if (connections[outType].empty())
-	{
-		//createOutput(outType);
-		connections[outType].insert(connHdl);
-		// write header
-		if (outType == mp4) {
-			//AVDictionary* options = nullptr;
-			//av_dict_set(&options, "movflags", "+frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset", 0);
-			////av_dict_set(&options, "reset_timestamps", "1", 0);
-			//av_dict_set(&options, "b:v", "1024k", 0);
-			//avformat_write_header(this->mp4OutContext, &options);
-			websocketCallback(connHdl, mp4FragCreator->initialization);
-		}
-	}
-	else {
-
-		if (outType == mp4) {
-			websocketCallback(connHdl, mp4FragCreator->initialization);
-		}
-		connections[outType].insert(connHdl);
-	}
-}
-
-void FFmpegWrapper::readInput()
-{
-	int frameFinished;
-	AVPacket packet;
-
-	int interval = 1;
-	if (inputFPS > 7) {
-		interval = inputFPS / 5;
-		if (inputFPS % 5 != 0)
-			interval++;
-	}
-	//cout << "interval" << interval << endl;
-	int i = 1;
 	// Allocate video frame
 	pFrame = av_frame_alloc();
 
-	//Control input frame rate
-	auto sleepTime = 0;
-	if (playbackviaapache)
-	{
-		if (inputFPS == 0 || inputFPS < 0 || inputFPS > 100) {
-			inputFPS = 25;
-		}
-		sleepTime = 1000 / inputFPS;
-	}
-	std::mutex mut;
-	std::atomic<bool> canSend;
-	canSend = true;
-	std::condition_variable condition_v;
-	std::thread thread1;
-
-	if (!isLiveMode()) {
-		thread1 = std::thread([&]()
-			{
-				while (!mStop)
-				{
-					if (!fileseekingstarted)
-					{
-						std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
-						canSend = true;
-						condition_v.notify_all();
-					}
-
-				}
-			});
+	// Allocate the RGB frame
+	rgb_frame = av_frame_alloc();
+	if (rgb_frame == NULL) {
+		std::cerr << "Error allocating RGB frame" << std::endl;
+		return false;
 	}
 
-	AVPacket packetEncoded;
-	packetEncoded.data = NULL, packetEncoded.size = 0;
-	av_init_packet(&packetEncoded);
-	try
-	{
-		this->params.lastStopped = GetTickCount();
-		int framecount = 0;
-		while (av_read_frame(this->inputFormatCtx, &packet) >= 0 && !mStop)
-		{
-			this->params.lastStopped = GetTickCount();
-			// Is this a packet from the video stream?
-			if (packet.stream_index == videoStream)
-			{
-
-				if (!connections[mjpeg].empty())
-				{
-					if (inputCodecID == AV_CODEC_ID_MJPEG)
-					{
-						vector<uint8_t> frame(packet.data, packet.data + packet.size);
-						send(frame);
-						SendVideoStartedEvent();
-					}
-					else {
-						avcodec_decode_video2(decoderCodecContext, pFrame, &frameFinished, &packet);
-
-						// Did we get a video frame?
-						if (frameFinished) {
-							framecount++;
-							if (framecount == inputFPS)
-							{
-								SendVideoStartedEvent();
-								playbackFileStared = true;
-								if (this->initial_seek_time > 0)
-								{
-									seek_video(this->initial_seek_time);
-								}
-							}
-							if (!isLiveMode())
-							{
-								while (!canSend && !mStop)
-								{
-									try
-									{
-										std::unique_lock<std::mutex> lok(mut);
-										condition_v.wait_for(lok, std::chrono::seconds(1));
-									}
-									catch (const std::exception& ex)
-									{
-										cout << ex.what() << std::endl;
-									}
-								}
-							}
-							save_frame_as_jpeg(decoderCodecContext, pFrame, &packetEncoded);
-							canSend = false;
-						}
-					}
-				}
-
-				if (!connections[mp4].empty()) {
-					if (!isLiveMode())
-					{
-						while (!canSend && !mStop)
-						{
-							try
-							{
-								std::unique_lock<std::mutex> lok(mut);
-								condition_v.wait_for(lok, std::chrono::seconds(1));
-							}
-							catch (const std::exception& ex)
-							{
-								cout << ex.what() << std::endl;
-							}
-						}
-						framecount++;
-						if (framecount == inputFPS)
-						{
-							SendVideoStartedEvent();
-							playbackFileStared = true;
-							if (this->initial_seek_time > 0) {
-								seek_video(this->initial_seek_time);
-							}
-						}
-					}
-					if (usejmuxer)
-					{
-						auto hdlList = connections[mp4];
-						vector<uint8_t> chunk(packet.data, packet.data + packet.buf->size);
-						SendVideoStartedEvent();
-						for (auto hndl : hdlList)
-						{
-							websocketCallback(hndl, chunk);
-						}
-					}
-					else
-					{
-						auto x = av_interleaved_write_frame(mp4OutContext, &packet);
-						SendVideoStartedEvent();
-
-					}
-					canSend = false;
-				}
-			}
-			// Free the packet that was allocated by av_read_frame
-			av_free_packet(&packet);
-		}
-		if (!isLiveMode())
-		{
-			auto hdlList = connections[mp4];
-			auto hdlList1 = connections[mjpeg];
-
-			for (auto hndl : hdlList) {
-				websocketSCallback(hndl, "Playback_Finished");
-			}
-			for (auto hndl1 : hdlList1) {
-				websocketSCallback(hndl1, "Playback_Finished");
-			}
-			mStop = true;
-			thread1.join();
-			cout << "Thread 1 join";
-		}
-		/*stopThread2 = true;
-		thread2.join();*/
-	}
-	catch (const exception& ex) {
-		cout << ex.what() << std::endl;
-	}
-}
-
-void FFmpegWrapper::SendVideoStartedEvent()
-{
-	if (isVideoStartedEventsent) {
-		return;
-	}
-	isVideoStartedEventsent = true;
-	auto hdlList = connections[mp4];
-	auto hdlList1 = connections[mjpeg];
-
-	for (auto hndl : hdlList) {
-		websocketSCallback(hndl, "Video_Started");
-	}
-	for (auto hndl1 : hdlList1) {
-		websocketSCallback(hndl1, "Video_Started");
-	}
-}
-void FFmpegWrapper::Pause_video()
-{
-	try
-	{	
-		std::cout << "In Pause Video" << IsFilePaused << endl;
-		if (isLiveMode()) { return; }
-		mPaused = true;
-		/*string cameraId_instring = to_string(cameraId);
-		std::string endpoint = "/url/PauseVideo?cameraId=" + cameraId_instring + "&time=" + to_string(start_time_ofplaybackfile) + "&sessionId=" + to_string(sessionid);
-		std::string url = "http://" + serverIp + ":" + to_string(port) + endpoint;
-		auto res = cpr::Get(cpr::Url{ url });
-		std::cout << "In Pause Video " << url << endl;
-		IsFilePaused = true;*/
-		//std::unique_lock<std::mutex> lok(mut);
-		//condition_v.wait(lok);
-	}
-	catch (const std::exception&)
-	{
-		IsFilePaused = false;
-		cout << "Exception while  pause video on recording server ";
-	}
-}
-
-void FFmpegWrapper::Resume_video()
-{
-	try
-	{
-		std::cout << "In Resume Video" << IsFilePaused << endl;
-		if (isLiveMode()) { return; }
-		mStop = false;
-		//string cameraId_instring = to_string(cameraId);
-		//std::string endpoint = "/url/ResumeVideo?cameraId=" + cameraId_instring + "&time=" + to_string(start_time_ofplaybackfile) + "&sessionId=" + to_string(sessionid);
-		//std::string url = "http://" + serverIp + ":" + to_string(port) + endpoint;
-		//auto res = cpr::Get(cpr::Url{ url });
-		//std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-		////condition_v.notify_all();
-		//IsFilePaused = false;
-	}
-	catch (const std::exception&)
-	{
-		IsFilePaused = false;
-		cout << "Exception while  Resume video on recording server ";
-	}
-}
-void FFmpegWrapper::seek_video(int time_toSeek_insec)
-{
-	cout << "In FFmpegWrapper::seek_video " << time_toSeek_insec << endl;
-	if (isLiveMode()) { return; }
-
-	if (time_toSeek_insec > 0)
-	{
-		cout << playbackviaapache << "playback flag" << endl;
-		/*if (playbackviaapache)
-		{*/
-		if (fileseekingstarted && !playbackFileStared)
-		{
-			return;
-		}
-		fileseekingstarted = true;
-		// Seek is done on packet dts
-		try
-		{
-			cout << "1 " << inputFPS << endl;
-			int framerate = inputFPS;
-			int frameIndex = time_toSeek_insec * framerate;
-			int64_t target_dts_usecs = (int64_t)round(frameIndex * (double)this->inputFormatCtx->streams[videoStream]->r_frame_rate.den / this->inputFormatCtx->streams[videoStream]->r_frame_rate.num * AV_TIME_BASE);
-			// Remove first dts: when non zero seek should be more accurate
-			cout << "2 " << frameIndex << " - " << target_dts_usecs << endl;
-			auto first_dts_usecs = (int64_t)round(this->inputFormatCtx->streams[videoStream]->first_dts * (double)this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den * AV_TIME_BASE);
-			target_dts_usecs += first_dts_usecs;
-			cout << "3 " << first_dts_usecs << " - " << target_dts_usecs << endl;
-			int rv = av_seek_frame(this->inputFormatCtx, -1, target_dts_usecs, AVSEEK_FLAG_FRAME | AVSEEK_FLAG_ANY);
-			cout << "4 " << rv << endl;
-			if (rv < 0)
-			{
-				fileseekingstarted = false;
-				if (logger) { logger->warn("Unable to seek video"); }
-			}
-			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-			fileseekingstarted = false;
-		}
-		catch (const exception& ex)
-		{
-			fileseekingstarted = false;
-			if (logger) { logger->error("Exception while seek video: {}", ex.what()); }
-			else { std::cout << "Exception while seek video: " << ex.what() << std::endl; }
-		}
-		//}
-		//else
-		//{
-		//	//call recording server to seek file
-		//	try
-		//	{
-		//		string cameraId_instring = to_string(cameraId);
-		//		std::string endpoint = "/url/SeekVideo?cameraId=" + cameraId_instring + "&time=" + to_string(start_time_ofplaybackfile) + "&seekTime=" + to_string(time_toSeek_insec)+"&sessionId="+to_string(sessionid);
-		//		std::string url = "http://" + serverIp + ":" + to_string(port) + endpoint;
-		//		auto res = cpr::Get(cpr::Url{ url });
-		//	}
-		//	catch (const std::exception& ex)
-		//	{
-  //              if (logger) { logger->error("EException while  seek video on recording server: {}", ex.what()); }
-  //              else { std::cout << "Exception while  seek video on recording server: " << ex.what() << std::endl; }
-		//	}
-
-
-		//}
-
-	}
-}
-
-
-
-void FFmpegWrapper::Backwardseek_video(int frameIndex)
-{
-	// Seek is done on packet dts
-	try
-	{
-
-		int64_t target_dts_usecs = (int64_t)round(frameIndex * (double)this->inputFormatCtx->streams[videoStream]->r_frame_rate.den / this->inputFormatCtx->streams[videoStream]->r_frame_rate.num * AV_TIME_BASE);
-		// Remove first dts: when non zero seek should be more accurate
-		auto first_dts_usecs = (int64_t)round(this->inputFormatCtx->streams[videoStream]->first_dts * (double)this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den * AV_TIME_BASE);
-		target_dts_usecs += first_dts_usecs;
-		int rv = av_seek_frame(this->inputFormatCtx, -1, target_dts_usecs, AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_ANY);
-		avcodec_flush_buffers(this->decoderCodecContext);
-		avcodec_flush_buffers(this->jpegContext);
-
-		if (rv < 0)
-		{
-			cout << "Unable to seek video";
-		}
-
-	}
-	catch (const exception& ex)
-	{
-		cout << "Exception while  seek video";
-		cout << ex.what() << std::endl;
-	}
-}
-
-
-bool FFmpegWrapper::removeOutput(OutputType outType)
-{
-	switch (outType)
-	{
-	case mp4:
-		freeMp4OutMemory();
-		break;
-	case mjpeg:
-		freeMjpegOutMemory();
-		break;
-	default:
-		break;
-	}
 	return true;
 }
 
@@ -768,15 +454,18 @@ void FFmpegWrapper::freeMp4OutMemory()
 	}
 }
 
-void FFmpegWrapper::freeMjpegOutMemory()
+void FFmpegWrapper::freeRgbaOutMemory()
 {
 	// Free the YUV frame
-	av_free(pFrame);
+	av_frame_free(&pFrame);
+
+	// Clean up
+	av_free(buffer);
+	sws_freeContext(conversion_context);
+	av_frame_free(&rgb_frame);
 
 	// Close the codecs
 	avcodec_close(decoderCodecContext);
-
-	avcodec_close(jpegContext);
 }
 
 void FFmpegWrapper::closeInput()
@@ -794,129 +483,174 @@ void FFmpegWrapper::closeInput()
 	}
 }
 
-bool FFmpegWrapper::openInput()
+void FFmpegWrapper::receiveMp4Chunk(vector<uint8_t> data, int64_t _vidPosition) {
+	for (webConnHdl hndl : connections[mp4]) {
+		websocketCallback(hndl, data, _vidPosition);
+	}
+}
+
+void FFmpegWrapper::addConnection(webConnHdl connHdl)
 {
-	this->inputFormatCtx = avformat_alloc_context();
-	this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
-	this->inputFormatCtx->interrupt_callback.opaque = this;
-	const char* fileName = this->url.c_str();
-	// Open file
-	AVDictionary* options1 = nullptr;
-	try
+	if (inputCodecID == AV_CODEC_ID_NONE)
 	{
-		if (connectionmode == "tcp")
-		{
-			av_dict_set(&options1, "rtsp_transport", "tcp", 0);
-		}
-		else if (connectionmode == "udp")
-		{
-			av_dict_set(&options1, "rtsp_transport", "udp", 0);
+		tempConnections.push_back(std::make_pair(connHdl, false));
+	}
+	else {
+		if (inputCodecID == AV_CODEC_ID_H264) {
+			websocketSCallback(connHdl, "mp4");
+			addConnToList(connHdl, mp4);
 		}
 		else
 		{
-			av_dict_set(&options1, "rtsp_transport", "tcp", 0);
-
+			websocketSCallback(connHdl, "rgba");
+			addConnToList(connHdl, rgba);
 		}
-		av_dict_set(&options1, "stimeout", "5000000", 0);//The unit us is 3s
-
 	}
-	catch (boost::bad_lexical_cast)
-	{
-		// bad parameter
-	}
+}
 
-	this->params.lastStopped = GetTickCount();
+bool FFmpegWrapper::removeConnection(webConnHdl connHdl)
+{
+	if (!tempConnections.empty()) {
+		auto foundInTemp = false;
+		std::vector<std::pair<webConnHdl, bool>>::iterator foundPair;
 
-	if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
-	{
-		if (connectionmode == "")
-		{
-			av_dict_set(&options1, "rtsp_transport", "udp", 0);
-			if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
+		for (std::vector<std::pair<webConnHdl, bool>>::iterator it = tempConnections.begin(); it != tempConnections.end(); ++it) {
+			if (it->first.lock() == connHdl.lock())
 			{
-				return false;
+				foundInTemp = true;
+				foundPair = it;
 			}
 		}
-		else
+		if (foundInTemp)
 		{
-			return false;
+			tempConnections.erase(foundPair);
 		}
-		//this->inputFormatCtx = avformat_alloc_context();
-		//this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
-		//this->inputFormatCtx->interrupt_callback.opaque = this;
-		////AVDictionary* options1 = nullptr;
-		////av_dict_set(&options1, "rtsp_transport", "tcp", 0);
-		////av_dict_set(&options1, "use_wallclock_as_timestamps", "1", 0);
-
-		//params.lastStopped = GetTickCount();
-		//if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
-		//{
-		//	this->inputFormatCtx = avformat_alloc_context();
-		//	this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
-		//	this->inputFormatCtx->interrupt_callback.opaque = this;
-		//	//AVDictionary* options1 = nullptr;
-
-		//	params.lastStopped = GetTickCount();
-		//	if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0) {
-		//		return false;
-		//	}
-		//}
+		if (connections[mp4].empty() && connections[rgba].empty()) {
+			// no more connections so tell 
+			return true;
+		}
 	}
 
-	// Dump information about file onto standard error
-	av_dump_format(this->inputFormatCtx, 0, fileName, 0);
-
-	return true;
-}
-
-bool FFmpegWrapper::GetInputCodecInfo()
-{
-	// Get infromation about streams
-	if (avformat_find_stream_info(this->inputFormatCtx, NULL) < 0)
-		return false; // Couldn't find stream information
-
-	int i;
-
-	// Find the first video stream
-	for (i = 0; i < this->inputFormatCtx->nb_streams; i++)
-		if (this->inputFormatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
-			videoStream = i;
-			break;
+	bool isFound = false;
+	OutputType type;
+	if (!connections[mp4].empty())
+	{
+		for (auto& conn : connections[mp4])
+		{
+			if (conn.lock() == connHdl.lock())
+			{
+				isFound = true;
+				type = mp4;
+			}
 		}
-	if (videoStream == -1)
-		return false; // Didn't find a video stream
+	}
+	if (!connections[rgba].empty())
+	{
+		for (auto& conn : connections[rgba])
+		{
+			if (conn.lock() == connHdl.lock())
+			{
+				isFound = true;
+				type = rgba;
+			}
+		}
+	}
 
-	// Get a pointer to the codec context for the video stream
-	this->inputCodecCtx = this->inputFormatCtx->streams[videoStream]->codec;
-	this->inputCodecID = this->inputFormatCtx->streams[videoStream]->codec->codec_id;
-	this->inputFPS = av_q2d(this->inputFormatCtx->streams[videoStream]->r_frame_rate);
-	return true;
+	if (isFound)
+	{
+		connections[type].erase(connHdl);
+
+		if (connections[mp4].empty() && connections[rgba].empty()) {
+			// no more connections so tell 
+			return true;
+		}
+	}
+	return false;
 }
 
-FFmpegWrapper::~FFmpegWrapper() {
-
+void FFmpegWrapper::addConnToList(webConnHdl connHdl, OutputType outType)
+{
+	if (outType == mp4) {
+		websocketCallback(connHdl, mp4FragCreator->initialization, 0);
+	}
+	connections[outType].insert(connHdl);
 }
 
-void FFmpegWrapper::receiveMp4Chunk(vector<uint8_t> data) {
-	auto hdlList = connections[mp4];
+void FFmpegWrapper::SendVideoStartedEvent()
+{
+	if (isVideoStartedEventsent) {
+		return;
+	}
+	isVideoStartedEventsent = true;
 
-	//auto dataPtr = data.data();
-	//auto size = data.size();
-	//auto c = 0;
-	for (auto hndl : hdlList) {
-		//cout << "Counter Count:" << ++c << endl;
-		//websocket_server.send(*it, dataPtr, size, websocketpp::frame::opcode::BINARY);
-		websocketCallback(hndl, data);
+	for (webConnHdl connHdl : connections[rgba])
+	{
+		websocketSCallback(connHdl, "Video_Started");
+	}
+	for (webConnHdl connHdl : connections[mp4])
+	{
+		websocketSCallback(connHdl, "Video_Started");
+	}
+}
+
+void FFmpegWrapper::Pause_video()
+{
+	try
+	{
+		mPaused = !mPaused;
+		cv.notify_one();
+	}
+	catch (const std::exception&)
+	{
+		//IsFilePaused = false;
+		cout << "Exception while  pause video on recording server ";
+	}
+}
+
+void FFmpegWrapper::seek_video(int time_toSeek_insec)
+{
+	cout << "In FFmpegWrapper::seek_video " << time_toSeek_insec << endl;
+	if (isLiveMode()) { return; }
+
+	if (time_toSeek_insec > 0)
+	{
+		if (fileseekingstarted && !playbackFileStared)
+		{
+			return;
+		}
+		fileseekingstarted = true;
+		// Seek is done on packet dts
+		try
+		{
+			int64_t target_dts_usecs = static_cast<int64_t>(time_toSeek_insec) * 1000000;
+			auto first_dts_usecs = (int64_t)round(this->inputFormatCtx->streams[videoStream]->first_dts * (double)this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den * AV_TIME_BASE);
+			target_dts_usecs += first_dts_usecs;
+			try {
+				int rv = av_seek_frame(this->inputFormatCtx, -1, target_dts_usecs, AVSEEK_FLAG_FRAME | AVSEEK_FLAG_ANY);
+				if (rv < 0)
+				{
+					fileseekingstarted = false;
+					if (logger) { logger->warn("Unable to seek video"); }
+				}
+			}
+			catch (exception ex) {
+				cout << "my exc: " << ex.what() << endl;
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+			fileseekingstarted = false;
+		}
+		catch (const exception& ex)
+		{
+			fileseekingstarted = false;
+			if (logger) { logger->error("Exception while seek video: {}", ex.what()); }
+			else { std::cout << "Exception while seek video: " << ex.what() << std::endl; }
+		}
 	}
 }
 
 bool FFmpegWrapper::isLiveMode()
 {
 	bool livemode = true;
-
-	if (playmode != "Live")
-	{
-		livemode = false;
-	}
+	if (playmode != "Live") livemode = false;
 	return livemode;
 }

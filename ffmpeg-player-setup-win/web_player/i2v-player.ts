@@ -1,161 +1,123 @@
-declare var JMuxer: any;
-
 class I2vSdk {
-    playerIp: string = "localhost";
+    clVersion: string = "7.0.0";
+    wPlayerIp: string = "localhost";
+    wServerIp: string;
+    wServerPort: any = 8890;
     useSecureConnection: boolean = false;
     player: I2vPlayer;
-    playerServerIp: string;
-    playerServerPort: any = 8890;
-    
-    constructor(_playerip, _playerserverip, useSecureConnection?: boolean, _playerServerPort?:any) {
-        this.playerServerIp = _playerserverip;
-        this.playerServerPort = _playerServerPort;
-        this.playerIp = _playerip;
+
+    constructor(_wPlayerIp: string, _wServerIp: string, _wServerPort?: any, useSecureConnection?: boolean) {
+        this.wPlayerIp = _wPlayerIp;
+        this.wServerIp = _wServerIp;
+        this.wServerPort = _wServerPort;
         if (useSecureConnection) {
             this.useSecureConnection = useSecureConnection;
-        }     
+        }
     }
 
-
-    GetLivePlayer(elId, cameraId, streamtype, advanceDecoding, analyticType, connectionmode) {
-        this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, this.useSecureConnection, advanceDecoding, connectionmode, "1", analyticType, this.playerServerPort);
-        this.player.playerIp = this.playerIp;
-        this.player.playerServerIp = this.playerServerIp;
-        this.player.PlayerServerPort = this.playerServerPort;
-
-        return this.player;
-    }
-   
-    GetPlaybackPlayer(elId, cameraId, startTime, _playbackviaapache) {
-        this.player = new I2vPlayer(elId, cameraId, "PlayBack", "0", startTime, this.useSecureConnection, "0", "tcp", _playbackviaapache, "", this.playerServerPort);
-        this.player.playerIp = this.playerIp;
-        this.player.playerServerIp = this.playerServerIp;
-        this.player.PlayerServerPort = this.playerServerPort;
+    GetLivePlayer(elId: any, cameraId: number, streamtype: number, analyticType: string, connectionmode: string) {
+        this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, analyticType, connectionmode, this.clVersion, this.useSecureConnection);
+        this.player.wPlayerIp = this.wPlayerIp;
+        this.player.wServerIp = this.wServerIp;
+        this.player.wServerPort = this.wServerPort;
 
         return this.player;
     }
 
-    SeekVideo(startTime)
-    {
+    GetPlaybackPlayer(elId: any, cameraId: number, startTime: number, _playbackviaapache: string) {
+        this.player = new I2vPlayer(elId, cameraId, "PlayBack", 0, startTime, "", "tcp", this.clVersion, this.useSecureConnection);
+        this.player.wPlayerIp = this.wPlayerIp;
+        this.player.wServerIp = this.wServerIp;
+        this.player.wServerPort = this.wServerPort;
+
+        return this.player;
+    }
+
+    SeekVideo(startTime: any) {
         if (this.player && this.player.mode != "Live") {
             this.player.SeekVideo(startTime);
         }
     }
 
-    Pause()
-    {
-        if (this.player && this.player.mode !="Live") {
-            this.player.Pause();
-        }
-    }
-    Resume() {
+    Pause() {
         if (this.player && this.player.mode != "Live") {
-            this.player.Resume();
+            this.player.Pause();
         }
     }
 }
 
 
 class I2vPlayer {
+    wPlayerIp: string;
     elId: any;
-    cameraId: any;
-    streamtype: any;
+    cameraId: number;
     mode: string;
+    streamType: number;
+    startTime: number;
+    analyticType: string;
+    connectionMode: string = "tcp";
+    wServerIp: string;
+    wServerPort: any = 8890;
+    clVersion: string;
+
     useSecureConnection: boolean = false;
-    startTime: any;
-    urlCreator: { new(url: string, base?: string | URL): URL; prototype: URL; createObjectURL(object: any): string; revokeObjectURL(url: string): void; };
-    errorCallback: any;
+
     w: WebSocket; //websocket client
+    b: SourceBuffer; // Source Buffer
     m: MediaSource; //MediaSource object
-    isSourceReady: boolean;
-    b: SourceBuffer; // buffer
-    isPlayerSet: boolean;
-    v: HTMLVideoElement; // video element
-    i: HTMLImageElement; //image element
-    isJpeg: boolean;
-    intS: Uint8Array; //initSegment
+    v: HTMLVideoElement; // Video element
+    c: HTMLCanvasElement; // Canvas element
+
+    errorCallback: any;
     retryingCallback: any;
+
+    intS: Uint8Array; //initSegment
     lastSegment: Uint8Array;
-    playerIp: string;
-    playerServerIp: string;
+    isSourceReady: boolean;
+
+    isRgb: boolean;
+    width: number;
+    height: number;
+    isPlayerSet: boolean;
+    IsEmptyUrl: boolean = false;
     doesStopRequested: boolean = false;
     isErrorMessageVisible: boolean = false;
-    playrecursivetimeout: any;
-    mjpeg_over_httptimeout: any;
-    analyticType: string;
-    jmuxer: any;
-    useJmuxer: boolean = false;
-    connectionmode: string = "tcp";
-    playbackviaapache: boolean = true;
-    mjpeg_overhttpurl: string = "";
-    IsEmptyUrl: boolean = false;
     IsPlayerServerConnected: boolean = false;
     URL_Server_Not_Connected: boolean = false;
 
-    PlayerServerPort: any = 8890;
+    playrecursivetimeout: any;
+    status: any;
+    svVersion: any;
 
-    constructor(elId, cameraId, mode, streamtype, startTime, useSecureConnection, advanceDecoding, _connectionmode, _playbackviaapache, _analyticType, playerServerPort) {
+    constructor(elId: any, cameraId: number, mode: string, streamtype: number, startTime: number, _analyticType: string, _connectionmode: string, _clVersion: string, useSecureConnection: boolean) {
         this.elId = elId;
         this.cameraId = cameraId;
         this.mode = mode;
-        this.streamtype = streamtype;
-        this.urlCreator = window.URL || window.webkitURL;
+        this.streamType = streamtype;
         this.startTime = startTime;
-        this.useSecureConnection = useSecureConnection;
-        this.connectionmode = _connectionmode;
-        this.playbackviaapache = _playbackviaapache;
         this.analyticType = _analyticType;
-        //TODO Check playback also working or not
-        this.PlayerServerPort = playerServerPort;
-        if (!this.analyticType) {
-            this.analyticType = "";
-        }
+        this.connectionMode = _connectionmode;
+        this.clVersion = _clVersion;
+        this.useSecureConnection = useSecureConnection;
 
-        if (!this.connectionmode)
-        {
-            this.connectionmode = "";
-        }
-        else
-        {
-            this.connectionmode =  this.connectionmode.toLowerCase();
-        }
+        if (!this.analyticType) this.analyticType = "";
 
-        if (this.connectionmode != "tcp" && this.connectionmode != "udp")
-        {
-            this.connectionmode = "";
+        if (!this.connectionMode) {
+            this.connectionMode = "";
         }
-        //else if (this.connectionmode != "tcp" && this.connectionmode != "udp")
-        //{
-        //    this.connectionmode = "tcp";
-        //}
-
-
-        if (mode == "Live")
-        {
-            if (!advanceDecoding)
-            {
-                this.useJmuxer = true;
+        else {
+            this.connectionMode = this.connectionMode.toLowerCase();
+            if (this.connectionMode != "tcp" && this.connectionMode != "udp") {
+                this.connectionMode = "";
             }
-           else if (advanceDecoding == "0")
-            {
-                this.useJmuxer = true;
-            }
-            else
-            {
-                this.useJmuxer = false;
-            }
-        }
-        else
-        {
-            this.useJmuxer = true;
         }
     }
 
-    setErrorCallback(errorCallback) {
-        this.errorCallback = errorCallback;       
+    setErrorCallback(errorCallback: any) {
+        this.errorCallback = errorCallback;
     }
 
-    setRetryingCallback(retryingCallback) {
+    setRetryingCallback(retryingCallback: any) {
         this.retryingCallback = retryingCallback;
     }
 
@@ -166,37 +128,32 @@ class I2vPlayer {
             if (this.playrecursivetimeout) {
                 clearTimeout(this.playrecursivetimeout);
             }
-            if (this.mjpeg_over_httptimeout)
-            {
-                clearTimeout(this.mjpeg_over_httptimeout);
-            }
             try {
                 if (this.w) {
                     this.w.close();
                 }
             } catch (ex) {
-
+                console.error("wClient: Unable to close Websocket");
             }
 
             delete this.m;
             delete this.v;
-            if (this.isJpeg) {
-                var i = document.getElementById(`${this.elId}_img`) as HTMLImageElement;
-                if (i) {
-                    i.src = "";
-                    i.parentNode.removeChild(i);
+            if (this.isRgb) {
+                var c = document.getElementById(`${this.elId}_canvas`) as HTMLCanvasElement;
+                if (c) {
+                    var c_context = c.getContext('2d');
+                    c_context.clearRect(0, 0, this.width, this.height);
+                    c.parentNode.removeChild(c);
                 }
-
             } else {
                 var v = document.getElementById(`${this.elId}_video`) as HTMLVideoElement;
                 if (v) {
                     v.src = "";
                     v.parentNode.removeChild(v);
                 }
-
             }
         } catch (ex) {
-
+            console.error("wClient: Error in Stop Function");
         }
 
     }
@@ -208,8 +165,6 @@ class I2vPlayer {
         if (!MediaSource.isTypeSupported(mime)) {
             return;
         }
-        //this.m.addEventListener('sourceended', (e) => { console.log('sourceended: ' + this.m.readyState); });
-        //this.m.addEventListener('sourceclose', (e) => { console.log('sourceclose: ' + this.m.readyState); });
         this.m.addEventListener('error', (e) => { console.log('error: ' + this.m.readyState); });
         this.m.addEventListener('sourceopen', (e) => {
             console.log('sourceopen: ' + this.m.readyState);
@@ -237,9 +192,7 @@ class I2vPlayer {
                 const start = this.b.buffered.start(0);
                 const end = this.b.buffered.end(0);
                 const past = currentTime - start;
-                // if (end - currentTime > 1) {
-                //     this.v.currentTime = end - 1;
-                // }
+      
                 //todo play with numbers and make dynamic or user configurable
             
                 if (past > 20 && currentTime < end && !this.b.updating) {
@@ -252,18 +205,6 @@ class I2vPlayer {
             this.isSourceReady = true;
 
         }, false);
-        //this.v.src = null;
-        //this.v.src = window.URL.createObjectURL(this.m);
-    }
-
-    _arrayBufferToBase64(b) {
-        var binary = '';
-        var bytes = new Uint8Array(b);
-        var len = bytes.byteLength;
-        for (var i = 0; i < len; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        return window.btoa(binary);
     }
 
     play() {
@@ -274,19 +215,15 @@ class I2vPlayer {
             protocolType = "wss";
             port = 8182;
         }
-
-        if (!this.useJmuxer)
-        {
-            this.initializeMediaSource();
-        }
-
+        this.initializeMediaSource();
         this.removeErrorMessage();
 
-        this.showErrorMessage("Trying to Connect...");
         this.IsEmptyUrl = false;
+        if (!this.IsEmptyUrl) this.showErrorMessage("Trying to Connect...");
         this.IsPlayerServerConnected = false;
         this.URL_Server_Not_Connected = false;
-        this.w = new WebSocket(`${protocolType}://${this.playerIp}:${port}?cameraId~~${this.cameraId}&&id~~${this.elId}&&startTime~~${this.startTime}&&mode~~${this.mode}&&streamtype~~${this.streamtype}&&useJmuxer~~${this.useJmuxer}&&connectionmode~~${this.connectionmode}&&playbackviaapache~~${this.playbackviaapache}&&serverIp~~${this.playerServerIp}&&analyticType~~${this.analyticType}&&PlayerServerPort~~${this.PlayerServerPort}`);
+        this.w = new WebSocket(`${protocolType}://${this.wPlayerIp}:${port}?cameraId~~${this.cameraId}&&mode~~${this.mode}&&streamType~~${this.streamType}&&startTime~~${this.startTime}&&analyticType~~${this.analyticType}&&connectionMode~~${this.connectionMode}&&wServerIp~~${this.wServerIp}&&wServerPort~~${this.wServerPort}&&clVersion~~${this.clVersion}`);
+
         this.w.binaryType = 'arraybuffer';
 
         this.w.addEventListener('open', (event) => {
@@ -302,58 +239,44 @@ class I2vPlayer {
                 console.log('socket closed and retrying...');
                 if (this.IsPlayerServerConnected) {
                     var errMsg = "Player Server Not Connected ";
-
                     this.showErrorMessage(errMsg);
-
                 }
                 else if (this.URL_Server_Not_Connected) {
                     var errMsg = "URL Server Not Connected";
-
                     this.showErrorMessage(errMsg);
-
                 }
                 else if (this.IsEmptyUrl) {
-                    var errMsg = this.mode == "Live" ? "Url not configured" : "Recording not Found";
-
+                    var errMsg = this.mode == "Live" ? "Stream not Found" : "Recording not Found";
                     this.showErrorMessage(errMsg);
-
                 }
                 else {
                     this.showErrorMessage("Player Not Connected...");
-
                 }
 
 
-                //if (!this.isErrorMessageVisible) {
-                //    this.showErrorMessage("Trying to Connect...");
-                //}
                 delete this.w;
                 if (this.b) {
                     this.b.abort();
-                }
-                if (this.jmuxer) {
-                    this.disposejmuxer();
                 }
                 this.b = null;
                 this.m = null;
                 delete this.v;
                 this.isPlayerSet = false;
-                if (this.isJpeg) {
-                    var i = document.getElementById(`${this.elId}_img`) as HTMLImageElement;
-                    if (i) {
-                        i.src = "";
-                        i.parentNode.removeChild(i);
+                if (this.isRgb) {
+                    var c = document.getElementById(`${this.elId}_canvas`) as HTMLCanvasElement;
+                    if (c) {
+                        var c_context = c.getContext('2d');
+                        c_context.clearRect(0, 0, this.width, this.height);
+                        c.parentNode.removeChild(c);
                     }
-
                 } else {
                     var v = document.getElementById(`${this.elId}_video`) as HTMLVideoElement;
                     if (v) {
                         v.src = "";
                         v.parentNode.removeChild(v);
                     }
-
                 }
-              this.playrecursivetimeout = setTimeout(() => {
+                this.playrecursivetimeout = setTimeout(() => {
                     if (!this.doesStopRequested) {
                         this.play();
                     }
@@ -362,24 +285,20 @@ class I2vPlayer {
 
         });
 
-        this.mjpeg_over_httptimeout = setInterval(() => {
-            try {
-                if (this.mjpeg_overhttpurl != "") {
-                    this.i.setAttribute(
-                        'src', this.mjpeg_overhttpurl
-                    );
-                }
-               
-            } catch (ex) {
-
-            }
-        }, 3000);
-
         this.w.addEventListener('message', (e) => {
             this.IsEmptyUrl = false;
             this.IsPlayerServerConnected = false;
             this.URL_Server_Not_Connected = false;
-            switch (e.data) {     
+            if (e.data.toString().startsWith("--version")) {
+                this.svVersion = e.data.substring(10);
+                console.log("Client Version: " + this.clVersion);
+                console.log("Server Version: " + this.svVersion);
+                return;
+            } else if (e.data.toString().startsWith("--servStatus")) {
+                console.log(e.data.substring(13));
+                return;
+            }
+            switch (e.data) {
                 case "Server_ip_not_provided":
                     var errMsg = "Please Provide Valid Server Ip";
                     if (this.errorCallback) {
@@ -397,7 +316,7 @@ class I2vPlayer {
                     return;
                 case "Video_Started":
                     var errMsg = "Video_Started";
-                    console.log(errMsg); 
+                    console.log(errMsg);
                     if (this.errorCallback) {
                         this.errorCallback(errMsg);
                     }
@@ -409,10 +328,10 @@ class I2vPlayer {
                         this.errorCallback(errMsg);
                     }
                     this.stop();
-                    return;                 
+                    return;
                 case "EmptyUrl":
                     this.IsEmptyUrl = true;
-                    var errMsg = this.mode == "Live" ? "Url not configured" : "Recording not Found";
+                    var errMsg = this.mode == "Live" ? "Stream not Found" : "Recording not Found";
                     if (this.errorCallback) {
                         this.errorCallback(errMsg);
                     }
@@ -443,20 +362,12 @@ class I2vPlayer {
                     this.showErrorMessage("Trying to Connect...");
 
                     try {
-
-                        if (this.jmuxer)
-                        {
-                            this.disposejmuxer();
-                        }
-
-                        if (this.b && this.b.buffered && this.b.buffered.length > 0)
-                        {
+                        if (this.b && this.b.buffered && this.b.buffered.length > 0) {
                             const start = this.b.buffered.start(0);
                             const end = this.b.buffered.end(0);
                             this.b.remove(start, end);
-                        }                    
-                    } catch (ex)
-                    {
+                        }
+                    } catch (ex) {
                     }
                     return;
                 case "License Expired":
@@ -476,13 +387,11 @@ class I2vPlayer {
                 default:
                     this.removeErrorMessage();
             }
-            if (!this.isPlayerSet) {               
+            if (!this.isPlayerSet) {
                 if (e.data instanceof ArrayBuffer) {
                     return;
-                } else
-                {
-                    if (e.data === "mp4")
-                    {
+                } else {
+                    if (e.data === "mp4") {
                         this.removeErrorMessage();
                         this.v = document.createElement("video");
                         var div = document.getElementById(this.elId);
@@ -491,165 +400,114 @@ class I2vPlayer {
                         this.v.id = `${this.elId}_video`;
                         this.v.style.height = "100%";
                         this.v.style.width = "100%";
-                        this.v.style.display = "inline";                      
-                        this.isJpeg = false;
+                        this.v.style.display = "inline";
                         this.intS = null;
-                        if (this.useJmuxer) {
-                            this.v.autoplay = true;
-                            if (document.addEventListener) {
-                                document.addEventListener("visibilitychange", this.OnVideoVisiblityChange)
-                            }
-                            this.Createjmuxerobject();
-                        }
-                        else
-                        {
-                            this.v.src = window.URL.createObjectURL(this.m);
-
-                        }
+                        this.isRgb = false;
+                        this.v.src = window.URL.createObjectURL(this.m);
+                        this.isPlayerSet = true;
                     }
-                    else if (e.data === "mjpeg")
-                    {
-                        this.useJmuxer = false;
-                        this.removeErrorMessage()
-                        this.i = document.createElement("img");
+                    else if (e.data === "rgba") {
+                        this.removeErrorMessage();
+                        this.c = document.createElement("canvas");
                         var div = document.getElementById(this.elId);
                         div.style.background = "black";
-                        div.appendChild(this.i);
-                        this.i.id = `${this.elId}_img`;
-                        this.i.style.height = "100%";
-                        this.i.style.width = "100%";
-                        this.i.style.display = "inline";
-                        this.isJpeg = true;
-                        this.i.setAttribute(
-                            'src', `http://${this.playerIp}:4554/${this.elId}`
-                        );
+                        div.appendChild(this.c);
+                        this.c.id = `${this.elId}_canvas`;
+                        this.c.style.height = "100%";
+                        this.c.style.width = "100%";
+                        this.c.style.display = "inline";
+                        this.isRgb = true;
+                        this.isPlayerSet = false;
                     }
-                    else if (e.data.indexOf("mjpeg_overhttp") !== -1)
-                    {
-                        this.mjpeg_overhttpurl = e.data.substring(14);
-
-                        this.useJmuxer = false;
-                        this.removeErrorMessage()
-                        this.i = document.createElement("img");
-                        var div = document.getElementById(this.elId);
-                        div.style.background = "black";
-                        div.appendChild(this.i);
-                        this.i.id = `${this.elId}_img`;
-                        this.i.style.height = "100%";
-                        this.i.style.width = "100%";
-                        this.i.style.display = "inline";
-                        this.isJpeg = true;
-                        this.i.setAttribute(
-                            'src', this.mjpeg_overhttpurl
-                        );
-                        this.doesStopRequested = true;
-                        try {
-                            if (this.w)
-                            {
-                                this.w.close();
-                            }
-                        } catch (ex)
-                        {
-
-                        }
+                    else if (e.data.startsWith("rgba")) {
+                        var metadata: any = e.data.substring(5);
+                        var dimensions = metadata.split('x');
+                        this.width = dimensions[0];
+                        this.height = dimensions[1];
+                        this.c.width = dimensions[0];
+                        this.c.height = dimensions[1];
+                        this.isPlayerSet = true;
                     }
-                    this.isPlayerSet = true;
+                    else {
+                        console.log("Unknown Format");
+                    }
+
                     return;
                 }
             }
-
-
-            if (this.isJpeg) {
-                //if (this.imageUrl) {
-                //    this.urlCreator.revokeObjectURL(this.imageUrl);
-                //}
-                //this.imageUrl = this.urlCreator.createObjectURL(e.data);
-                ////this.i.setAttribute(
-                ////    'src', `data:image/png;base64,${this._arrayBufferToBase64(e.data)}`
-                ////);
-                //this.i.setAttribute('src', this.imageUrl);
-            } else {
-
-                var data = new Uint8Array(e.data);
-                if (this.useJmuxer) {
-                    if (!this.jmuxer) {
-                        this.Createjmuxerobject();
+            if (!this.isRgb) {
+                var mp4Data: Uint8Array;
+                if (this.mode !== "Live") {
+                    var incomingData: ArrayBuffer = (e.data as ArrayBuffer);
+                    var timestamp8byte = new Uint8Array(incomingData.slice(0, 8));
+                    var timestamp = 0;
+                    for (var i = timestamp8byte.length - 1; i >= 0; i--) {
+                        timestamp = timestamp * 256 + timestamp8byte[i];
                     }
-                    if (this.jmuxer && this.jmuxer.mseReady) {
-                        this.jmuxer.feed({
-                            video: data
-                        });
+                    this.status = timestamp;
+                    mp4Data = new Uint8Array(incomingData.slice(8));
+                }
+                else {
+                    mp4Data = new Uint8Array(e.data);
+                }
+                if (!this.intS) {
+                    this.intS = mp4Data;
+                }
+
+                if (!this.isSourceReady)
+                    return;
+
+                if (this.b && this.b.buffered.length) {
+                    const lag = this.b.buffered.end(0) - this.v.currentTime;
+                    if (lag > 0.5) {
+                        this.v.currentTime = this.b.buffered.end(0) - 0.5;
                     }
                 }
-                else
-                {
-                    if (!this.intS) {
-                        this.intS = data;
+                this.lastSegment = mp4Data;
+                if (this.b && (!this.b.updating && this.m.readyState === 'open')) {
+                    try {
+                        this.b.appendBuffer(this.lastSegment);
+                    } catch (ex) {
+                        this.isSourceReady = false;
+                        this.initializeMediaSource();
+                        this.v.src = null;
+                        this.v.src = window.URL.createObjectURL(this.m);
                     }
-
-                    if (!this.isSourceReady)
-                        return;
-
-                    if (this.b && this.b.buffered.length) {
-                        const lag = this.b.buffered.end(0) - this.v.currentTime;
-                        if (lag > 0.5) {
-                            this.v.currentTime = this.b.buffered.end(0) - 0.5;
-                        }
-                    }
-                    this.lastSegment = data;
-                    if (this.b && (!this.b.updating && this.m.readyState === 'open')) {
-                        try {
-                            this.b.appendBuffer(this.lastSegment);
-                        } catch (ex) {
-                            this.isSourceReady = false;
-                            this.initializeMediaSource();
-                            this.v.src = null;
-                            this.v.src = window.URL.createObjectURL(this.m);
-                        }
-                        this.lastSegment = null;
-                    }
-                }              
-            }
-        }, false);
-    }
-
-    OnVideoVisiblityChange = (event) =>
-    {
-        if (this.useJmuxer)
-        {
-            if (document.visibilityState == 'hidden') {
-                if (this.jmuxer) {
-                    this.jmuxer = null;
+                    this.lastSegment = null;
                 }
             }
             else {
-                this.Createjmuxerobject();
+                //h265 video
+                //can be both liveview and playback
+                var rgbaData: Uint8ClampedArray;
+
+                if (this.mode !== "Live") {
+                    var incomingData: ArrayBuffer = (e.data as ArrayBuffer);
+                    var timestamp8byte = new Uint8Array(incomingData.slice(0, 8));
+                    var timestamp = 0;
+                    for (var i = timestamp8byte.length - 1; i >= 0; i--) {
+                        timestamp = timestamp * 256 + timestamp8byte[i];
+                    }
+                    this.status = timestamp;
+                    rgbaData = new Uint8ClampedArray(incomingData.slice(8));
+                } else {
+                    rgbaData = new Uint8ClampedArray(e.data);
+                }
+                var canvas = document.getElementById(`${this.elId}_canvas`);
+
+                if (canvas) {
+                    var ctxaaa = (canvas as HTMLCanvasElement).getContext('2d');
+                    ctxaaa.clearRect(0, 0, this.width, this.height);
+                }
+                var ctx1 = this.c.getContext('2d');
+                var imgdata = new ImageData(rgbaData, this.width, this.height);
+                ctx1.putImageData(imgdata, 0, 0);
             }
-        }  
+
+        }, false);
     }
 
-    disposejmuxer()
-    {
-        this.jmuxer = null;
-    }
-
-    Createjmuxerobject()
-    {
-        this.jmuxer = null;
-        if (this.v)
-        {
-            this.jmuxer = new JMuxer({
-                node: this.v.id,
-                debug: false,
-                mode: 'video',
-                flushingTime: 0,
-                fps: 30
-            });
-        }
-
-    }
-
-    showErrorMessage(message) {
+    showErrorMessage(message: string) {
         this.isErrorMessageVisible = true;
         var spanElement = document.getElementById("errorMessage" + this.elId);
         if (!spanElement) {
@@ -658,8 +516,11 @@ class I2vPlayer {
             span.style.color = "red";
             span.style.position = "absolute";
             span.style.fontSize = "25px";
-            span.style.top = "5px";
-            span.style.left = "10px";
+            span.style.top = "50%";
+            span.style.height = "30px";
+            span.style.marginTop = "-15px";
+            span.style.width = "100%";
+            span.style.textAlign = "center";
             span.style.fontWeight = "bold";
             span.id = "errorMessage" + this.elId;
             var element = document.getElementById(this.elId);
@@ -686,39 +547,16 @@ class I2vPlayer {
         }
     }
 
-    SeekVideo(starttime)
-    {
-        if (this.w) {
-            this.w.send("seek_Time" + starttime);
-        }
-    }
-
-    Pause()
-    {
-        if (this.w) {
-            this.w.send("Pause");
-        }
-    }
-
-    Resume()
-    {
-        if (this.w) {
-            this.w.send("Resume");
-        }
-    }
-
     getBase64SnapshotUrl() {
         var dataURI = "";
         try {
             var canvas = document.createElement('canvas');
-            
-            
-            if (this.isJpeg) {
-                canvas.width = this.i.naturalWidth;
-                canvas.height = this.i.naturalHeight;
+
+            if (this.isRgb) {
+                canvas.width = this.c.width;
+                canvas.height = this.c.height;
                 var ctx = canvas.getContext('2d');
-                this.i.crossOrigin = "anonymous";
-                ctx.drawImage(this.i, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(this.c, 0, 0, canvas.width, canvas.height);
             } else {
                 canvas.width = this.v.videoWidth;
                 canvas.height = this.v.videoHeight;
@@ -726,13 +564,46 @@ class I2vPlayer {
                 ctx.drawImage(this.v, 0, 0, canvas.width, canvas.height);
             }
             dataURI = canvas.toDataURL('image/png');
-            if (this.i) {
-                this.i.crossOrigin = null;
-            }
         } catch (ex) {
             console.log(ex);
         }
         return dataURI;
+    }
+
+    Version() {
+        if (this.svVersion) {
+            console.log("Client Version: " + this.clVersion);
+            console.log("Server Version: " + this.svVersion);
+        } else if (this.w) {
+            this.w.send("Version");
+        } else {
+            console.log("Please Connect to server via Play Live or Playback");
+        }
+    }
+
+    servStatus() {
+        if (this.w) {
+            this.w.send("Server Status");
+        }
+    }
+
+    Close() {
+        this.doesStopRequested = true;
+        if (this.w) {
+            this.w.close();
+        }
+    }
+
+    Pause() {
+        if (this.w) {
+            this.w.send("Pause");
+        }
+    }
+
+    SeekVideo(starttime: string) {
+        if (this.w) {
+            this.w.send("seek_Time" + starttime);
+        }
     }
 }
 
