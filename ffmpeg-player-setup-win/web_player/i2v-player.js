@@ -50,12 +50,14 @@ var I2vPlayer = /** @class */ (function () {
         this.URL_Server_Not_Connected = false;
         this.OnVideoVisiblityChange = function (event) {
             if (document.visibilityState == 'hidden') {
-                if (_this.jmuxer) {
+                _this.isVisible = false;
+                if (_this.jmuxer)
                     _this.jmuxer = null;
-                }
             }
             else {
-                _this.Createjmuxerobject();
+                _this.isVisible = true;
+                if (!_this.isRgb)
+                    _this.Createjmuxerobject();
             }
         };
         this.elId = elId;
@@ -101,6 +103,7 @@ var I2vPlayer = /** @class */ (function () {
                 console.error("wClient: Unable to close Websocket");
             }
             delete this.v;
+            delete this.c;
             if (this.isRgb) {
                 var c = document.getElementById("".concat(this.elId, "_canvas"));
                 if (c) {
@@ -167,8 +170,10 @@ var I2vPlayer = /** @class */ (function () {
                 if (_this.jmuxer) {
                     _this.disposejmuxer();
                 }
+                delete _this.c;
                 delete _this.v;
                 _this.isPlayerSet = false;
+                _this.isVisible = false;
                 if (_this.isRgb) {
                     var c = document.getElementById("".concat(_this.elId, "_canvas"));
                     if (c) {
@@ -265,9 +270,6 @@ var I2vPlayer = /** @class */ (function () {
                         _this.retryingCallback();
                     }
                     _this.showErrorMessage("Trying to Connect...");
-                    if (_this.jmuxer) {
-                        _this.disposejmuxer();
-                    }
                     return;
                 case "License Expired":
                     var errMsg = "License Expired/Invalid";
@@ -303,6 +305,7 @@ var I2vPlayer = /** @class */ (function () {
                         _this.v.style.display = "inline";
                         _this.isRgb = false;
                         _this.v.autoplay = true;
+                        _this.isVisible = true;
                         if (document.addEventListener) {
                             document.addEventListener("visibilitychange", _this.OnVideoVisiblityChange);
                         }
@@ -316,10 +319,14 @@ var I2vPlayer = /** @class */ (function () {
                         div.style.background = "black";
                         div.appendChild(_this.c);
                         _this.c.id = "".concat(_this.elId, "_canvas");
-                        _this.c.style.height = "100%";
-                        _this.c.style.width = "100%";
+                        // _this.c.style.height = "100%";
+                        // _this.c.style.width = "100%";
                         _this.c.style.display = "inline";
                         _this.isRgb = true;
+                        _this.isVisible = true;
+                        if (document.addEventListener) {
+                            document.addEventListener("visibilitychange", _this.OnVideoVisiblityChange);
+                        }
                         _this.isPlayerSet = false;
                     }
                     else if (e.data.startsWith("rgba")) {
@@ -337,52 +344,54 @@ var I2vPlayer = /** @class */ (function () {
                     return;
                 }
             }
-            if (!_this.isRgb) {
-                var mp4Data;
-                if (_this.mode !== "Live") {
-                    var incomingData = e.data;
-                    var timestamp8byte = new Uint8Array(incomingData.slice(0, 8));
-                    var timestamp = 0;
-                    for (var i = timestamp8byte.length - 1; i >= 0; i--) {
-                        timestamp = timestamp * 256 + timestamp8byte[i];
+            if (_this.isVisible) {
+                if (!_this.isRgb) {
+                    var mp4Data;
+                    if (_this.mode !== "Live") {
+                        var incomingData = e.data;
+                        var timestamp8byte = new Uint8Array(incomingData.slice(0, 8));
+                        var timestamp = 0;
+                        for (var i = timestamp8byte.length - 1; i >= 0; i--) {
+                            timestamp = timestamp * 256 + timestamp8byte[i];
+                        }
+                        _this.status = timestamp;
+                        mp4Data = new Uint8Array(incomingData.slice(8));
                     }
-                    _this.status = timestamp;
-                    mp4Data = new Uint8Array(incomingData.slice(8));
+                    else {
+                        mp4Data = new Uint8Array(e.data);
+                    }
+                    if (_this.jmuxer && _this.jmuxer.mseReady) {
+                        _this.jmuxer.feed({
+                            video: mp4Data
+                        });
+                    }
                 }
                 else {
-                    mp4Data = new Uint8Array(e.data);
-                }
-                if (_this.jmuxer && _this.jmuxer.mseReady) {
-                    _this.jmuxer.feed({
-                        video: mp4Data
-                    });
-                }
-            }
-            else {
-                //h265 video
-                //can be both liveview and playback
-                var rgbaData;
-                if (_this.mode !== "Live") {
-                    var incomingData = e.data;
-                    var timestamp8byte = new Uint8Array(incomingData.slice(0, 8));
-                    var timestamp = 0;
-                    for (var i = timestamp8byte.length - 1; i >= 0; i--) {
-                        timestamp = timestamp * 256 + timestamp8byte[i];
+                    //h265 video
+                    //can be both liveview and playback
+                    var rgbaData;
+                    if (_this.mode !== "Live") {
+                        var incomingData = e.data;
+                        var timestamp8byte = new Uint8Array(incomingData.slice(0, 8));
+                        var timestamp = 0;
+                        for (var i = timestamp8byte.length - 1; i >= 0; i--) {
+                            timestamp = timestamp * 256 + timestamp8byte[i];
+                        }
+                        _this.status = timestamp;
+                        rgbaData = new Uint8ClampedArray(incomingData.slice(8));
                     }
-                    _this.status = timestamp;
-                    rgbaData = new Uint8ClampedArray(incomingData.slice(8));
+                    else {
+                        rgbaData = new Uint8ClampedArray(e.data);
+                    }
+                    var canvas = document.getElementById("".concat(_this.elId, "_canvas"));
+                    if (canvas) {
+                        var ctxaaa = canvas.getContext('2d');
+                        ctxaaa.clearRect(0, 0, _this.width, _this.height);
+                    }
+                    var ctx1 = _this.c.getContext('2d');
+                    var imgdata = new ImageData(rgbaData, _this.width, _this.height);
+                    ctx1.putImageData(imgdata, 0, 0);
                 }
-                else {
-                    rgbaData = new Uint8ClampedArray(e.data);
-                }
-                var canvas = document.getElementById("".concat(_this.elId, "_canvas"));
-                if (canvas) {
-                    var ctxaaa = canvas.getContext('2d');
-                    ctxaaa.clearRect(0, 0, _this.width, _this.height);
-                }
-                var ctx1 = _this.c.getContext('2d');
-                var imgdata = new ImageData(rgbaData, _this.width, _this.height);
-                ctx1.putImageData(imgdata, 0, 0);
             }
         }, false);
     };

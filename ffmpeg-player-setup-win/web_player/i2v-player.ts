@@ -67,14 +67,16 @@ class I2vPlayer {
     w: WebSocket; //websocket client
     v: HTMLVideoElement; // Video element
     c: HTMLCanvasElement; // Canvas element
+    
     jmuxer: any;
+    width: number;
+    height: number;
 
     errorCallback: any;
     retryingCallback: any;
 
     isRgb: boolean;
-    width: number;
-    height: number;
+    isVisible: boolean;
     isPlayerSet: boolean;
     IsEmptyUrl: boolean = false;
     doesStopRequested: boolean = false;
@@ -134,6 +136,7 @@ class I2vPlayer {
             }
 
             delete this.v;
+            delete this.c;
             if (this.isRgb) {
                 var c = document.getElementById(`${this.elId}_canvas`) as HTMLCanvasElement;
                 if (c) {
@@ -205,8 +208,10 @@ class I2vPlayer {
                 if (this.jmuxer) {
                     this.disposejmuxer();
                 }
+                delete this.c;
                 delete this.v;
                 this.isPlayerSet = false;
+                this.isVisible = false;
                 if (this.isRgb) {
                     var c = document.getElementById(`${this.elId}_canvas`) as HTMLCanvasElement;
                     if (c) {
@@ -305,9 +310,6 @@ class I2vPlayer {
                         this.retryingCallback();
                     }
                     this.showErrorMessage("Trying to Connect...");
-                    if (this.jmuxer) {
-                        this.disposejmuxer();
-                    }
                     return;
                 case "License Expired":
                     var errMsg = "License Expired/Invalid";
@@ -342,6 +344,7 @@ class I2vPlayer {
                         this.v.style.display = "inline";
                         this.isRgb = false;
                         this.v.autoplay = true;
+                        this.isVisible = true;
                         if (document.addEventListener) {
                             document.addEventListener("visibilitychange", this.OnVideoVisiblityChange)
                         }
@@ -359,6 +362,10 @@ class I2vPlayer {
                         this.c.style.width = "100%";
                         this.c.style.display = "inline";
                         this.isRgb = true;
+                        this.isVisible = true;
+                        if (document.addEventListener) {
+                            document.addEventListener("visibilitychange", this.OnVideoVisiblityChange)
+                        }
                         this.isPlayerSet = false;
                     }
                     else if (e.data.startsWith("rgba")) {
@@ -377,69 +384,69 @@ class I2vPlayer {
                     return;
                 }
             }
-            if (!this.isRgb) {
-                var mp4Data: Uint8Array;
-                if (this.mode !== "Live") {
-                    var incomingData: ArrayBuffer = (e.data as ArrayBuffer);
-                    var timestamp8byte = new Uint8Array(incomingData.slice(0, 8));
-                    var timestamp = 0;
-                    for (var i = timestamp8byte.length - 1; i >= 0; i--) {
-                        timestamp = timestamp * 256 + timestamp8byte[i];
+            if (this.isVisible) {
+                if (!this.isRgb) {
+                    var mp4Data: Uint8Array;
+                    if (this.mode !== "Live") {
+                        var incomingData: ArrayBuffer = (e.data as ArrayBuffer);
+                        var timestamp8byte = new Uint8Array(incomingData.slice(0, 8));
+                        var timestamp = 0;
+                        for (var i = timestamp8byte.length - 1; i >= 0; i--) {
+                            timestamp = timestamp * 256 + timestamp8byte[i];
+                        }
+                        this.status = timestamp;
+                        mp4Data = new Uint8Array(incomingData.slice(8));
                     }
-                    this.status = timestamp;
-                    mp4Data = new Uint8Array(incomingData.slice(8));
+                    else {
+                        mp4Data = new Uint8Array(e.data);
+                    }
+                    if (this.jmuxer && this.jmuxer.mseReady) {
+                        this.jmuxer.feed({
+                            video: mp4Data
+                        });
+                    }
                 }
                 else {
-                    mp4Data = new Uint8Array(e.data);
-                }
-                if (this.jmuxer && this.jmuxer.mseReady) {
-                    this.jmuxer.feed({
-                        video: mp4Data
-                    });
-                }
-            }
-            else {
-                //h265 video
-                //can be both liveview and playback
-                var rgbaData: Uint8ClampedArray;
+                    //h265 video
+                    //can be both liveview and playback
+                    var rgbaData: Uint8ClampedArray;
 
-                if (this.mode !== "Live") {
-                    var incomingData: ArrayBuffer = (e.data as ArrayBuffer);
-                    var timestamp8byte = new Uint8Array(incomingData.slice(0, 8));
-                    var timestamp = 0;
-                    for (var i = timestamp8byte.length - 1; i >= 0; i--) {
-                        timestamp = timestamp * 256 + timestamp8byte[i];
+                    if (this.mode !== "Live") {
+                        var incomingData: ArrayBuffer = (e.data as ArrayBuffer);
+                        var timestamp8byte = new Uint8Array(incomingData.slice(0, 8));
+                        var timestamp = 0;
+                        for (var i = timestamp8byte.length - 1; i >= 0; i--) {
+                            timestamp = timestamp * 256 + timestamp8byte[i];
+                        }
+                        this.status = timestamp;
+                        rgbaData = new Uint8ClampedArray(incomingData.slice(8));
+                    } else {
+                        rgbaData = new Uint8ClampedArray(e.data);
                     }
-                    this.status = timestamp;
-                    rgbaData = new Uint8ClampedArray(incomingData.slice(8));
-                } else {
-                    rgbaData = new Uint8ClampedArray(e.data);
-                }
-                var canvas = document.getElementById(`${this.elId}_canvas`);
+                    var canvas = document.getElementById(`${this.elId}_canvas`);
 
-                if (canvas) {
-                    var ctxaaa = (canvas as HTMLCanvasElement).getContext('2d');
-                    ctxaaa.clearRect(0, 0, this.width, this.height);
+                    if (canvas) {
+                        var ctxaaa = (canvas as HTMLCanvasElement).getContext('2d');
+                        ctxaaa.clearRect(0, 0, this.width, this.height);
+                    }
+                    var ctx1 = this.c.getContext('2d');
+                    var imgdata = new ImageData(rgbaData, this.width, this.height);
+                    ctx1.putImageData(imgdata, 0, 0);
                 }
-                var ctx1 = this.c.getContext('2d');
-                var imgdata = new ImageData(rgbaData, this.width, this.height);
-                ctx1.putImageData(imgdata, 0, 0);
             }
 
         }, false);
     }
 
     OnVideoVisiblityChange = (event) => {
-
         if (document.visibilityState == 'hidden') {
-            if (this.jmuxer) {
-                this.jmuxer = null;
-            }
+            this.isVisible = false;
+            if (this.jmuxer) this.jmuxer = null;
         }
         else {
-            this.Createjmuxerobject();
+            this.isVisible = true;
+            if (!this.isRgb) this.Createjmuxerobject();
         }
-
     }
 
     disposejmuxer() {

@@ -1,7 +1,5 @@
 #include "FFmpegWrapper.h"
 
-int64_t FFmpegWrapper::position;
-
 int FFmpegWrapper::run()
 {
 	while (!mStop)
@@ -79,12 +77,10 @@ void FFmpegWrapper::readInput()
 	AVPixelFormat pixFormat;
 
 	//Control input frame rate
-	auto sleepTime = 0;
+	int sleepTime = 0;
 	if (inputFPS == 0 || inputFPS < 0 || inputFPS > 100) {
 		inputFPS = 25;
 	}
-	sleepTime = 1000 / inputFPS;
-
 
 	std::mutex mut;
 	std::atomic<bool> canSend = true;
@@ -107,16 +103,17 @@ void FFmpegWrapper::readInput()
 	}
 
 	AVPacket packetEncoded;
-	packetEncoded.data = NULL, packetEncoded.size = 0;
 	av_init_packet(&packetEncoded);
 
 	try
 	{
 		this->params.lastStopped = GetTickCount64();
-		int framecount = 0;
+		bool sendData = true;
+		int frameNumber = 0;
 		int64_t firstDts = this->inputFormatCtx->streams[videoStream]->first_dts;
 		while (av_read_frame(this->inputFormatCtx, &packet) >= 0 && !mStop)
 		{
+			if (frameNumber < 5 * inputFPS) frameNumber++;
 			std::unique_lock<std::mutex> lck(mThreadMutex);
 			cv.wait(lck, [&]() { return !mPaused; });
 			this->params.lastStopped = GetTickCount64();
@@ -124,7 +121,7 @@ void FFmpegWrapper::readInput()
 			// Is this a packet from the video stream?
 			if (packet.stream_index == videoStream)
 			{
-				//int64_t position;
+				int64_t position;
 				if (isLiveMode()) position = -2;
 				else {
 					position = round((this->inputFormatCtx->streams[videoStream]->cur_dts - firstDts) * this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den);
@@ -135,11 +132,12 @@ void FFmpegWrapper::readInput()
 					avcodec_decode_video2(decoderCodecContext, pFrame, &frameFinished, &packet);
 
 					// Did we get a video frame?
-					if (frameFinished) {
-						framecount++;
-						if (framecount == 1)
+					if (frameFinished)
+					{
+						if (frameNumber == 1)
 						{
-							switch ((AVPixelFormat)pFrame->format) {
+							switch ((AVPixelFormat)pFrame->format)
+							{
 							case AV_PIX_FMT_YUVJ420P:
 								pixFormat = AV_PIX_FMT_YUV420P;
 								break;
@@ -166,26 +164,28 @@ void FFmpegWrapper::readInput()
 							buffer = (uint8_t*)av_malloc(num_bytes * sizeof(uint8_t));
 							av_image_fill_arrays(rgb_frame->data, rgb_frame->linesize, buffer, AV_PIX_FMT_RGBA, pFrame->width, pFrame->height, 1);
 
-
 							for (webConnHdl connHdl : connections[rgba])
 							{
 								string data = "rgba " + to_string(pFrame->width) + "x" + to_string(pFrame->height);
 								websocketSCallback(connHdl, data);
 							}
-
-							SendVideoStartedEvent();
-							playbackFileStared = true;
-							if (this->initial_seek_time > 0) seek_video(this->initial_seek_time);
-
+							if (isLiveMode()) {
+								SendVideoStartedEvent();
+							}
+							else {
+								playbackFileStared = true;
+								sendData = false;
+								if (this->initial_seek_time > 0) seek_video(this->initial_seek_time);
+							}
 						}
-						if (!isLiveMode())
-						{
+						if (!isLiveMode()) {
+							if (frameNumber == inputFPS) { sleepTime = int(1000 / inputFPS); sendData = true; SendVideoStartedEvent(); }
 							while (!canSend && !mStop)
 							{
 								try
 								{
 									std::unique_lock<std::mutex> lok(mut);
-									condition_v.wait_for(lok, std::chrono::seconds(1));
+									condition_v.wait_for(lok, std::chrono::seconds(100));
 								}
 								catch (const std::exception& ex)
 								{
@@ -193,56 +193,64 @@ void FFmpegWrapper::readInput()
 								}
 							}
 						}
+						if (sendData) {
+							// Convert the YUV frame to RGB
+							sws_scale(conversion_context, pFrame->data, pFrame->linesize, 0, pFrame->height, rgb_frame->data, rgb_frame->linesize);
 
-						// Convert the YUV frame to RGB
-						sws_scale(conversion_context, pFrame->data, pFrame->linesize, 0, pFrame->height, rgb_frame->data, rgb_frame->linesize);
-
-						uint8_t* frameData = rgb_frame->data[0];
-
-						std::vector<uint8_t> data(&frameData[0], &frameData[pFrame->width * pFrame->height * 4]);
-
-						for (webConnHdl hndl : connections[rgba])
-						{
-							websocketCallback(hndl, data, position);
+							uint8_t* frameData = rgb_frame->data[0];
+							std::vector<uint8_t> rgbData(&frameData[0], &frameData[pFrame->width * pFrame->height * 4]);
+							for (webConnHdl hndl : connections[rgba])
+							{
+								websocketCallback(hndl, rgbData, position);
+							}
+							canSend = false;
 						}
-						canSend = false;
 					}
 				}
 
-				if (!connections[mp4].empty()) {
-					if (!isLiveMode())
+				if (!connections[mp4].empty())
+				{
+					if (frameNumber == 1)
 					{
+						if (isLiveMode()) {
+							SendVideoStartedEvent();
+						}
+						else {
+							playbackFileStared = true;
+							sendData = false;
+							if (this->initial_seek_time > 0) seek_video(this->initial_seek_time);
+						}
+					}
+
+					if (!isLiveMode()) {
+						if (frameNumber == inputFPS) { sleepTime = int(1000 / inputFPS); sendData = true; SendVideoStartedEvent(); }
 						while (!canSend && !mStop)
 						{
 							try
 							{
 								std::unique_lock<std::mutex> lok(mut);
-								condition_v.wait_for(lok, std::chrono::seconds(1));
+								condition_v.wait_for(lok, std::chrono::seconds(100));
 							}
 							catch (const std::exception& ex)
 							{
 								cout << ex.what() << std::endl;
 							}
 						}
-						framecount++;
-						if (framecount == 1)
+					}
+					if (sendData) {
+						vector<uint8_t> mp4Data(packet.data, packet.data + packet.buf->size);
+						for (webConnHdl hndl : connections[mp4])
 						{
-							SendVideoStartedEvent();
-							playbackFileStared = true;
-							if (this->initial_seek_time > 0) seek_video(this->initial_seek_time);
-
+							websocketCallback(hndl, mp4Data, position);
 						}
+						canSend = false;
 					}
-					vector<uint8_t> chunk(packet.data, packet.data + packet.buf->size);
-					SendVideoStartedEvent();
-					for (webConnHdl hndl : connections[mp4])
-					{
-						websocketCallback(hndl, chunk, position);
-					}
-
-					canSend = false;
 				}
 			}
+
+
+
+
 			// Free the packet that was allocated by av_read_frame
 			av_free_packet(&packet);
 		}
@@ -550,7 +558,7 @@ void FFmpegWrapper::seek_video(int time_toSeek_insec)
 			auto first_dts_usecs = (int64_t)round(this->inputFormatCtx->streams[videoStream]->first_dts * (double)this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den * AV_TIME_BASE);
 			target_dts_usecs += first_dts_usecs;
 			try {
-				int rv = av_seek_frame(this->inputFormatCtx, -1, target_dts_usecs, AVSEEK_FLAG_FRAME | AVSEEK_FLAG_ANY);
+				int rv = av_seek_frame(this->inputFormatCtx, -1, target_dts_usecs, AVSEEK_FLAG_FRAME);
 				if (rv < 0)
 				{
 					fileseekingstarted = false;

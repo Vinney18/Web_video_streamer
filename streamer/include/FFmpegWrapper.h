@@ -89,8 +89,6 @@ private:
 	std::shared_ptr<spdlog::logger> logger;
 	
 public:
-	static int64_t position;
-
 	FFmpegWrapper(int _cameraId, string _url, string _playmode, int start_seek_time, WebsocketDataCallback _websocketCallback,
 			WebsocketSDataCallback _websocketSCallback, string _connectionmode, string _serverIp, int _port,
 			std::shared_ptr<spdlog::logger> _logger) : Thread(), logger(std::move(_logger)) {
