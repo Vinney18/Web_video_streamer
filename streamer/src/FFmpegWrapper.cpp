@@ -12,7 +12,6 @@ int FFmpegWrapper::run()
 		{
 			params.isRunning = true;
 			GetInputCodecInfo();
-			createMp4Output();
 			createRgbaOutput();
 
 			if (!tempConnections.empty()) {
@@ -38,7 +37,6 @@ int FFmpegWrapper::run()
 			else
 			{
 				readInput();
-				freeMp4OutMemory();
 				freeRgbaOutMemory();
 				closeInput();
 			}
@@ -235,16 +233,14 @@ void FFmpegWrapper::readInput()
 
 						}
 					}
-					/*vector<uint8_t> chunk(packet.data, packet.data + packet.buf->size);
+					vector<uint8_t> chunk(packet.data, packet.data + packet.buf->size);
 					SendVideoStartedEvent();
 					for (webConnHdl hndl : connections[mp4])
 					{
 						websocketCallback(hndl, chunk, position);
-					}*/
+					}
 
-					av_interleaved_write_frame(mp4OutContext, &packet);
 					canSend = false;
-
 				}
 			}
 			// Free the packet that was allocated by av_read_frame
@@ -347,55 +343,6 @@ bool FFmpegWrapper::GetInputCodecInfo()
 	return true;
 }
 
-bool FFmpegWrapper::createMp4Output()
-{
-	mp4FragCreator = make_unique<Mp4frag>(std::bind(&FFmpegWrapper::receiveMp4Chunk, this, std::placeholders::_1, std::placeholders::_2));
-
-	AVOutputFormat* outFmt = av_guess_format("mp4", NULL, NULL);
-
-	AVStream* outStrm;
-	avformat_alloc_output_context2(&this->mp4OutContext, outFmt, NULL, NULL);
-	if (!(outStrm = avformat_new_stream(this->mp4OutContext, 0))) {
-		return false;
-	}
-	AVDictionary* metadata = nullptr;
-	av_dict_copy(&metadata, this->inputFormatCtx->metadata, 0);
-	this->mp4OutContext->metadata = metadata;
-	AVCodec* codec = NULL;
-	avcodec_get_context_defaults3(outStrm->codec, codec);
-
-
-	if (this->inputCodecID == AV_CODEC_ID_NONE)
-	{
-		//in case of not getting any codec like in mjpeg stream from camera
-		return false;
-	}
-	outStrm->codecpar->codec_id = this->inputFormatCtx->streams[videoStream]->codecpar->codec_id;
-	outStrm->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
-	outStrm->codecpar->width = this->inputFormatCtx->streams[videoStream]->codecpar->width;
-	outStrm->codecpar->height = this->inputFormatCtx->streams[videoStream]->codecpar->height;
-	outStrm->codecpar->format = this->inputFormatCtx->streams[videoStream]->codecpar->format;
-	outStrm->codecpar->bit_rate = this->inputFormatCtx->streams[videoStream]->codecpar->bit_rate;
-	outStrm->time_base = this->inputFormatCtx->streams[videoStream]->time_base;
-	outStrm->codecpar->extradata = (uint8_t*)av_malloc((size_t)this->inputCodecCtx->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
-	outStrm->codecpar->extradata_size = this->inputCodecCtx->extradata_size;
-	memcpy(outStrm->codecpar->extradata, this->inputCodecCtx->extradata, this->inputCodecCtx->extradata_size);
-
-
-	AVDictionary* options = nullptr;
-	av_dict_set(&options, "movflags", "frag_keyframe+empty_moov+default_base_moof", 0);
-	av_dict_set(&options, "reset_timestamps", "1", 0);
-
-
-	uint8_t* buffer2 = NULL;
-	int numBytes2 = 320 * 1024;
-	buffer2 = (uint8_t*)av_malloc(numBytes2 * sizeof(uint8_t));
-	AVIOContext* pIOCtx = avio_alloc_context(buffer2, numBytes2, 1, (void*)this, 0, ffmpegMp4Callback, 0);
-	this->mp4OutContext->pb = pIOCtx;
-	avformat_write_header(this->mp4OutContext, &options);
-	return true;
-}
-
 bool FFmpegWrapper::createRgbaOutput()
 {
 	if (this->inputCodecCtx == NULL)
@@ -432,26 +379,6 @@ bool FFmpegWrapper::createRgbaOutput()
 	}
 
 	return true;
-}
-
-void FFmpegWrapper::freeMp4OutMemory()
-{
-	try
-	{
-		//For mp4
-	//av_write_trailer(outFmtCtx);
-		if (mp4OutContext->pb == NULL) { return; }
-		av_free(mp4OutContext->pb->buffer);
-		avio_context_free(&mp4OutContext->pb);
-		mp4OutContext->pb = NULL;
-		//avio_close(outFmtCtx->pb);
-		//avcodec_close(mp4OutContext->streams[0]->codec);
-		avformat_free_context(mp4OutContext);
-		mp4OutContext = NULL;
-	}
-	catch (const std::exception& ex) {
-		std::cout << ex.what() << std::endl;
-	}
 }
 
 void FFmpegWrapper::freeRgbaOutMemory()
@@ -570,9 +497,6 @@ bool FFmpegWrapper::removeConnection(webConnHdl connHdl)
 
 void FFmpegWrapper::addConnToList(webConnHdl connHdl, OutputType outType)
 {
-	if (outType == mp4) {
-		websocketCallback(connHdl, mp4FragCreator->initialization, 0);
-	}
 	connections[outType].insert(connHdl);
 }
 

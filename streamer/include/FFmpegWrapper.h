@@ -4,7 +4,6 @@
 #include <iostream>
 #include <atomic>
 #include "Thread.h"
-#include "Mp4frag.h"
 #include <map>
 #include <set>
 #include <functional>
@@ -27,8 +26,6 @@ extern "C"
 #include "libavutil/buffer.h"
 #include "libavutil/imgutils.h"
 #include "libavutil/error.h"
-	//#include "libavutil/hwcontext.h"
-	//#include "libavutil/hwcontext_qsv.h"
 #include "libavutil/mem.h"
 }
 
@@ -38,6 +35,7 @@ extern "C"
 #define FFMPEGWRAPPER_H
 #pragma once
 
+using namespace std;
 typedef websocketpp::connection_hdl webConnHdl;
 typedef std::set<webConnHdl, std::owner_less<websocketpp::connection_hdl>> con_list;
 typedef std::function<void(webConnHdl& con_hndl, vector<uint8_t>& data, int64_t timestamp)> WebsocketDataCallback;
@@ -68,7 +66,6 @@ private:
 
 	bool fileseekingstarted = false;
 	bool playbackFileStared = false;
-	std::unique_ptr<Mp4frag> mp4FragCreator;
 	std::map<OutputType, con_list> connections; //keys mp4 and rgba
 	std::vector<std::pair<websocketpp::connection_hdl, bool>> tempConnections;
 	//std::mutex connectionlock;
@@ -86,7 +83,6 @@ private:
 	
 	AVCodec* decoderCodec = NULL;
 	AVCodecContext* decoderCodecContext = NULL;
-	AVFormatContext* mp4OutContext = NULL;
 	bool isVideoStartedEventsent = false;
 	InterruptParams params;
 
@@ -128,12 +124,10 @@ private:
 	bool openInput();
 	
 	bool GetInputCodecInfo();
-	bool createMp4Output();
 	bool createRgbaOutput();
 
 	void readInput();
 
-	void freeMp4OutMemory();
 	void freeRgbaOutMemory();
 	void closeInput();
 
@@ -171,25 +165,6 @@ public:
 			return 1;
 
 		return 0;
-	}
-
-	static int ffmpegMp4Callback(void* ptr, uint8_t* buf, int buf_size) {
-		auto data = buf;
-		vector<uint8_t> chunk(data, data + buf_size);
-		static_cast<FFmpegWrapper*>(ptr)->createMp4chunck(chunk, position);
-		return buf_size;
-	}
-
-	/*static int ffmpegDecodeCallback(void* ptr, uint8_t* buf, int buf_size) {
-		auto data = buf;
-		vector<uint8_t> chunk(data, data + buf_size);
-
-		static_cast<FFmpegWrapper*>(ptr)->createMp4chunck(chunk);
-		return buf_size;
-	}*/
-
-	void createMp4chunck(vector<uint8_t>& data, int64_t position) {
-		mp4FragCreator->_parseChunk(data, position);
 	}
 
 };

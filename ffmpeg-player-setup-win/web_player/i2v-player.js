@@ -39,6 +39,7 @@ var I2vSdk = /** @class */ (function () {
 }());
 var I2vPlayer = /** @class */ (function () {
     function I2vPlayer(elId, cameraId, mode, streamtype, startTime, _analyticType, _connectionmode, _clVersion, useSecureConnection) {
+        var _this = this;
         this.connectionMode = "tcp";
         this.wServerPort = 8890;
         this.useSecureConnection = false;
@@ -47,6 +48,16 @@ var I2vPlayer = /** @class */ (function () {
         this.isErrorMessageVisible = false;
         this.IsPlayerServerConnected = false;
         this.URL_Server_Not_Connected = false;
+        this.OnVideoVisiblityChange = function (event) {
+            if (document.visibilityState == 'hidden') {
+                if (_this.jmuxer) {
+                    _this.jmuxer = null;
+                }
+            }
+            else {
+                _this.Createjmuxerobject();
+            }
+        };
         this.elId = elId;
         this.cameraId = cameraId;
         this.mode = mode;
@@ -89,7 +100,6 @@ var I2vPlayer = /** @class */ (function () {
             catch (ex) {
                 console.error("wClient: Unable to close Websocket");
             }
-            delete this.m;
             delete this.v;
             if (this.isRgb) {
                 var c = document.getElementById("".concat(this.elId, "_canvas"));
@@ -111,58 +121,6 @@ var I2vPlayer = /** @class */ (function () {
             console.error("wClient: Error in Stop Function");
         }
     };
-    I2vPlayer.prototype.initializeMediaSource = function () {
-        var _this = this;
-        this.m = new MediaSource();
-        var mime = 'video/mp4; codecs="avc1.4D0020"';
-        if (!MediaSource.isTypeSupported(mime)) {
-            return;
-        }
-        //this.m.addEventListener('sourceended', (e) => { console.log('sourceended: ' + this.m.readyState); });
-        //this.m.addEventListener('sourceclose', (e) => { console.log('sourceclose: ' + this.m.readyState); });
-        this.m.addEventListener('error', function (e) { console.log('error: ' + _this.m.readyState); });
-        this.m.addEventListener('sourceopen', function (e) {
-            console.log('sourceopen: ' + _this.m.readyState);
-            try {
-                _this.v.play();
-            }
-            catch (ex) {
-                e = ex;
-            }
-            _this.b = _this.m.addSourceBuffer(mime);
-            _this.b.mode = 'sequence';
-            _this.b.addEventListener('updateend', function (e) {
-                if (_this.b.updating) {
-                    return;
-                }
-                if (_this.lastSegment) {
-                    _this.b.appendBuffer(_this.lastSegment);
-                    _this.lastSegment = null;
-                }
-                //check if buffered media exists
-                if (!_this.b.buffered.length) {
-                    return;
-                }
-                var currentTime = _this.v.currentTime;
-                var start = _this.b.buffered.start(0);
-                var end = _this.b.buffered.end(0);
-                var past = currentTime - start;
-                // if (end - currentTime > 1) {
-                //     this.v.currentTime = end - 1;
-                // }
-                //todo play with numbers and make dynamic or user configurable
-                if (past > 20 && currentTime < end && !_this.b.updating) {
-                    _this.b.remove(start, currentTime - 4);
-                }
-            });
-            if (!_this.b.updating && _this.m.readyState === 'open' && _this.intS) {
-                _this.b.appendBuffer(_this.intS);
-            }
-            _this.isSourceReady = true;
-        }, false);
-        //this.v.src = null;
-        //this.v.src = window.URL.createObjectURL(this.m);
-    };
     I2vPlayer.prototype.play = function () {
         var _this = this;
         var protocolType = "ws";
@@ -171,7 +129,6 @@ var I2vPlayer = /** @class */ (function () {
             protocolType = "wss";
             port = 8182;
         }
-        this.initializeMediaSource();
         this.removeErrorMessage();
         this.IsEmptyUrl = false;
         if (!this.IsEmptyUrl)
@@ -207,11 +164,9 @@ var I2vPlayer = /** @class */ (function () {
                     _this.showErrorMessage("Player Not Connected...");
                 }
                 delete _this.w;
-                if (_this.b) {
-                    _this.b.abort();
+                if (_this.jmuxer) {
+                    _this.disposejmuxer();
                 }
-                _this.b = null;
-                _this.m = null;
                 delete _this.v;
                 _this.isPlayerSet = false;
                 if (_this.isRgb) {
@@ -310,14 +265,8 @@ var I2vPlayer = /** @class */ (function () {
                         _this.retryingCallback();
                     }
                     _this.showErrorMessage("Trying to Connect...");
-                    try {
-                        if (_this.b && _this.b.buffered && _this.b.buffered.length > 0) {
-                            var start = _this.b.buffered.start(0);
-                            var end = _this.b.buffered.end(0);
-                            _this.b.remove(start, end);
-                        }
-                    }
-                    catch (ex) {
+                    if (_this.jmuxer) {
+                        _this.disposejmuxer();
                     }
                     return;
                 case "License Expired":
@@ -352,9 +301,12 @@ var I2vPlayer = /** @class */ (function () {
                         _this.v.style.height = "100%";
                         _this.v.style.width = "100%";
                         _this.v.style.display = "inline";
-                        _this.intS = null;
                         _this.isRgb = false;
-                        _this.v.src = window.URL.createObjectURL(_this.m);
+                        _this.v.autoplay = true;
+                        if (document.addEventListener) {
+                            document.addEventListener("visibilitychange", _this.OnVideoVisiblityChange);
+                        }
+                        _this.Createjmuxerobject();
                         _this.isPlayerSet = true;
                     }
                     else if (e.data === "rgba") {
@@ -400,29 +352,10 @@ var I2vPlayer = /** @class */ (function () {
                 else {
                     mp4Data = new Uint8Array(e.data);
                 }
-                if (!_this.intS) {
-                    _this.intS = mp4Data;
-                }
-                if (!_this.isSourceReady)
-                    return;
-                if (_this.b && _this.b.buffered.length) {
-                    var lag = _this.b.buffered.end(0) - _this.v.currentTime;
-                    if (lag > 0.5) {
-                        _this.v.currentTime = _this.b.buffered.end(0) - 0.5;
-                    }
-                }
-                _this.lastSegment = mp4Data;
-                if (_this.b && (!_this.b.updating && _this.m.readyState === 'open')) {
-                    try {
-                        _this.b.appendBuffer(_this.lastSegment);
-                    }
-                    catch (ex) {
-                        _this.isSourceReady = false;
-                        _this.initializeMediaSource();
-                        _this.v.src = null;
-                        _this.v.src = window.URL.createObjectURL(_this.m);
-                    }
-                    _this.lastSegment = null;
+                if (_this.jmuxer && _this.jmuxer.mseReady) {
+                    _this.jmuxer.feed({
+                        video: mp4Data
+                    });
                 }
             }
             else {
@@ -452,6 +385,21 @@ var I2vPlayer = /** @class */ (function () {
                 ctx1.putImageData(imgdata, 0, 0);
             }
         }, false);
+    };
+    I2vPlayer.prototype.disposejmuxer = function () {
+        this.jmuxer = null;
+    };
+    I2vPlayer.prototype.Createjmuxerobject = function () {
+        this.jmuxer = null;
+        if (this.v) {
+            this.jmuxer = new JMuxer({
+                node: this.v.id,
+                debug: false,
+                mode: 'video',
+                flushingTime: 0,
+                fps: 30
+            });
+        }
     };
     I2vPlayer.prototype.showErrorMessage = function (message) {
         this.isErrorMessageVisible = true;

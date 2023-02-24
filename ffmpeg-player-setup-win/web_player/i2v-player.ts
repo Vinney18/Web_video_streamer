@@ -1,3 +1,5 @@
+declare var JMuxer: any;
+
 class I2vSdk {
     clVersion: string = "7.0.0";
     wPlayerIp: string = "localhost";
@@ -63,17 +65,12 @@ class I2vPlayer {
     useSecureConnection: boolean = false;
 
     w: WebSocket; //websocket client
-    b: SourceBuffer; // Source Buffer
-    m: MediaSource; //MediaSource object
     v: HTMLVideoElement; // Video element
     c: HTMLCanvasElement; // Canvas element
+    jmuxer: any;
 
     errorCallback: any;
     retryingCallback: any;
-
-    intS: Uint8Array; //initSegment
-    lastSegment: Uint8Array;
-    isSourceReady: boolean;
 
     isRgb: boolean;
     width: number;
@@ -136,7 +133,6 @@ class I2vPlayer {
                 console.error("wClient: Unable to close Websocket");
             }
 
-            delete this.m;
             delete this.v;
             if (this.isRgb) {
                 var c = document.getElementById(`${this.elId}_canvas`) as HTMLCanvasElement;
@@ -158,55 +154,6 @@ class I2vPlayer {
 
     }
 
-    initializeMediaSource() {
-        this.m = new MediaSource();
-        var mime = 'video/mp4; codecs="avc1.4D0020"';
-
-        if (!MediaSource.isTypeSupported(mime)) {
-            return;
-        }
-        this.m.addEventListener('error', (e) => { console.log('error: ' + this.m.readyState); });
-        this.m.addEventListener('sourceopen', (e) => {
-            console.log('sourceopen: ' + this.m.readyState);
-            try {
-                this.v.play();
-            } catch (ex) {
-                e = ex;
-            }
-
-            this.b = this.m.addSourceBuffer(mime);
-            this.b.mode = 'sequence';
-            this.b.addEventListener('updateend', (e) => {
-                if (this.b.updating) {
-                    return;
-                }
-                if (this.lastSegment) {
-                    this.b.appendBuffer(this.lastSegment);
-                    this.lastSegment = null;
-                }
-                //check if buffered media exists
-                if (!this.b.buffered.length) {
-                    return;
-                }
-                const currentTime = this.v.currentTime;
-                const start = this.b.buffered.start(0);
-                const end = this.b.buffered.end(0);
-                const past = currentTime - start;
-      
-                //todo play with numbers and make dynamic or user configurable
-            
-                if (past > 20 && currentTime < end && !this.b.updating) {
-                    this.b.remove(start, currentTime - 4);
-                }
-            });
-            if (!this.b.updating && this.m.readyState === 'open' && this.intS) {
-                this.b.appendBuffer(this.intS);
-            }
-            this.isSourceReady = true;
-
-        }, false);
-    }
-
     play() {
         var protocolType: string = "ws";
         var port: number = 8181;
@@ -215,7 +162,7 @@ class I2vPlayer {
             protocolType = "wss";
             port = 8182;
         }
-        this.initializeMediaSource();
+
         this.removeErrorMessage();
 
         this.IsEmptyUrl = false;
@@ -255,11 +202,9 @@ class I2vPlayer {
 
 
                 delete this.w;
-                if (this.b) {
-                    this.b.abort();
+                if (this.jmuxer) {
+                    this.disposejmuxer();
                 }
-                this.b = null;
-                this.m = null;
                 delete this.v;
                 this.isPlayerSet = false;
                 if (this.isRgb) {
@@ -360,14 +305,8 @@ class I2vPlayer {
                         this.retryingCallback();
                     }
                     this.showErrorMessage("Trying to Connect...");
-
-                    try {
-                        if (this.b && this.b.buffered && this.b.buffered.length > 0) {
-                            const start = this.b.buffered.start(0);
-                            const end = this.b.buffered.end(0);
-                            this.b.remove(start, end);
-                        }
-                    } catch (ex) {
+                    if (this.jmuxer) {
+                        this.disposejmuxer();
                     }
                     return;
                 case "License Expired":
@@ -401,9 +340,12 @@ class I2vPlayer {
                         this.v.style.height = "100%";
                         this.v.style.width = "100%";
                         this.v.style.display = "inline";
-                        this.intS = null;
                         this.isRgb = false;
-                        this.v.src = window.URL.createObjectURL(this.m);
+                        this.v.autoplay = true;
+                        if (document.addEventListener) {
+                            document.addEventListener("visibilitychange", this.OnVideoVisiblityChange)
+                        }
+                        this.Createjmuxerobject();
                         this.isPlayerSet = true;
                     }
                     else if (e.data === "rgba") {
@@ -450,30 +392,10 @@ class I2vPlayer {
                 else {
                     mp4Data = new Uint8Array(e.data);
                 }
-                if (!this.intS) {
-                    this.intS = mp4Data;
-                }
-
-                if (!this.isSourceReady)
-                    return;
-
-                if (this.b && this.b.buffered.length) {
-                    const lag = this.b.buffered.end(0) - this.v.currentTime;
-                    if (lag > 0.5) {
-                        this.v.currentTime = this.b.buffered.end(0) - 0.5;
-                    }
-                }
-                this.lastSegment = mp4Data;
-                if (this.b && (!this.b.updating && this.m.readyState === 'open')) {
-                    try {
-                        this.b.appendBuffer(this.lastSegment);
-                    } catch (ex) {
-                        this.isSourceReady = false;
-                        this.initializeMediaSource();
-                        this.v.src = null;
-                        this.v.src = window.URL.createObjectURL(this.m);
-                    }
-                    this.lastSegment = null;
+                if (this.jmuxer && this.jmuxer.mseReady) {
+                    this.jmuxer.feed({
+                        video: mp4Data
+                    });
                 }
             }
             else {
@@ -505,6 +427,36 @@ class I2vPlayer {
             }
 
         }, false);
+    }
+
+    OnVideoVisiblityChange = (event) => {
+
+        if (document.visibilityState == 'hidden') {
+            if (this.jmuxer) {
+                this.jmuxer = null;
+            }
+        }
+        else {
+            this.Createjmuxerobject();
+        }
+
+    }
+
+    disposejmuxer() {
+        this.jmuxer = null;
+    }
+
+    Createjmuxerobject() {
+        this.jmuxer = null;
+        if (this.v) {
+            this.jmuxer = new JMuxer({
+                node: this.v.id,
+                debug: false,
+                mode: 'video',
+                flushingTime: 0,
+                fps: 30
+            });
+        }
     }
 
     showErrorMessage(message: string) {
@@ -606,4 +558,3 @@ class I2vPlayer {
         }
     }
 }
-
