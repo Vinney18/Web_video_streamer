@@ -16,6 +16,8 @@ namespace i2v {
     static const unsigned int WEBSOCKET_SERVER_PORT = 8181;
     static const std::string PLAYER_SERVER_IP = "127.0.0.1";
     static const unsigned int PLAYER_SERVER_PORT = 8890;
+    static const std::string VMS_STREAM_USERNAME = "admin";
+    static const std::string VMS_STREAM_PASSWORD = "admin";
 
 }
 

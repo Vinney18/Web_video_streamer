@@ -7,7 +7,7 @@ set(EXE_NAME "${PROJECT_NAME}")
 message("--> Project: " ${PROJECT_NAME})
 
 find_package(websocketpp CONFIG REQUIRED)
-find_package(Poco CONFIG REQUIRED Foundation Util Net)
+find_package(Poco CONFIG REQUIRED Foundation XML JSON Util Net)
 find_package(Boost REQUIRED regex filesystem)
 find_package(cpr CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
@@ -79,7 +79,7 @@ if (WIN32)
 			cpr::cpr
 			jsoncpp_lib
 			#jsoncpp_static
-			cryptopp-static
+			cryptopp::cryptopp
 			fmt::fmt
 			spdlog::spdlog
 	)

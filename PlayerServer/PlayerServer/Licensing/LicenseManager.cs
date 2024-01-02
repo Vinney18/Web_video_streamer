@@ -160,6 +160,7 @@ namespace PlayerServer.Licensing
         {
             IntPtr intPtrError;
             bool islicencevalid = isLicenseValid(out intPtrError, true);
+            // bool islicencevalid = true;
             return islicencevalid;
         }
     }

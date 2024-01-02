@@ -64,6 +64,9 @@ string Get_PlayBackUrl(connection_hdl hdl, int cameraId, int start_time_ofplayba
 void SendData(websocketpp::connection_hdl& con_hndl, vector<uint8_t>& data, int64_t timestamp);
 void SendStringData(websocketpp::connection_hdl& con_hndl, string sdata);
 
+bool isVMS = false;
+std::string vmsStreamUserName = "";
+std::string vmsStreamPassword = "";
 
 
 int main(int argc, char* argv[])
@@ -384,7 +387,10 @@ string Get_LiveUrl(connection_hdl hdl, int cameraId, int streamtype, string anal
 			string c = "\\";
 			command.erase(std::remove(command.begin(), command.end(), '\"'), command.end());
 			command.erase(std::remove(command.begin(), command.end(), '\\'), command.end());
-
+			if (isVMS) {
+				command = command.substr(7);
+				command = "rtsp://" + vmsStreamUserName + ":" + vmsStreamPassword + "@" + command;
+			}
 			response = command;
 		}
 		else if (res.status_code == 403) {
@@ -518,11 +524,16 @@ void setDefaultValues(Options& opt) {
 	playerServerIp = i2v::PLAYER_SERVER_IP;
 	playerServerPort = i2v::PLAYER_SERVER_PORT;
 	log_level = spdlog::level::level_enum::info;
+	vmsStreamUserName = i2v::VMS_STREAM_USERNAME;
+	vmsStreamPassword = i2v::VMS_STREAM_PASSWORD;
 
 	opt.add("websocket_server_port", websocket_server_port);
 	opt.add("playerServerIp", playerServerIp);
 	opt.add("playerServerPort", playerServerPort);
 	opt.add("logLevel", static_cast<int>(log_level));
+	opt.add("isVMS", false);
+	opt.add("vmsStreamUserName", vmsStreamUserName);
+	opt.add("vmsStreamPassword", vmsStreamPassword);
 }
 
 void loadMainConfig() {
@@ -534,6 +545,9 @@ void loadMainConfig() {
 		websocket_server_port = configoptions.get<int>("websocket_server_port", i2v::WEBSOCKET_SERVER_PORT);
 		playerServerIp = configoptions.get<std::string>("playerServerIp", i2v::PLAYER_SERVER_IP);
 		playerServerPort = configoptions.get<int>("playerServerPort", i2v::PLAYER_SERVER_PORT);
+		isVMS = configoptions.get<bool>("isVMS", false);
+		vmsStreamUserName = configoptions.get<std::string>("vmsStreamUserName", i2v::VMS_STREAM_USERNAME);
+		vmsStreamPassword = configoptions.get<std::string>("vmsStreamPassword", i2v::VMS_STREAM_PASSWORD);
 
 		// log level
 		int level = configoptions.get<int>("logLevel", -1);
