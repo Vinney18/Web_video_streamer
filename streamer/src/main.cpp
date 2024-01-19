@@ -57,8 +57,8 @@ void on_close(connection_hdl hdl);
 void on_message(websocketpp::server<websocketpp::config::asio>* s, connection_hdl hdl, message_ptr msg);
 
 // For Getting URL
-string Get_LiveUrl(connection_hdl hdl, int cameraId, int streamtype, string analyticType);
-string Get_PlayBackUrl(connection_hdl hdl, int cameraId, int start_time_ofplaybackfile, int* seekTime_ofFile);
+string Get_LiveUrl(connection_hdl hdl, string cameraId, int streamtype, string analyticType);
+string Get_PlayBackUrl(connection_hdl hdl, string cameraId, int start_time_ofplaybackfile, int* seekTime_ofFile);
 
 // CallBack Related
 void SendData(websocketpp::connection_hdl& con_hndl, vector<uint8_t>& data, int64_t timestamp);
@@ -134,7 +134,7 @@ void on_open(connection_hdl hdl) {
 	try
 	{
 		//info from web socket
-		int cameraId;
+		string cameraId;
 		string mode = "Live";
 		int streamtype = 0;
 		int start_time_ofplaybackfile = 0;
@@ -171,7 +171,7 @@ void on_open(connection_hdl hdl) {
 			auto& key = keyValue[0];
 			auto& value = keyValue[1];
 
-			if (key == "cameraId") cameraId = stoi(value);
+			if (key == "cameraId") cameraId = value;
 			else if (key == "mode") mode = value;
 			else if (key == "streamType") streamtype = stoi(value);
 			else if (key == "startTime") start_time_ofplaybackfile = stoi(value);
@@ -215,7 +215,7 @@ void on_open(connection_hdl hdl) {
 
 		if (mode == "Live")
 		{
-			string keyValue = to_string(cameraId) + "~~" + mode + "~~" + url;
+			string keyValue = cameraId + "~~" + mode + "~~" + url;
 			if (ffmpegList.count(keyValue) > 0) {
 				//cout << "Shared FFmpegWrapper.count(cameraId)- " << ffmpegList.count(keyValue) << endl;
 			}
@@ -366,14 +366,14 @@ void SendStringData(websocketpp::connection_hdl& con_hndl, string sdata) {
 	}
 }
 
-string Get_LiveUrl(connection_hdl hdl, int cameraId, int streamtype, string analyticType) {
+string Get_LiveUrl(connection_hdl hdl, string cameraId, int streamtype, string analyticType) {
 
 	if (mainLogger) { mainLogger->debug("In Get_LiveUrl, cameraId: {}, streamtype: {}, analyticType: {}", cameraId, streamtype, analyticType); }
 	string response;
-	string cameraId_instring = to_string(cameraId);
+	string cameraId_instring = cameraId;
 
 	std::string endpoint = "/url/GetLiveUrl?cameraId=" + cameraId_instring + "&streamType=" + to_string(streamtype) + "&analyticType=" + analyticType;
-	if (cameraId == -1) {
+	if (cameraId == "") {
 		return response;
 	}
 	try
@@ -421,15 +421,15 @@ string Get_LiveUrl(connection_hdl hdl, int cameraId, int streamtype, string anal
 	return response;
 }
 
-string Get_PlayBackUrl(connection_hdl hdl, int cameraId, int start_time_ofplaybackfile, int* seekTime_ofFile) {
+string Get_PlayBackUrl(connection_hdl hdl, string cameraId, int start_time_ofplaybackfile, int* seekTime_ofFile) {
 
 	if (mainLogger) { mainLogger->debug("Get_PlayBackUrl, cameraId: {}, start_time_ofplaybackfile: {}", cameraId, start_time_ofplaybackfile); }
 	string response;
-	string cameraId_instring = to_string(cameraId);
+	string cameraId_instring = cameraId;
 	string seekVideo = "";
 
 	std::string endpoint = "/url/GetPlaybackUrl?cameraId=" + cameraId_instring + "&time=" + to_string(start_time_ofplaybackfile);
-	if (cameraId == -1) {
+	if (cameraId == "") {
 		return response;
 	}
 	try
@@ -503,10 +503,19 @@ int generateAndCheckRandomNumber() {
 		random = -random;
 	}
 	for (auto& ffmpegListvar : ffmpegList) {
-		int cameraId = stoi(ffmpegListvar.first.substr(0, ffmpegListvar.first.find("!!")));
-		if (cameraId == random) {
-			randomValExist = true;
-			break;
+		try
+		{
+			int cameraId = stoi(ffmpegListvar.first.substr(0, ffmpegListvar.first.find("~~")));
+			if (cameraId == random) {
+				randomValExist = true;
+				break;
+			}
+		}
+		catch(const std::exception &ex)
+		{
+			//if unable to convert camera Id into string
+			//hence camera id is string so ignore this case
+			continue;
 		}
 	}
 	if (randomValExist) {

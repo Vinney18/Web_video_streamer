@@ -130,6 +130,8 @@ void FFmpegWrapper::readInput()
 				if (!connections[rgba].empty())
 				{
 					avcodec_decode_video2(decoderCodecContext, pFrame, &frameFinished, &packet);
+					// avcodec_send_packet(decoderCodecContext, &packet);
+					// frameFinished = avcodec_receive_frame(decoderCodecContext, pFrame);
 
 					// Did we get a video frame?
 					if (frameFinished)
@@ -205,6 +207,10 @@ void FFmpegWrapper::readInput()
 							}
 							canSend = false;
 						}
+					}
+					else
+					{
+						frameNumber--;
 					}
 				}
 
@@ -558,6 +564,7 @@ void FFmpegWrapper::seek_video(int time_toSeek_insec)
 			auto first_dts_usecs = (int64_t)round(this->inputFormatCtx->streams[videoStream]->first_dts * (double)this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den * AV_TIME_BASE);
 			target_dts_usecs += first_dts_usecs;
 			try {
+				avcodec_flush_buffers(this->decoderCodecContext);
 				int rv = av_seek_frame(this->inputFormatCtx, -1, target_dts_usecs, AVSEEK_FLAG_FRAME);
 				if (rv < 0)
 				{

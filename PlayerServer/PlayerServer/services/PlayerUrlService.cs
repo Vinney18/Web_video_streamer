@@ -27,7 +27,7 @@ namespace PlayerServer.services
             }
         }
 
-        public async Task<string> GetLiveUrlAsync(int cameraId, int streamType, string analyticType)
+        public async Task<string> GetLiveUrlAsync(string cameraId, int streamType, string analyticType)
         {
             var httpResponse = await httpClient.GetAsync("/RestService/server/LiveUrl?cameraId=" + cameraId + "&streamType=" + streamType + "&analyticType=" + analyticType);
             if (httpResponse.StatusCode == System.Net.HttpStatusCode.OK)
@@ -47,7 +47,7 @@ namespace PlayerServer.services
             return "";
         }
 
-        public async Task<string> GetPlaybackUrl(int cameraId, long time, bool streamviaapache)
+        public async Task<string> GetPlaybackUrl(string cameraId, long time, bool streamviaapache)
         {
             DateTimeOffset dateTime = DateTimeOffset.FromUnixTimeSeconds(time);
             string timePlayback = dateTime.LocalDateTime.ToString("MM/dd/yyyy, hh:mm:ss tt", CultureInfo.InvariantCulture);

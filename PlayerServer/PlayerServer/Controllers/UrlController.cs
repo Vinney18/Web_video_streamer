@@ -16,7 +16,7 @@ namespace PlayerServer.Controllers
 
         [HttpGet]
         [Route("~/url/GetLiveUrl")]
-        public async Task<IActionResult> GetLiveUrlAsync(int cameraId, int streamType, string analyticType)
+        public async Task<IActionResult> GetLiveUrlAsync(string cameraId, int streamType, string analyticType)
         {
             Console.WriteLine("Route -> ~/url/GetLiveUrl");
             try
@@ -56,7 +56,7 @@ namespace PlayerServer.Controllers
 
         [HttpGet]
         [Route("~/url/GetPlaybackUrl")]
-        public async Task<IActionResult> GetPlaybackUrl(int cameraId, long time, bool streamviaapache)
+        public async Task<IActionResult> GetPlaybackUrl(string cameraId, long time, bool streamviaapache)
         {
             Console.WriteLine("Route -> ~/url/GetPlaybackUrl");
             try
