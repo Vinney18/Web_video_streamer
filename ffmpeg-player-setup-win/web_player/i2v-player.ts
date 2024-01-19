@@ -344,6 +344,7 @@ class I2vPlayer {
                         this.v.style.display = "inline";
                         this.isRgb = false;
                         this.v.autoplay = true;
+                        this.v.muted = true;
                         this.isVisible = true;
                         if (document.addEventListener) {
                             document.addEventListener("visibilitychange", this.OnVideoVisiblityChange)
@@ -472,6 +473,7 @@ class I2vPlayer {
         if (!spanElement) {
             var span = document.createElement("span");
             span.innerHTML = message + "...";
+            span.classList.add("errorMessage");
             span.style.color = "red";
             span.style.position = "absolute";
             span.style.fontSize = "25px";

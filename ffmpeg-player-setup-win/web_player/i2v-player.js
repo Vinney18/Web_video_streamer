@@ -305,6 +305,7 @@ var I2vPlayer = /** @class */ (function () {
                         _this.v.style.display = "inline";
                         _this.isRgb = false;
                         _this.v.autoplay = true;
+                        _this.v.muted = true;
                         _this.isVisible = true;
                         if (document.addEventListener) {
                             document.addEventListener("visibilitychange", _this.OnVideoVisiblityChange);
@@ -416,6 +417,7 @@ var I2vPlayer = /** @class */ (function () {
         if (!spanElement) {
             var span = document.createElement("span");
             span.innerHTML = message + "...";
+            span.classList.add("errorMessage");
             span.style.color = "red";
             span.style.position = "absolute";
             span.style.fontSize = "25px";

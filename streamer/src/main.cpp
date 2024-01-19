@@ -173,7 +173,7 @@ void on_open(connection_hdl hdl) {
 
 			if (key == "cameraId") cameraId = value;
 			else if (key == "mode") mode = value;
-			else if (key == "streamType") streamtype = stoi(value);
+			else if (key == "streamType" || key == "streamtype") streamtype = stoi(value);
 			else if (key == "startTime") start_time_ofplaybackfile = stoi(value);
 			else if (key == "analyticType") analyticType = value;
 			else if (key == "connectionMode") connectionmode = value;
