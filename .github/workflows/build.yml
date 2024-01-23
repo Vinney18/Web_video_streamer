@@ -23,7 +23,6 @@ jobs:
         sudo apt-get install -y --no-install-recommends build-essential ca-certificates curl unzip wget git pkg-config \
             libavformat-dev libavcodec-dev libswresample-dev libswscale-dev libavutil-dev libavdevice-dev libavfilter-dev libpostproc-dev \
             --fix-missing
-        rm -rf /var/lib/apt/lists/*
 
         # Download and install vcpkg
         git clone https://github.com/Microsoft/vcpkg.git
@@ -53,9 +52,9 @@ jobs:
         fi
     - name: Configure and build
       run: |
-        ls -la
+        ls -a
         cd ..
-        ls -la
+        ls -a
         cd streamer
         mkdir build
         cd build
