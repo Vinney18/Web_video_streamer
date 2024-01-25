@@ -22,7 +22,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: vcpkg
-        key: vcpkg-${{ runner.os }}-${{ hashFiles('**/vcpkg/installed') }}
+        key: vcpkg-${{ runner.os }}
 
     - name: Install vcpkg
       shell: bash
@@ -30,7 +30,7 @@ jobs:
       run: |
         git clone https://github.com/Microsoft/vcpkg.git
         cd vcpkg
-        if [ "${{ runner.os }}" == "ubuntu-latest" ]; then
+        if [ "$RUNNER_OS" == "Linux" ]; then
           ./bootstrap-vcpkg.sh
           ./vcpkg integrate install
           # install dependencies for Ubuntu
@@ -51,19 +51,23 @@ jobs:
             libavformat-dev libavcodec-dev libswresample-dev libswscale-dev libavutil-dev libavdevice-dev libavfilter-dev libpostproc-dev \
             --fix-missing
 
-    - name: Set up environment
+    - name: Check cache
       shell: bash
       run: |
-        if [ -d "vcpkg" ]; then
-          export VCPKG_ROOT=$PWD/vcpkg
+        if [ ! -d "vcpkg" ] && [ ! -d "vcpkg.exe" ]; then
+          echo "vcpkg is not installed"
+        else
+          echo "vcpkg is already installed"
+          ls vcpkg
         fi
+  
     - name: Configure and build
       run: |
         ls
         cd streamer
         mkdir build
         cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake
         make -j 4
 
     - name: Print binaries
