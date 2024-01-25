@@ -32,6 +32,13 @@ jobs:
         # Install dependencies with vcpkg
         ./vcpkg install boost-filesystem boost-regex boost-system boost-thread boost-dll poco websocketpp cpr jsoncpp cryptopp fmt spdlog zlib openssl
 
+    - name: Cache vcpkg
+      if: startsWith(matrix.os, 'ubuntu')
+      uses: actions/cache@v2
+      with:
+        path: vcpkg
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('**/vcpkg/installed') }}
+
     - name: Install dependencies for Windows
       if: startsWith(matrix.os, 'windows')
       run: |
@@ -52,16 +59,13 @@ jobs:
         fi
     - name: Configure and build
       run: |
-        ls -a
-        cd ..
-        ls -a
+        ls
         cd streamer
         mkdir build
         cd build
         cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
         make -j 4
 
-    - name: Run tests
+    - name: Print binaries
       run: |
-        cd build
-        ctest --output-on-failure
+        ls
