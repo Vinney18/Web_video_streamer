@@ -16,40 +16,40 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Install dependencies for Ubuntu
-      if: startsWith(matrix.os, 'ubuntu')
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y --no-install-recommends build-essential ca-certificates curl unzip wget git pkg-config \
-            libavformat-dev libavcodec-dev libswresample-dev libswscale-dev libavutil-dev libavdevice-dev libavfilter-dev libpostproc-dev \
-            --fix-missing
-
-        # Download and install vcpkg
-        git clone https://github.com/Microsoft/vcpkg.git
-        cd vcpkg
-        ./bootstrap-vcpkg.sh
-
-        # Install dependencies with vcpkg
-        ./vcpkg install boost-filesystem boost-regex boost-system boost-thread boost-dll poco websocketpp cpr jsoncpp cryptopp fmt spdlog zlib openssl
-
     - name: Cache vcpkg
+      id: cache-vcpkg
       if: startsWith(matrix.os, 'ubuntu')
       uses: actions/cache@v2
       with:
         path: vcpkg
         key: vcpkg-${{ runner.os }}-${{ hashFiles('**/vcpkg/installed') }}
 
-    - name: Install dependencies for Windows
-      if: startsWith(matrix.os, 'windows')
+    - name: Install vcpkg
+      shell: bash
+      if: steps.cache-vcpkg.outputs.cache-hit != 'true'
       run: |
-        # Download and install vcpkg
         git clone https://github.com/Microsoft/vcpkg.git
         cd vcpkg
-        bootstrap-vcpkg.bat
-        vcpkg integrate install
-
-        # Install dependencies with vcpkg
-        vcpkg install boost-filesystem boost-regex boost-system boost-thread boost-dll poco websocketpp cpr jsoncpp cryptopp fmt spdlog zlib openssl
+        if [ "${{ runner.os }}" == "ubuntu-latest" ]; then
+          ./bootstrap-vcpkg.sh
+          ./vcpkg integrate install
+          # install dependencies for Ubuntu
+          ./vcpkg install boost-filesystem boost-regex boost-system boost-thread boost-dll poco websocketpp cpr jsoncpp cryptopp fmt spdlog zlib openssl
+        else
+          bootstrap-vcpkg.bat
+          vcpkg integrate install
+          # install dependencies for Windows
+          vcpkg install boost-filesystem boost-regex boost-system boost-thread boost-dll poco websocketpp cpr jsoncpp cryptopp fmt spdlog zlib openssl
+        fi
+        
+    - name: Install dependencies for Ubuntu
+      if: startsWith(matrix.os, 'ubuntu')
+      run: |
+        # 
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends build-essential ca-certificates curl unzip wget git pkg-config \
+            libavformat-dev libavcodec-dev libswresample-dev libswscale-dev libavutil-dev libavdevice-dev libavfilter-dev libpostproc-dev \
+            --fix-missing
 
     - name: Set up environment
       shell: bash
