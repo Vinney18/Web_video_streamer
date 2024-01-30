@@ -18,8 +18,6 @@ jobs:
         - ${{ github.workspace }}:/app
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
 
     - name: List files in docker container
       run: |
