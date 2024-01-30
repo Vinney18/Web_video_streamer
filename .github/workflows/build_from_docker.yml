@@ -1,0 +1,35 @@
+name: Build C++ App
+
+on:
+    release:
+      types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: i2vdocker/ubuntu_cmake_vcpkg:1.0
+      credentials:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+      options: --user=root  # Run as root to avoid permission issues
+      volumes:
+        - ${{ github.workspace }}:/app
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Build C++ app
+      run: |
+        cd /app/streamer
+        mkdir -p build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake
+        make -j 4
+
+    - name: Display build output
+      run: |
+        cd /app/streamer/build
+        ls -la  # List all files and directories
