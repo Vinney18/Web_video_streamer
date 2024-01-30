@@ -23,20 +23,22 @@ jobs:
 
     - name: List files in docker container
       run: |
-        ls -a
         cd /app
         ls -a
+        cd vcpkg
+        # set path to vcpkg
+        ./bootstrap-vcpkg.sh
     
     - name: Build C++ app
       run: |
-        ls -a
+        cd /app
         cd /code/streamer
         mkdir -p build
         cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/app/vcpkg/scripts/buildsystems/vcpkg.cmake
         make -j 4
 
     - name: Display build output
       run: |
-        cd /app/streamer/build
+        cd /app/code/streamer/build
         ls -la  # List all files and directories
