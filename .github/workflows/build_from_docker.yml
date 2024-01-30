@@ -29,6 +29,10 @@ jobs:
         # set path to vcpkg
         ./bootstrap-vcpkg.sh
     
+    - name: Install other dependencies
+      run: |
+        sudo apt install libwebsocketpp-dev
+
     - name: Build C++ app
       run: |
         cd /app
