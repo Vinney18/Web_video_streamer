@@ -32,7 +32,8 @@ jobs:
     - name: Build C++ app
       run: |
         cd /app
-        cd /code/streamer
+        cd code/streamer
+        ls -a
         mkdir -p build
         cd build
         cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/app/vcpkg/scripts/buildsystems/vcpkg.cmake
