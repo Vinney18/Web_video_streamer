@@ -15,14 +15,15 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
       options: --user=root  # Run as root to avoid permission issues
       volumes:
-        - ${{ github.workspace }}:/app
+        - ${{ github.workspace }}:/app/code
 
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
 
     - name: List files in docker container
       run: |
         pwd
-        cd ..
         ls -a
     
     - name: Build C++ app
