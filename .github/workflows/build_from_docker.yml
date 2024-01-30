@@ -22,7 +22,6 @@ jobs:
     - name: List files in docker container
       run: |
         pwd
-        cd ..
         ls -a
     
     - name: Build C++ app
