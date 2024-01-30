@@ -21,8 +21,15 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
+    - name: List files in docker container
+      run: |
+        ls -a
+        cd /app
+        ls -a
+    
     - name: Build C++ app
       run: |
+        ls -a
         cd /app/streamer
         mkdir -p build
         cd build
