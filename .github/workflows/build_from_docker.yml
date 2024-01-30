@@ -23,13 +23,14 @@ jobs:
 
     - name: List files in docker container
       run: |
-        pwd
+        ls -a
+        cd /app
         ls -a
     
     - name: Build C++ app
       run: |
         ls -a
-        cd /app/streamer
+        cd /code/streamer
         mkdir -p build
         cd build
         cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake
