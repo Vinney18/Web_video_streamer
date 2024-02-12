@@ -134,16 +134,19 @@ private:
 
 
 public:
-#if __linux__
 	static double GetTickCount(void)
 	{
+#if __linux__
 		struct timespec now;
 		if (clock_gettime(CLOCK_MONOTONIC, &now))
 			return 0;
 		auto v = now.tv_sec * 1000.0 + now.tv_nsec / 1000000.0;
 		return v;
-	}
+#else		
+		return GetTickCount64();
 #endif
+	}
+
 
 	static int interrupt_cb(void* ctx)
 	{
@@ -152,7 +155,7 @@ public:
 		{
 			return 1;
 		}
-		auto tickCount = GetTickCount64();
+		auto tickCount = GetTickCount();
 
 		//timeout after 20 seconds of no activity
 		if (thisObj->params.isRunning && (tickCount - thisObj->params.lastStopped > 20000.0))

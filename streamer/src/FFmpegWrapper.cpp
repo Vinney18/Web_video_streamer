@@ -107,7 +107,7 @@ void FFmpegWrapper::readInput()
 
 	try
 	{
-		this->params.lastStopped = GetTickCount64();
+		this->params.lastStopped = GetTickCount();
 		bool sendData = true;
 		int frameNumber = 0;
 		int64_t firstDts = this->inputFormatCtx->streams[videoStream]->first_dts;
@@ -116,7 +116,7 @@ void FFmpegWrapper::readInput()
 			if (frameNumber < 5 * inputFPS) frameNumber++;
 			std::unique_lock<std::mutex> lck(mThreadMutex);
 			cv.wait(lck, [&]() { return !mPaused; });
-			this->params.lastStopped = GetTickCount64();
+			this->params.lastStopped = GetTickCount();
 
 			// Is this a packet from the video stream?
 			if (packet.stream_index == videoStream)
@@ -310,7 +310,7 @@ bool FFmpegWrapper::openInput()
 		// bad parameter
 	}
 
-	this->params.lastStopped = GetTickCount64();
+	this->params.lastStopped = GetTickCount();
 
 	if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
 	{

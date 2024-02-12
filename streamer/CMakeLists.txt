@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.18)
-
 project(streamer)
 
 set(EXE_NAME "${PROJECT_NAME}")
@@ -61,7 +60,7 @@ set_target_properties(
 		${EXE_NAME}
 		PROPERTIES
 		POSITION_INDEPENDENT_CODE ON
-		CXX_STANDARD 14
+		CXX_STANDARD 17
 		CXX_STANDARD_REQUIRED YES
 		CXX_EXTENSIONS NO
 		LINKER_LANGUAGE CXX
@@ -92,9 +91,9 @@ else()
 		Poco::Util
 		${FFmpeg_Libraries}
 		websocketpp::websocketpp
-		cpr
+		cpr::cpr
 		jsoncpp_static
-		cryptopp-static
+		cryptopp::cryptopp
 		fmt::fmt
 		fmt::fmt-header-only
 		spdlog::spdlog

@@ -1,4 +1,4 @@
-name: Build C++ App
+name: Build C++ App Linux
 
 on:
     release:
@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     container:
-      image: i2vdocker/ubuntu_cmake_vcpkg:1.0
+      image: i2vdocker/vcpkg-linux:1.0
       credentials:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
@@ -21,29 +21,35 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: List files in docker container
-      run: |
-        cd /app
-        ls -a
-        cd vcpkg
-        # set path to vcpkg
-        ./bootstrap-vcpkg.sh
-    
-    - name: Install other dependencies
-      run: |
-        apt install libwebsocketpp-dev
-
     - name: Build C++ app
       run: |
         cd /app
         cd code/streamer
         ls -a
-        mkdir -p build
+        mkdir build
         cd build
         cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/app/vcpkg/scripts/buildsystems/vcpkg.cmake
         make -j 4
 
-    - name: Display build output
+    - name: Display build output And add release notes
       run: |
         cd /app/code/streamer/build
-        ls -la  # List all files and directories
+        ls
+        echo "Release Version:${{ github.event.release.tag_name }}" > release_notes.md
+    
+    - name: Pack to zip
+      run: |
+        cd /app/code/streamer
+        zip -r streamer-${{runner.os}}.zip build
+      
+
+    # upload release assets
+    - name: Upload to release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: /app/code/streamer-${{runner.os}}.zip
+        asset_name: streamer-${{runner.os}}.zip
+        asset_content_type: application/zip
