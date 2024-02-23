@@ -261,8 +261,8 @@ void on_close(connection_hdl hdl) {
 			ffmpegList[keyValue]->stopThread();
 			ffmpegList.erase(keyValue);
 		}
-		connectionsIdMap.erase(hdl.lock());
 	}
+	connectionsIdMap.erase(hdl.lock());
 }
 
 void on_message(websocketpp::server<websocketpp::config::asio>* s, connection_hdl hdl, message_ptr msg)
@@ -275,6 +275,7 @@ void on_message(websocketpp::server<websocketpp::config::asio>* s, connection_hd
 		string id = connectionsIdMap[hdl.lock()];
 
 		string time_toseek = messagestring.substr(9);
+		if (time_toseek.empty()) return;
 		int time_toseek_int = stoi(time_toseek);
 		if (time_toseek_int >= 0)
 		{

@@ -11,7 +11,6 @@
       <ComponentGroup Id="MainApplicationComponents" Directory="INSTALLFOLDER">
 
       <Component Id="MainApplicationchildComponents" Guid="DF8B23B810454113A66CCE9567347FCD">
-        <File Source="lib/nssm.exe" />
         <File Source="run_service.bat" />
         <File Source="remove_service.bat" />
         <File Source="web_player/build/i2v_player.min.js" />
@@ -81,22 +80,6 @@
 
 		  <Component Id="e3b918838e414c3282ec5b449f9e6c98" Guid="*">
 			  <File Id="a009201ddb194ee4ac0fee81c8a1cb0e" KeyPath="yes" Source="../streamer/external_libs/fmt.dll" />
-		  </Component>
-
-		  <Component Id="f1f3d889fada4284a59e50d7800db911" Guid="*">
-			  <File Id="ba6990a1a08a4c9083842177c8d49497" KeyPath="yes" Source="lib/postproc-55.dll" />
-		  </Component>
-
-		  <Component Id="eeb33efd8c804294b992811e6739374a" Guid="*">
-			  <File Id="d76c141f19b4410e8ca760c65dbf604a" KeyPath="yes" Source="lib/ucrtbased.dll" />
-		  </Component>
-
-		  <Component Id="d893c9b40f9e4444aa6ef2b7613f8ab4" Guid="*">
-			  <File Id="ac84c2dca8bc4c4e832fde02e3aac10c" KeyPath="yes" Source="lib/vcruntime140_1.dll" />
-		  </Component>
-
-		  <Component Id="c7a359ee25dc43e0befd74810ec79434" Guid="*">
-			  <File Id="ab487aace8e54051a335dc68434a12fa" KeyPath="yes" Source="lib/vcruntime140d.dll" />
 		  </Component>
 
 		  <Component Id="fccda022b66e44cabbcecbe0842e2378" Guid="*">

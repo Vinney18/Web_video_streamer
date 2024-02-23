@@ -33,13 +33,19 @@
       <HintPath>Licensing.dll</HintPath>
     </Reference>
   </ItemGroup>
-
   <ItemGroup>
     <None Include="PlayerServer.bat" CopyToPublishDirectory="Always" />
     <None Include="public_key.xml" CopyToPublishDirectory="Always"></None>
     <None Include="setup\**" CopyToPublishDirectory="Always" />
   </ItemGroup>
-  
+  <!-- Add the following Target section to copy files from lib during the build -->
+  <Target Name="CopyFiles" AfterTargets="Build;Publish">
+    <ItemGroup>
+      <_FilesToCopy Include="lib\**\*.*" />
+      <FilesToCopy Include="@(_FilesToCopy->'%(FullPath)')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(PublishDir)\%(RecursiveDir)" />
+  </Target>
   <ItemGroup>
     <Folder Include="setup\" />
   </ItemGroup>

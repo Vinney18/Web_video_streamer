@@ -70,32 +70,6 @@
             <Component Id="cmpF438BDA967CE1938C923F51626946148" Guid="*">
                 <File Id="filA6DA886591A238AFCA49484433B04996" KeyPath="yes" Source="$(var.serverPath)\public_key.xml" />
             </Component>
-            <Component Id="cmp3F11D26652F14A272DBF34EE8C408427" Guid="*">
-                <File Id="filE4AEC801AD88B734E0C8B4D23C0ED269" KeyPath="yes" Source="$(var.serverPath)\System.CodeDom.dll" />
-            </Component>
-            <Component Id="cmp15822BD38662172FCD53C9BF252DF303" Guid="*">
-                <File Id="fil26A7FF969B806C29002070086837F0DC" KeyPath="yes" Source="$(var.serverPath)\System.Management.dll" />
-            </Component>
-            <Component Id="cmp83054C5BEE8F2138103B77EA73604F75" Guid="*">
-                <File Id="fil73DC08D8FB354036C9FFFEF994B1F848" KeyPath="yes" Source="$(var.serverPath)\System.Net.Http.Formatting.dll" />
-            </Component>
-            <Component Id="cmp3855F00DC943F8B18742E72836C12740" Guid="*">
-                <File Id="filB3150C9FE207FD97354181C8A7C236FB" KeyPath="yes" Source="$(var.serverPath)\System.Web.Http.dll" />
-            </Component>
-            <Component Id="cmpB424347BC0B3F0DCE70F88E4AD0A5B43" Guid="*">
-                <File Id="fil49142CD995D529EF694E8C7C405EEB0B" KeyPath="yes" Source="$(var.serverPath)\web.config" />
-            </Component>
-            <Directory Id="dirBC558506C8A023E0680F442260DE47C4" Name="runtimes">
-                <Directory Id="dir1EFAB80BD4C008F5038C45A41014DBAE" Name="win">
-                    <Directory Id="dir81766293FB8FA5C7F7BFED10066AEDCF" Name="lib">
-                        <Directory Id="dirA0D30724AA34C67206920A4804C89056" Name="netcoreapp2.0">
-                            <Component Id="cmp76E2CAED7B8D806643DAEFA957FE72EC" Guid="*">
-                                <File Id="filD2BBA194742EA0BEFB690F0D235E2665" KeyPath="yes" Source="$(var.serverPath)\runtimes\win\lib\netcoreapp2.0\System.Management.dll" />
-                            </Component>
-                        </Directory>
-                    </Directory>
-                </Directory>
-            </Directory>
             <Directory Id="dirE07B14945E98E589658EAC2D92F14119" Name="setup">
                 <Component Id="cmpA9C4380868ABE902B0228B3873876F43" Guid="*">
                     <File Id="fil12E89BB696FBA7716A68FA6B5303FC6C" KeyPath="yes" Source="$(var.serverPath)\setup\i2v_player.msi" />
@@ -183,12 +157,6 @@
             <ComponentRef Id="cmp726C8BA5F2AA5677A873821D1B0E94A7" />
             <ComponentRef Id="cmp5F889F68C9908B747566AD99277F5B4C" />
             <ComponentRef Id="cmpF438BDA967CE1938C923F51626946148" />
-            <ComponentRef Id="cmp3F11D26652F14A272DBF34EE8C408427" />
-            <ComponentRef Id="cmp15822BD38662172FCD53C9BF252DF303" />
-            <ComponentRef Id="cmp83054C5BEE8F2138103B77EA73604F75" />
-            <ComponentRef Id="cmp3855F00DC943F8B18742E72836C12740" />
-            <ComponentRef Id="cmpB424347BC0B3F0DCE70F88E4AD0A5B43" />
-            <ComponentRef Id="cmp76E2CAED7B8D806643DAEFA957FE72EC" />
             <ComponentRef Id="cmpA9C4380868ABE902B0228B3873876F43" />
             <ComponentRef Id="cmp5DB8203593E21202460A12B60169B289" />
             <ComponentRef Id="cmp14514D1768FC5B27A14E345760544CEA" />

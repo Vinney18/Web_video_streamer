@@ -7,9 +7,7 @@ WORKDIR C:\\app
 # RUN powershell.exe -command Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 RUN @"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command "iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))" && SET "PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin"
 RUN choco -v
-RUN choco install cmake visualstudio2022community visualstudio2022buildtools -y
-RUN choco install visualstudio2022-workload-nativedesktop -y
-RUN choco install cmake -y
+RUN choco install cmake visualstudio2022community visualstudio2022-workload-nativedesktop visualstudio2022buildtools -y
 RUN choco install git.install -y --no-progress
 RUN refreshenv
 # set git and cmake path

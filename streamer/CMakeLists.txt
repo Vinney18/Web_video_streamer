@@ -68,19 +68,19 @@ set_target_properties(
 
 if (WIN32)
 	target_link_libraries(
-			${EXE_NAME}
-			${Boost_LIBRARIES}
-			Poco::Net
-			Poco::Foundation
-			Poco::Util
-			${FFmpeg_Libraries}
-			websocketpp::websocketpp
-			cpr::cpr
-			jsoncpp_lib
-			#jsoncpp_static
-			cryptopp-static
-			fmt::fmt
-			spdlog::spdlog
+		${EXE_NAME}
+		${Boost_LIBRARIES}
+		Poco::Net
+		Poco::Foundation
+		Poco::Util
+		${FFmpeg_Libraries}
+		websocketpp::websocketpp
+		cpr::cpr
+		jsoncpp_lib
+		#jsoncpp_static
+		cryptopp-static
+		fmt::fmt
+		spdlog::spdlog
 	)
 else()
 	target_link_libraries(

@@ -68,7 +68,7 @@
   <Target Name="BeforeBuild">
     <Exec WorkingDirectory="$(OutDir)" Command="$(MSBuildProjectDirectory)\prebuild.bat" />
     <PropertyGroup>
-      <DefineConstants>serverPath=$(SolutionDir)PlayerServer/bin/Release/netcoreapp3.1/PlayerServer;</DefineConstants>
+      <DefineConstants>serverPath=$(SolutionDir)PlayerServer/bin/Release/net7.0/PlayerServer;</DefineConstants>
     </PropertyGroup>
     <!--<HeatDirectory Directory="$(SolutionDir)PlayerServer/bin/Release/netcoreapp3.1/PlayerServer" PreprocessorVariable="var.serverPath" OutputFile="server.wxs" ComponentGroupName="playerServerComponent" DirectoryRefId="server_Path" AutogenerateGuids="true" ToolPath="$(WixToolPath)" SuppressFragments="true" SuppressRegistry="true" SuppressRootDirectory="true" />-->
   </Target>

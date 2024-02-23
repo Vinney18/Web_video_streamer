@@ -6,15 +6,16 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "uglify": "node ./node_modules/uglify-js/bin/uglifyjs --compress --mangle --output build/i2v_player.min.js -- jmuxer.js build/i2v-player.js",
-    "build": "tsc && npm run uglify"
+    "build": "npx tsc && npm run uglify"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "typescript": "^3.6.3"
+    "typescript": "^3.9.10"
   },
   "dependencies": {
-    "uglifyjs": "^2.4.11",
-    "uglify-js": "3.12.6"
+    "tsc": "^2.0.4",
+    "uglify-js": "3.12.6",
+    "uglifyjs": "^2.4.11"
   }
 }

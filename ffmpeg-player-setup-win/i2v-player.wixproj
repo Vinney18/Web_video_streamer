@@ -51,11 +51,6 @@
     </WixExtension>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="lib\nssm.exe" />
-    <Content Include="lib\postproc-55.dll" />
-    <Content Include="lib\ucrtbased.dll" />
-    <Content Include="lib\vcruntime140d.dll" />
-    <Content Include="lib\vcruntime140_1.dll" />
     <Content Include="nssm.exe" />
     <Content Include="prebuild.bat" />
     <Content Include="remove_service.bat" />
@@ -83,6 +78,8 @@
     <Error Text="The WiX Toolset v3.11 (or newer) build tools must be installed to build this project. To download the WiX Toolset, see http://wixtoolset.org/releases/" />
   </Target>
   <Target Name="BeforeBuild">
+    <!-- make bin/Release directory -->
+    <MakeDir Directories="$(OutDir)" />
     <Exec WorkingDirectory="$(OutDir)" Command="$(MSBuildProjectDirectory)\prebuild.bat" />
   </Target>
   <!--
