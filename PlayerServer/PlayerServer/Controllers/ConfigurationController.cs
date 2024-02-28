@@ -19,9 +19,18 @@ namespace PlayerServer.Controllers
 
         [HttpGet]
         [Route("~/api/Configuration")]
+        [Produces("application/json")]
         public IActionResult GetPlayerConfiguration()
         {
-            return Ok(new { ServerIp = ServerDetails.AttachedServerIp, Port = ServerDetails.port, Token = ServerDetails.token, isLicenseValid = ServerDetails.isLicenseValid });
+            var playerConfiguration = new PlayerConfiguration
+            {
+                ServerIp = ServerDetails.AttachedServerIp,
+                Port = ServerDetails.port,
+                Token = ServerDetails.token,
+                IsLicenseValid = ServerDetails.isLicenseValid
+            };
+
+            return Ok(playerConfiguration);
         }
 
         [HttpPost]

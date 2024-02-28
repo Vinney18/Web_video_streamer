@@ -8,7 +8,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <OutputName>i2v_player</OutputName>
     <OutputType>Package</OutputType>
-    <DefineConstants>HarvestPath=$(SolutionDir)build\streamer\Release</DefineConstants>
+    <DefineConstants>HarvestPath=$(SolutionDir)streamer\build\Release</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
     <OutputPath>bin\$(Configuration)\</OutputPath>
@@ -78,9 +78,11 @@
     <Error Text="The WiX Toolset v3.11 (or newer) build tools must be installed to build this project. To download the WiX Toolset, see http://wixtoolset.org/releases/" />
   </Target>
   <Target Name="BeforeBuild">
-    <!-- make bin/Release directory -->
     <MakeDir Directories="$(OutDir)" />
     <Exec WorkingDirectory="$(OutDir)" Command="$(MSBuildProjectDirectory)\prebuild.bat" />
+    <!-- heat to HeatGeneratedFileList.wxs -->
+	 <!-- "C:\Program Files (x86)\WiX Toolset v3.11\bin\heat.exe" dir ..\streamer\build\Release -cg HeatGenerated -dR INSTALLFOLDER -sreg -srd -var HarvestPath -ag -sfrag -out HeatGeneratedFileList.wxs--> 
+	  <!-- <HeatDirectory Directory="../build/streamer/Release" OutputFile="$(MSBuildProjectDirectory)\HeatGeneratedFileList.wxs" ComponentGroupName="StreamerComponents" DirectoryRefId="INSTALLFOLDER" AutogenerateGuids="true" SuppressCom="true" SuppressFragments="true" SuppressRegistry="true" SuppressRootDirectory="true" SuppressUniqueIds="false" ToolPath="$(WixToolPath)" PreprocessorVariable="var.HarvestPath" /> -->
   </Target>
   <!--
 	To modify your build process, add your task inside one of the targets below and uncomment it.

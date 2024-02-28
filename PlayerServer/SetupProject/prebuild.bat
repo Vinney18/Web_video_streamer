@@ -5,8 +5,6 @@ rmdir /S /Q ..\PlayerServer\wwwroot\player
 mkdir ..\PlayerServer\wwwroot\player
 copy ..\..\ffmpeg-player-setup-win\web_player\index.html ..\PlayerServer\wwwroot\player\index.html
 copy ..\..\ffmpeg-player-setup-win\web_player\build\i2v_player.min.js ..\PlayerServer\wwwroot\player\i2v_player.min.js
-copy ..\..\ffmpeg-player-setup-win\web_player\build\i2v-player.js ..\PlayerServer\wwwroot\player\i2v-player.js
-copy ..\..\ffmpeg-player-setup-win\web_player\jmuxer.js ..\PlayerServer\wwwroot\player\jmuxer.js
 copy ..\..\ffmpeg-player-setup-win\web_player\moment.min.js ..\PlayerServer\wwwroot\player\moment.min.js
 copy ..\PlayerServer\webView\index.html ..\PlayerServer\wwwroot\index.html
 rmdir /S /Q ..\PlayerServer\bin\Release\net7.0\publish

@@ -158,10 +158,22 @@ namespace PlayerServer.Licensing
 
         private static bool isLicenceActivated()
         {
-            IntPtr intPtrError;
-            bool islicencevalid = isLicenseValid(out intPtrError, true);
-            // bool islicencevalid = true;
-            return islicencevalid;
+            try
+            {
+                IntPtr intPtrError;
+                bool islicencevalid = isLicenseValid(out intPtrError, true);
+                var errordetails = System.Runtime.InteropServices.Marshal.PtrToStringAnsi(intPtrError);
+                if (errordetails != null && errordetails.Length > 0){
+                    Console.WriteLine("Failed isLicenceActivated: " + errordetails);
+                }
+                // bool islicencevalid = true;
+                return islicencevalid;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            return false;
         }
     }
 }

@@ -15,6 +15,7 @@
       <ComponentGroupRef Id="MainApplicationComponents" />
       <ComponentGroupRef Id="ProductComponents" />
       <ComponentGroupRef Id="ConfigComponents" />
+	  <ComponentGroupRef Id="StreamerConfigComponents" />
       <!--<ComponentGroupRef Id="SystemFolderComponentss" />-->
       
     </Feature>
@@ -49,7 +50,12 @@
 		<Directory Id="TARGETDIR" Name="SourceDir">
 			<Directory Id="ProgramFilesFolder">
 				<Directory Id="INSTALLFOLDER" Name="i2v_player" >
-          <Directory Id="CONFIGFOLDER" Name="config">
+          
+		  <Directory Id="STREAMERDATAFOLDER" Name="data">
+		  <Directory Id="CONFIGFOLDER" Name="config">
+		  </Directory>
+		  <Directory Id="LOGFOLDER" Name="config">
+		  </Directory>
           </Directory>
           <Directory Id="SystemFolder" Name="SystemFolder" />
 

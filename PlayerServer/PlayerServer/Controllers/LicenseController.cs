@@ -83,7 +83,6 @@ namespace PlayerServer.Controllers
                     return BadRequest("Not able to activate" + errorDetails);
 
                 }
-                return Ok();
             }
             catch (Exception ex)
             {
