@@ -1,8 +1,8 @@
-name: Build C++ App Linux
+name: Build Streamer Linux
 
 on:
-    release:
-      types: [created]
+  release:
+    types: [created]
 
 jobs:
   build:
@@ -21,7 +21,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Build C++ app
+    - name: Build Streamer C++ app
       run: |
         cd /app
         cd code/streamer
@@ -31,16 +31,25 @@ jobs:
         cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake
         make -j 4
 
-    - name: Display build output And add release notes
+    - name: Copy to release and add lib
       run: |
         cd /app/code/streamer/build
+        mkdir Release
+        mkdir Release/lib
+        cp streamer ./Release
+        cd Release
+        ldd ./streamer | grep "=>" | awk '{print $3}' | xargs -I '{}' cp -v '{}' ./lib
+
+    - name: Display build output And add release notes
+      run: |
+        cd /app/code/streamer/build/Release
         ls
         echo "Release Version:${{ github.event.release.tag_name }}" > release_notes.md
     
     - name: Pack to zip
       run: |
-        cd /app/code/streamer
-        zip -r streamer-${{runner.os}}.zip build
+        cd /app/code/streamer/build
+        zip -r streamer-${{runner.os}}.zip Release
       
 
     # upload release assets
@@ -50,6 +59,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }}
-        asset_path: /app/code/streamer/streamer-${{runner.os}}.zip
+        asset_path: /app/code/streamer/build/streamer-${{runner.os}}.zip
         asset_name: streamer-${{runner.os}}.zip
         asset_content_type: application/zip

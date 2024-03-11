@@ -14,7 +14,6 @@ RUN refreshenv
 ENV PATH="C:\Windows\System32\WindowsPowerShell\v1.0;%ALLUSERSPROFILE%\chocolatey\bin;C:\Program Files\CMake\bin\;C:\Program Files\Git\bin\;%PATH%"
 RUN git --version
 RUN cmake --version
-RUN dir "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools"
 # Install vcpkg from a specific commit
 RUN git clone https://github.com/microsoft/vcpkg.git
 RUN cd vcpkg && dir && bootstrap-vcpkg.bat \
