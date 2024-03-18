@@ -59,6 +59,32 @@ namespace PlayerServer.services
             return "";
         }
 
+        public async Task<string> GetExportUrl(string cameraId, long start_time, long end_time)
+        {
+            
+            var httpResponse = await httpClient.GetAsync("/RestService/server/GetExportVideoUrl?cameraId=" + cameraId + "&startTime=" + start_time + "&endTime=" + end_time + "&fileFormat=ts");
+            if (httpResponse.StatusCode == System.Net.HttpStatusCode.OK)
+            {
+                Console.WriteLine("requesting export url for time range");
+                Console.WriteLine(httpResponse.RequestMessage.RequestUri);
+                Console.WriteLine("for camera id: " + cameraId);
+                Console.WriteLine("server ip: " + httpClient.BaseAddress);
+                Console.WriteLine("start time: " + DateTimeOffset.FromUnixTimeSeconds(start_time).LocalDateTime);
+                Console.WriteLine("end time: " + DateTimeOffset.FromUnixTimeSeconds(end_time).LocalDateTime);
+                Console.WriteLine(await httpResponse.Content.ReadAsStringAsync());
+                return await httpResponse.Content.ReadAsStringAsync();
+            }
+            else
+            {
+                // endpoint
+                Console.WriteLine(httpResponse.RequestMessage.RequestUri);
+                Console.WriteLine(httpResponse.StatusCode);
+                // respnse err
+                Console.WriteLine(await httpResponse.Content.ReadAsStringAsync());
+            }
+            return "";
+        }
+
         public async Task<string> SeekVideo(int cameraId, long time, long seekTime, int sessionId)
         {
             DateTimeOffset dateTime = DateTimeOffset.FromUnixTimeSeconds(time);

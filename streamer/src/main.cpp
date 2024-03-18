@@ -60,6 +60,8 @@ void on_message(websocketpp::server<websocketpp::config::asio>* s, connection_hd
 string Get_LiveUrl(connection_hdl hdl, string cameraId, int streamtype, string analyticType);
 string Get_PlayBackUrl(connection_hdl hdl, string cameraId, int start_time_ofplaybackfile, int* seekTime_ofFile);
 
+string Get_PlayBackUrl(connection_hdl hdl, string cameraId, int start_time_ofplaybackfile, int end_time_ofplaybackfile);
+
 // CallBack Related
 void SendData(websocketpp::connection_hdl& con_hndl, vector<uint8_t>& data, int64_t timestamp);
 void SendStringData(websocketpp::connection_hdl& con_hndl, string sdata);
@@ -138,6 +140,7 @@ void on_open(connection_hdl hdl) {
 		string mode = "Live";
 		int streamtype = 0;
 		int start_time_ofplaybackfile = 0;
+		int end_time_ofplaybackfile = 0;
 		string analyticType = "";
 		string connectionmode = "tcp";
 		string clVersion = "";
@@ -175,6 +178,7 @@ void on_open(connection_hdl hdl) {
 			else if (key == "mode") mode = value;
 			else if (key == "streamType" || key == "streamtype") streamtype = stoi(value);
 			else if (key == "startTime") start_time_ofplaybackfile = stoi(value);
+			else if (key == "endTime") end_time_ofplaybackfile = stoi(value);
 			else if (key == "analyticType") analyticType = value;
 			else if (key == "connectionMode") connectionmode = value;
 			else if (key == "wServerIp") checkConfigFileIp(hdl, value);
@@ -186,7 +190,12 @@ void on_open(connection_hdl hdl) {
 			url = Get_LiveUrl(hdl, cameraId, streamtype, analyticType);
 		}
 		else {
-			url = Get_PlayBackUrl(hdl, cameraId, start_time_ofplaybackfile, &seekTime_ofFile);
+			if (end_time_ofplaybackfile == 0) {
+				url = Get_PlayBackUrl(hdl, cameraId, start_time_ofplaybackfile, &seekTime_ofFile);
+			}
+			else {	
+				url = Get_PlayBackUrl(hdl, cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile);
+			}
 		}
 		cout << url << " ## " << seekTime_ofFile << endl;
 		cout << endl;
@@ -461,6 +470,76 @@ string Get_PlayBackUrl(connection_hdl hdl, string cameraId, int start_time_ofpla
 
 				/**sessionid = stoi(resultValue2.asString());*/
 				*seekTime_ofFile = stoi(resultValue1.asString());
+
+				response = resultValue.asString();
+				response.erase(std::remove(response.begin(), response.end(), '\"'), response.end());
+				response.erase(std::remove(response.begin(), response.end(), '\\'), response.end());
+			}
+			else if (res.status_code == 403) {
+				if (mainLogger) { mainLogger->error("Get_PlayBackUrl Server License Expired"); }
+				else { cout << "Get_PlayBackUrl Server License Expired \n"; }
+
+				websocket_server.send(hdl, "License Expired", 15, websocketpp::frame::opcode::TEXT);
+			}
+			else if (res.status_code == 400) {
+				if (mainLogger) { mainLogger->error("Get_PlayBackUrl Some Error occured status code: {}", res.status_code); }
+				else { cout << "Get_PlayBackUrl Some Error occured status code: " << res.status_code << std::endl; }
+
+				websocket_server.send(hdl, "Some problem occured", 20, websocketpp::frame::opcode::TEXT);
+			}
+			else {
+				response = "Player_Server_Not_Connected";
+			}
+		}
+		else {
+			response = "Player_Server_Not_Connected";
+		}
+	}
+	catch (const std::exception& ex)
+	{
+		response = "";
+
+		if (mainLogger) { mainLogger->error("Error in Get_PlayBackUrl: {}", ex.what()); }
+		else { std::cout << ex.what() << std::endl; }
+	}
+	if (mainLogger) { mainLogger->debug("Get_PlayBackUrl, response: {}", response); }
+	return response;
+}
+
+string Get_PlayBackUrl(connection_hdl hdl, string cameraId, int start_time_ofplaybackfile, int end_time_ofplaybackfile) {
+
+	if (mainLogger) { mainLogger->debug("Get_PlayBackUrl, cameraId: {}, start_time_ofplaybackfile: {}, end_time_ofplaybackfile: {}", cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile); }
+	// print the start and end time of playback file
+	std::cout << "start_time_ofplaybackfile: " << start_time_ofplaybackfile << ", end_time_ofplaybackfile: " << end_time_ofplaybackfile << std::endl;
+	string response;
+	string cameraId_instring = cameraId;
+	string seekVideo = "";
+
+	std::string endpoint = "/url/GetExportUrl?cameraId=" + cameraId_instring + "&startTime=" + to_string(start_time_ofplaybackfile) + "&endTime=" + to_string(end_time_ofplaybackfile);
+	if (cameraId == "") {
+		return response;
+	}
+	try
+	{
+		std::string url = "http://" + playerServerIp + ":" + to_string(playerServerPort) + endpoint;
+		auto res = cpr::Get(cpr::Url{ url });
+
+		if (res.status_code == 200) {
+			if (res.text == "URL_Server_Not_Connected") { return "URL_Server_Not_Connected"; }
+			string json = res.text;
+			Json::Reader reader;
+			Json::Value root;
+			bool parseSuccess = reader.parse(json, root, false);
+			if (parseSuccess)
+			{
+				Json::Value resultValue = root["ExportedVideoUrl"];
+				if (resultValue.asString() == "") {
+					resultValue = root["ExportedVideoUrl"];
+				}
+				Json::Value resultValue1 = root["ExportId"];
+				if (resultValue1.asString() == "") {
+					resultValue1 = root["ExportId"];
+				}
 
 				response = resultValue.asString();
 				response.erase(std::remove(response.begin(), response.end(), '\"'), response.end());

@@ -97,6 +97,69 @@ namespace PlayerServer.Controllers
                     obj.GetEventPlaybackUrlResult = currentUrl;
                 }
                 url = JsonConvert.SerializeObject(obj);
+                Console.WriteLine(url);
+
+                return Ok(url);
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message.Contains("No connection could be made because the target machine actively refused it."))
+                {
+                    return Ok("URL_Server_Not_Connected");
+                }
+                else
+                {
+                    return BadRequest();
+                }
+            }
+        }
+
+        [HttpGet]
+        [Route("~/url/GetExportUrl")]
+        public async Task<IActionResult> GetExportUrl(string cameraId, long startTime, long endTime)
+        {
+            Console.WriteLine("Route -> ~/url/GetExportUrl");
+            try
+            {
+                var url = await _playerUrlService.GetExportUrl(cameraId, startTime, endTime);
+                var obj = JsonConvert.DeserializeObject<dynamic>(url);
+                string currentUrl = "";
+                if (obj != null)
+                {
+                    //"ErrorMessage" is present and is not null
+                    if (url.Contains("IsSuccess") && obj.IsSuccess == false)
+                    {
+                        return StatusCode(500, obj.ErrorMessage.ToString());
+                    }
+                    
+                    if (url.Contains("ExportedVideoUrl"))
+                    {
+                        currentUrl = obj.ExportedVideoUrl.ToString();
+                    }
+                }
+
+                if (currentUrl.Contains("127.0.0.1") || currentUrl.Contains("localhost"))
+                {
+                    if (ServerDetails.isVPN)
+                    {
+                        currentUrl = currentUrl.Replace("127.0.0.1", ServerDetails.ReturnIp);
+                        currentUrl = currentUrl.Replace("localhost", ServerDetails.ReturnIp);
+                    }
+                    else
+                    {
+                        string clientIp = HttpContext.Connection.RemoteIpAddress.ToString();
+                        var hostIP = CommonMethods.GetBindIP(clientIp);
+                        currentUrl = currentUrl.Replace("127.0.0.1", hostIP);
+                        currentUrl = currentUrl.Replace("localhost", hostIP);
+                    }
+
+                }
+                if (obj != null)
+                {
+                    obj.ExportedVideoUrl = currentUrl;
+                }
+                url = JsonConvert.SerializeObject(obj);
+                Console.WriteLine(url);
 
                 return Ok(url);
             }

@@ -18,7 +18,7 @@ class I2vSdk {
     }
 
     GetLivePlayer(elId: any, cameraId: number, streamtype: number, analyticType: string, connectionmode: string) {
-        this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, analyticType, connectionmode, this.clVersion, this.useSecureConnection);
+        this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, 0, analyticType, connectionmode, this.clVersion, this.useSecureConnection);
         this.player.wPlayerIp = this.wPlayerIp;
         this.player.wServerIp = this.wServerIp;
         this.player.wServerPort = this.wServerPort;
@@ -26,8 +26,8 @@ class I2vSdk {
         return this.player;
     }
 
-    GetPlaybackPlayer(elId: any, cameraId: number, startTime: number, _playbackviaapache: string) {
-        this.player = new I2vPlayer(elId, cameraId, "PlayBack", 0, startTime, "", "tcp", this.clVersion, this.useSecureConnection);
+    GetPlaybackPlayer(elId: any, cameraId: number, startTime: number, endTime: number, _playbackviaapache: string) {
+        this.player = new I2vPlayer(elId, cameraId, "PlayBack", 0, startTime, endTime, "", "tcp", this.clVersion, this.useSecureConnection);
         this.player.wPlayerIp = this.wPlayerIp;
         this.player.wServerIp = this.wServerIp;
         this.player.wServerPort = this.wServerPort;
@@ -56,6 +56,7 @@ class I2vPlayer {
     mode: string;
     streamType: number;
     startTime: number;
+    endTime: number;
     analyticType: string;
     connectionMode: string = "tcp";
     wServerIp: string;
@@ -88,12 +89,13 @@ class I2vPlayer {
     status: any;
     svVersion: any;
 
-    constructor(elId: any, cameraId: number, mode: string, streamtype: number, startTime: number, _analyticType: string, _connectionmode: string, _clVersion: string, useSecureConnection: boolean) {
+    constructor(elId: any, cameraId: number, mode: string, streamtype: number, startTime: number, endTime: number, _analyticType: string, _connectionmode: string, _clVersion: string, useSecureConnection: boolean) {
         this.elId = elId;
         this.cameraId = cameraId;
         this.mode = mode;
         this.streamType = streamtype;
         this.startTime = startTime;
+        this.endTime = endTime;
         this.analyticType = _analyticType;
         this.connectionMode = _connectionmode;
         this.clVersion = _clVersion;
@@ -172,7 +174,7 @@ class I2vPlayer {
         if (!this.IsEmptyUrl) this.showErrorMessage("Trying to Connect...");
         this.IsPlayerServerConnected = false;
         this.URL_Server_Not_Connected = false;
-        this.w = new WebSocket(`${protocolType}://${this.wPlayerIp}:${port}?cameraId~~${this.cameraId}&&mode~~${this.mode}&&streamType~~${this.streamType}&&startTime~~${this.startTime}&&analyticType~~${this.analyticType}&&connectionMode~~${this.connectionMode}&&wServerIp~~${this.wServerIp}&&wServerPort~~${this.wServerPort}&&clVersion~~${this.clVersion}`);
+        this.w = new WebSocket(`${protocolType}://${this.wPlayerIp}:${port}?cameraId~~${this.cameraId}&&mode~~${this.mode}&&streamType~~${this.streamType}&&startTime~~${this.startTime}&&endTime~~${this.endTime}&&analyticType~~${this.analyticType}&&connectionMode~~${this.connectionMode}&&wServerIp~~${this.wServerIp}&&wServerPort~~${this.wServerPort}&&clVersion~~${this.clVersion}`);
 
         this.w.binaryType = 'arraybuffer';
 
@@ -456,7 +458,7 @@ class I2vPlayer {
 
     Createjmuxerobject() {
         this.jmuxer = null;
-        if (this.v) {
+        if (this.v) {   
             this.jmuxer = new JMuxer({
                 node: this.v.id,
                 debug: false,
