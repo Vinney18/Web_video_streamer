@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Testing...</title>
+    <title>Test</title>
     <script type="text/javascript" src="moment.min.js"></script>
     <style>
         .input-group {
@@ -295,7 +295,8 @@
             var imgData = playerObj.getBase64SnapshotUrl()
             var a = document.createElement("a"); //Create <a>
             a.href = imgData; //Image Base64 Goes here
-            a.download = "Image.jpeg"; //File name Here
+            // name based on current time and date + camera id
+            a.download = "snapshot_" + document.getElementById("cameraId").value + "_" + new Date().toISOString().replace(/:|\./g, "_") + ".jpeg"; //File name Here
             a.click();
         }
 
