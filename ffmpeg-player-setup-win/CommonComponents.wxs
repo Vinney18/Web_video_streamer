@@ -2,12 +2,6 @@
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
 	<Fragment>
 
-		<ComponentGroup Id="ConfigComponents" Directory="CONFIGFOLDER">
-			<Component Id="f4a7314c3d2c4fb4b71ffc3f5a3d1f8d" Guid="*">
-				<File Source="web_player/readme.txt" />
-			</Component>
-		</ComponentGroup>
-
 		<ComponentGroup Id="StreamerConfigComponents" Directory="CONFIGFOLDER">
 			<Component Id="f5b7314c3d2c4fb4b81ffc3f4a3d1f8d" Guid="*">
 				<File Source="../streamer/build/Release/data/config/mainConf.json" />

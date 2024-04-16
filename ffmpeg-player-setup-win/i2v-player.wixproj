@@ -64,7 +64,6 @@
     <Content Include="web_player\moment.min.js" />
     <Content Include="web_player\package-lock.json" />
     <Content Include="web_player\package.json" />
-    <Content Include="web_player\readme.txt" />
     <Content Include="web_player\tsconfig.json" />
   </ItemGroup>
   <ItemGroup>
@@ -81,8 +80,8 @@
     <MakeDir Directories="$(OutDir)" />
     <Exec WorkingDirectory="$(OutDir)" Command="$(MSBuildProjectDirectory)\prebuild.bat" />
     <!-- heat to HeatGeneratedFileList.wxs -->
-	 <!-- "C:\Program Files (x86)\WiX Toolset v3.11\bin\heat.exe" dir ..\streamer\build\Release -cg HeatGenerated -dR INSTALLFOLDER -sreg -srd -var HarvestPath -ag -sfrag -out HeatGeneratedFileList.wxs--> 
-	  <!-- <HeatDirectory Directory="../build/streamer/Release" OutputFile="$(MSBuildProjectDirectory)\HeatGeneratedFileList.wxs" ComponentGroupName="StreamerComponents" DirectoryRefId="INSTALLFOLDER" AutogenerateGuids="true" SuppressCom="true" SuppressFragments="true" SuppressRegistry="true" SuppressRootDirectory="true" SuppressUniqueIds="false" ToolPath="$(WixToolPath)" PreprocessorVariable="var.HarvestPath" /> -->
+    <!-- "C:\Program Files (x86)\WiX Toolset v3.11\bin\heat.exe" dir ..\streamer\build\Release -cg HeatGenerated -dR INSTALLFOLDER -sreg -srd -var HarvestPath -ag -sfrag -out HeatGeneratedFileList.wxs-->
+    <!-- <HeatDirectory Directory="../build/streamer/Release" OutputFile="$(MSBuildProjectDirectory)\HeatGeneratedFileList.wxs" ComponentGroupName="StreamerComponents" DirectoryRefId="INSTALLFOLDER" AutogenerateGuids="true" SuppressCom="true" SuppressFragments="true" SuppressRegistry="true" SuppressRootDirectory="true" SuppressUniqueIds="false" ToolPath="$(WixToolPath)" PreprocessorVariable="var.HarvestPath" /> -->
   </Target>
   <!--
 	To modify your build process, add your task inside one of the targets below and uncomment it.

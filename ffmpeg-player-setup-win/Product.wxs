@@ -14,7 +14,6 @@
     <Feature Id="ProductFeature" Title="i2v_player" Level="1">
       <ComponentGroupRef Id="MainApplicationComponents" />
       <ComponentGroupRef Id="ProductComponents" />
-      <ComponentGroupRef Id="ConfigComponents" />
 	  <ComponentGroupRef Id="StreamerConfigComponents" />
       <!--<ComponentGroupRef Id="SystemFolderComponentss" />-->
       

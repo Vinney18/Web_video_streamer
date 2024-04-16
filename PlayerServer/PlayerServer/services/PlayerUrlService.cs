@@ -61,28 +61,47 @@ namespace PlayerServer.services
 
         public async Task<string> GetExportUrl(string cameraId, long start_time, long end_time)
         {
-            
-            var httpResponse = await httpClient.GetAsync("/RestService/server/GetExportVideoUrl?cameraId=" + cameraId + "&startTime=" + start_time + "&endTime=" + end_time + "&fileFormat=ts");
-            if (httpResponse.StatusCode == System.Net.HttpStatusCode.OK)
+            try
             {
-                Console.WriteLine("requesting export url for time range");
-                Console.WriteLine(httpResponse.RequestMessage.RequestUri);
-                Console.WriteLine("for camera id: " + cameraId);
-                Console.WriteLine("server ip: " + httpClient.BaseAddress);
-                Console.WriteLine("start time: " + DateTimeOffset.FromUnixTimeSeconds(start_time).LocalDateTime);
-                Console.WriteLine("end time: " + DateTimeOffset.FromUnixTimeSeconds(end_time).LocalDateTime);
-                Console.WriteLine(await httpResponse.Content.ReadAsStringAsync());
-                return await httpResponse.Content.ReadAsStringAsync();
+                // testing...
+                // DateTime startDateTime = new DateTime(1970, 1, 1, 0, 0, 0).AddSeconds(start_time)
+                //     .ToLocalTime();
+                // Console.WriteLine(startDateTime);
+                // var epoch = new DateTime(1970, 1, 1, 0, 0, 0);
+                // var timeSpan = startDateTime - epoch;
+                // Console.WriteLine(Convert.ToInt64(timeSpan.TotalSeconds));
+                // Console.WriteLine(CommonMethods.GetDateTimeFromLong(Convert.ToInt64(timeSpan.TotalSeconds)));
+
+                long startTimeLocal = CommonMethods.ConvertGMTToLocalUnixTime(start_time);
+                long endTimeLocal = CommonMethods.ConvertGMTToLocalUnixTime(end_time);
+                var httpResponse = await httpClient.GetAsync("/RestService/server/GetExportVideoUrl?cameraId=" + cameraId + "&startTime=" + startTimeLocal + "&endTime=" + endTimeLocal + "&fileFormat=ts");
+                if (httpResponse.StatusCode == System.Net.HttpStatusCode.OK)
+                {
+                    Console.WriteLine("requesting export url for time range");
+                    Console.WriteLine(httpResponse.RequestMessage.RequestUri);
+                    Console.WriteLine("for camera id: " + cameraId);
+                    Console.WriteLine("server ip: " + httpClient.BaseAddress);
+                    Console.WriteLine("start time: " + DateTimeOffset.FromUnixTimeSeconds(start_time).LocalDateTime);
+                    Console.WriteLine("end time: " + DateTimeOffset.FromUnixTimeSeconds(end_time).LocalDateTime);
+                    Console.WriteLine(await httpResponse.Content.ReadAsStringAsync());
+                    return await httpResponse.Content.ReadAsStringAsync();
+                }
+                else
+                {
+                    // endpoint
+                    Console.WriteLine(httpResponse.RequestMessage.RequestUri);
+                    Console.WriteLine(httpResponse.StatusCode);
+                    // respnse err
+                    Console.WriteLine(await httpResponse.Content.ReadAsStringAsync());
+                }
+                return "";
+
             }
-            else
+            catch (Exception e)
             {
-                // endpoint
-                Console.WriteLine(httpResponse.RequestMessage.RequestUri);
-                Console.WriteLine(httpResponse.StatusCode);
-                // respnse err
-                Console.WriteLine(await httpResponse.Content.ReadAsStringAsync());
+                Console.WriteLine(e);
+                throw;
             }
-            return "";
         }
 
         public async Task<string> SeekVideo(int cameraId, long time, long seekTime, int sessionId)
@@ -273,6 +292,47 @@ namespace PlayerServer.services
             ipInUint += (uint)byteIP[0];
             return ipInUint;
 
+        }
+
+        public static long GetUnixLongTime(DateTime strTime)
+        {
+            DateTime startTime = TimeZone.CurrentTimeZone.ToLocalTime(new System.DateTime(1970, 1, 1)); 
+            return (long)(strTime - startTime).TotalSeconds; 
+        }
+        public static DateTime GetDateTimeFromLong(long time)
+        {
+            DateTime startDateTime = TimeZone.CurrentTimeZone.ToLocalTime(new System.DateTime(1970, 1, 1)); 
+            return startDateTime.AddSeconds(time);
+        }
+        
+        /// <summary>
+        ///  Takes a Unix time in seconds and converts it to a DateTimeOffset object in the local time zone.
+        ///  Accounts for daylight saving time.
+        /// </summary>
+        /// <param name="gmtUnixTime"></param>
+        /// <returns></returns>
+        public static long ConvertGMTToLocalUnixTime(long gmtUnixTime)
+        {
+            // Convert GMT Unix time to DateTimeOffset
+            DateTimeOffset gmtDateTimeOffset = DateTimeOffset.FromUnixTimeSeconds(gmtUnixTime);
+
+            // Get local time zone
+            TimeZoneInfo localTimeZone = TimeZoneInfo.Local;
+
+            // Convert to local time
+            DateTimeOffset localDateTimeOffset;
+
+            if (localTimeZone.IsDaylightSavingTime(gmtDateTimeOffset))
+            {
+                localDateTimeOffset = gmtDateTimeOffset.ToOffset(localTimeZone.GetUtcOffset(gmtDateTimeOffset)).AddHours(1);
+            }
+            else
+            {
+                localDateTimeOffset = gmtDateTimeOffset.ToLocalTime();
+            }
+
+            // Get local Unix time in seconds
+            return localDateTimeOffset.ToUnixTimeSeconds();
         }
     }
 }
