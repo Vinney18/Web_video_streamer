@@ -144,6 +144,7 @@ void on_open(connection_hdl hdl) {
 		string analyticType = "";
 		string connectionmode = "tcp";
 		string clVersion = "";
+		float playbackSpeed = 1.0;
 
 		//used to get data from methods
 		string url;
@@ -184,6 +185,12 @@ void on_open(connection_hdl hdl) {
 			else if (key == "wServerIp") checkConfigFileIp(hdl, value);
 			else if (key == "wServerPort") checkConfigFilePort(stoi(value));
 			else if (key == "clVersion" && value != "") clVersion = value;
+			else if (key == "playbackSpeed" && value != "") {
+				playbackSpeed = stof(value);
+				// should be between 0.5 to 5
+				if (playbackSpeed < 0.5) playbackSpeed = 0.5;
+				if (playbackSpeed > 5) playbackSpeed = 5;
+			}
 		}
 
 		if (mode == "Live") {
@@ -231,7 +238,7 @@ void on_open(connection_hdl hdl) {
 			else {
 				//cout << "CameraId- " << cameraId << ", count()- " << ffmpegList.count(keyValue) << endl;
 				auto ffmpeg = make_shared<FFmpegWrapper>(cameraId, url, mode, seekTime_ofFile, &SendData, &SendStringData,
-					connectionmode, playerServerIp, playerServerPort, mainLogger);
+					connectionmode, playerServerIp, playerServerPort, mainLogger, playbackSpeed);
 				ffmpegList.insert(std::make_pair(keyValue, ffmpeg));
 				ffmpeg->startThread();
 			}
@@ -244,7 +251,7 @@ void on_open(connection_hdl hdl) {
 			string keyValue = to_string(random) + "~~" + mode;
 			//cout << ", Random- " << random << ", CameraId - " << cameraId << ", count() - " << ffmpegList.count(cameraId) << endl;
 			auto ffmpeg = make_shared<FFmpegWrapper>(cameraId, url, mode, seekTime_ofFile, &SendData, &SendStringData,
-				connectionmode, playerServerIp, playerServerPort, mainLogger);
+				connectionmode, playerServerIp, playerServerPort, mainLogger, playbackSpeed);
 			ffmpegList.insert(std::make_pair(keyValue, ffmpeg));
 			ffmpeg->startThread();
 			ffmpegList[keyValue]->addConnection(hdl);
@@ -334,26 +341,30 @@ void on_message(websocketpp::server<websocketpp::config::asio>* s, connection_hd
 		auto  size = servStatus.size();
 		websocket_server.send(hdl, str, size, websocketpp::frame::opcode::TEXT);
 	}
+	else if (boost::starts_with(messagestring, "FastForward"))
+	{
+		string id = connectionsIdMap[hdl.lock()];
+		string speed = messagestring.substr(11);
+		if (speed.empty()) return;
+		float speed_float = stof(speed);
+		if (speed_float >= 0)
+		{
+			ffmpegList[id]->FastForward_video(speed_float);
+		}
+	}
 }
 
 void SendData(websocketpp::connection_hdl& con_hndl, vector<uint8_t>& data, int64_t timestamp) {
 	try
 	{
-		if (timestamp < 0) {
-			auto dataPtr = data.data();
-			auto size = data.size();
-			websocket_server.send(con_hndl, dataPtr, size, websocketpp::frame::opcode::BINARY);
-		}
-		else {
-			std::vector<uint8_t> v;
-			v.reserve(sizeof(timestamp));
-			for (size_t i = 0; i < sizeof(timestamp); ++i) {
-				v.push_back(timestamp & 0xFF);
-				timestamp >>= 8;
-			}
-			v.insert(v.end(), data.begin(), data.end());
-			websocket_server.send(con_hndl, v.data(), v.size(), websocketpp::frame::opcode::BINARY);
-		}
+		if (timestamp >= 0) {
+            data.insert(data.begin(), sizeof(timestamp), 0);
+            for (size_t i = 0; i < sizeof(timestamp); ++i) {
+                data[i] = timestamp & 0xFF;
+                timestamp >>= 8;
+            }
+        }
+        websocket_server.send(con_hndl, data.data(), data.size(), websocketpp::frame::opcode::BINARY);
 	}
 	catch (const std::exception& ex)
 	{

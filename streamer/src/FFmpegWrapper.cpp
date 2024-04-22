@@ -77,7 +77,7 @@ void FFmpegWrapper::readInput()
 	AVPixelFormat pixFormat;
 
 	//Control input frame rate
-	int sleepTime = 0;
+	sleepTime = 0;
 	if (inputFPS == 0 || inputFPS < 0 || inputFPS > 100) {
 		inputFPS = 25;
 	}
@@ -127,6 +127,7 @@ void FFmpegWrapper::readInput()
 					position = round((this->inputFormatCtx->streams[videoStream]->cur_dts - firstDts) * this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den);
 				}
 
+				// h265
 				if (!connections[rgba].empty())
 				{
 					avcodec_decode_video2(decoderCodecContext, pFrame, &frameFinished, &packet);
@@ -214,6 +215,7 @@ void FFmpegWrapper::readInput()
 					}
 				}
 
+				// h264
 				if (!connections[mp4].empty())
 				{
 					if (frameNumber == 1)
@@ -229,7 +231,7 @@ void FFmpegWrapper::readInput()
 					}
 
 					if (!isLiveMode()) {
-						if (frameNumber == inputFPS) { sleepTime = int(1000 / inputFPS); sendData = true; SendVideoStartedEvent(); }
+						if (frameNumber == inputFPS) { sleepTime = int(1000 /  (inputFPS * fastForwardFactor)); sendData = true; SendVideoStartedEvent(); }
 						while (!canSend && !mStop)
 						{
 							try
@@ -584,6 +586,17 @@ void FFmpegWrapper::seek_video(int time_toSeek_insec)
 			if (logger) { logger->error("Exception while seek video: {}", ex.what()); }
 			else { std::cout << "Exception while seek video: " << ex.what() << std::endl; }
 		}
+	}
+}
+
+//FastForward_video
+void FFmpegWrapper::FastForward_video(float speed)
+{
+	if (speed > 0)
+	{
+		fastForwardFactor = speed;
+		// set sleepTime
+		sleepTime = int(1000 / (inputFPS * fastForwardFactor));
 	}
 }
 

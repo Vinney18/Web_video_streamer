@@ -6,7 +6,7 @@
 #define MAIN_COMMON_H
 
 namespace i2v {
-    static const std::string VERSION = "7.0.2";
+    static const std::string VERSION = "7.1.0";
 
     static const std::string LOG_FOLDER_NAME = "logs";
     static const std::string CONFIG_FOLDER_NAME = "config";

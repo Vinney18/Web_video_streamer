@@ -1,7 +1,7 @@
 declare var JMuxer: any;
 
 class I2vSdk {
-    clVersion: string = "7.0.0";
+    clVersion: string = "7.1.0";
     wPlayerIp: string = "localhost";
     wServerIp: string;
     wServerPort: any = 8890;
@@ -26,8 +26,8 @@ class I2vSdk {
         return this.player;
     }
 
-    GetPlaybackPlayer(elId: any, cameraId: number, startTime: number, endTime: number, _playbackviaapache: string) {
-        this.player = new I2vPlayer(elId, cameraId, "PlayBack", 0, startTime, endTime, "", "tcp", this.clVersion, this.useSecureConnection);
+    GetPlaybackPlayer(elId: any, cameraId: number, startTime: number, endTime: number, _playbackviaapache: string, playbackSpeed: number = 1) {
+        this.player = new I2vPlayer(elId, cameraId, "PlayBack", 0, startTime, endTime, "", "tcp", this.clVersion, this.useSecureConnection, playbackSpeed);
         this.player.wPlayerIp = this.wPlayerIp;
         this.player.wServerIp = this.wServerIp;
         this.player.wServerPort = this.wServerPort;
@@ -44,6 +44,12 @@ class I2vSdk {
     Pause() {
         if (this.player && this.player.mode != "Live") {
             this.player.Pause();
+        }
+    }
+
+    FastForward(factor: number) {
+        if (this.player && this.player.mode != "Live") {
+            this.player.FastForward(factor);
         }
     }
 }
@@ -89,7 +95,9 @@ class I2vPlayer {
     status: any;
     svVersion: any;
 
-    constructor(elId: any, cameraId: number, mode: string, streamtype: number, startTime: number, endTime: number, _analyticType: string, _connectionmode: string, _clVersion: string, useSecureConnection: boolean) {
+    playbackSpeed: number = 1;
+
+    constructor(elId: any, cameraId: number, mode: string, streamtype: number, startTime: number, endTime: number, _analyticType: string, _connectionmode: string, _clVersion: string, useSecureConnection: boolean, playbackSpeed: number = 1) {
         this.elId = elId;
         this.cameraId = cameraId;
         this.mode = mode;
@@ -100,6 +108,15 @@ class I2vPlayer {
         this.connectionMode = _connectionmode;
         this.clVersion = _clVersion;
         this.useSecureConnection = useSecureConnection;
+        // only speed allowed is in range 0.5 to 5, with 0.5 step, 1 is default,
+        // validation for playback speed, round off to closest value
+        if (playbackSpeed < 0.5) playbackSpeed = 0.5;
+        if (playbackSpeed > 5) playbackSpeed = 5;
+        playbackSpeed = Math.round(playbackSpeed * 2) / 2;
+        console.log("playbackSpeed Allowed: 0.5 to 5, with 0.5 step, 1 is default")
+        console.log("playbackSpeed: " + playbackSpeed)
+        this.playbackSpeed = playbackSpeed;
+
 
         if (!this.analyticType) this.analyticType = "";
 
@@ -174,7 +191,7 @@ class I2vPlayer {
         if (!this.IsEmptyUrl) this.showErrorMessage("Trying to Connect...");
         this.IsPlayerServerConnected = false;
         this.URL_Server_Not_Connected = false;
-        this.w = new WebSocket(`${protocolType}://${this.wPlayerIp}:${port}?cameraId~~${this.cameraId}&&mode~~${this.mode}&&streamType~~${this.streamType}&&startTime~~${this.startTime}&&endTime~~${this.endTime}&&analyticType~~${this.analyticType}&&connectionMode~~${this.connectionMode}&&wServerIp~~${this.wServerIp}&&wServerPort~~${this.wServerPort}&&clVersion~~${this.clVersion}`);
+        this.w = new WebSocket(`${protocolType}://${this.wPlayerIp}:${port}?cameraId~~${this.cameraId}&&mode~~${this.mode}&&streamType~~${this.streamType}&&startTime~~${this.startTime}&&endTime~~${this.endTime}&&analyticType~~${this.analyticType}&&connectionMode~~${this.connectionMode}&&wServerIp~~${this.wServerIp}&&wServerPort~~${this.wServerPort}&&clVersion~~${this.clVersion}&&playbackSpeed~~${this.playbackSpeed}`);
 
         this.w.binaryType = 'arraybuffer';
 
@@ -392,12 +409,10 @@ class I2vPlayer {
                     var mp4Data: Uint8Array;
                     if (this.mode !== "Live") {
                         var incomingData: ArrayBuffer = (e.data as ArrayBuffer);
-                        var timestamp8byte = new Uint8Array(incomingData.slice(0, 8));
-                        var timestamp = 0;
-                        for (var i = timestamp8byte.length - 1; i >= 0; i--) {
-                            timestamp = timestamp * 256 + timestamp8byte[i];
-                        }
-                        this.status = timestamp;
+                        // optimized, but not being used
+                        // let dataView = new DataView(incomingData.slice(0, 8));
+                        // let timestamp = dataView.getUint32(0) * 0x100000000 + dataView.getUint32(4);
+                        // this.status = timestamp;
                         mp4Data = new Uint8Array(incomingData.slice(8));
                     }
                     else {
@@ -412,24 +427,22 @@ class I2vPlayer {
                 else {
                     //h265 video
                     //can be both liveview and playback
-                    var rgbaData: Uint8ClampedArray;
+                    let rgbaData: Uint8ClampedArray;
 
                     if (this.mode !== "Live") {
-                        var incomingData: ArrayBuffer = (e.data as ArrayBuffer);
-                        var timestamp8byte = new Uint8Array(incomingData.slice(0, 8));
-                        var timestamp = 0;
-                        for (var i = timestamp8byte.length - 1; i >= 0; i--) {
-                            timestamp = timestamp * 256 + timestamp8byte[i];
-                        }
-                        this.status = timestamp;
+                        const incomingData: ArrayBuffer = e.data;
+                        // optimized, but not being used
+                        // const dataView = new DataView(incomingData.slice(0, 8));
+                        // const timestamp = dataView.getUint32(0) * 0x100000000 + dataView.getUint32(4);
+                        // this.status = timestamp;
                         rgbaData = new Uint8ClampedArray(incomingData.slice(8));
                     } else {
                         rgbaData = new Uint8ClampedArray(e.data);
                     }
-                    var canvas = document.getElementById(`${this.elId}_canvas`);
+                    const canvas = document.getElementById(`${this.elId}_canvas`);
 
                     if (canvas) {
-                        var ctxaaa = (canvas as HTMLCanvasElement).getContext('2d');
+                        const ctxaaa = (canvas as HTMLCanvasElement).getContext('2d');
                         ctxaaa.clearRect(0, 0, this.width, this.height);
                     }
                     var ctx1 = this.c.getContext('2d');
@@ -464,7 +477,7 @@ class I2vPlayer {
                 debug: false,
                 mode: 'video',
                 flushingTime: 0,
-                fps: 30
+                fps: 30 * this.playbackSpeed
             });
         }
     }
@@ -566,6 +579,13 @@ class I2vPlayer {
     SeekVideo(starttime: string) {
         if (this.w) {
             this.w.send("seek_Time" + starttime);
+        }
+    }
+
+    FastForward(factor: number) {
+        this.playbackSpeed = factor;
+        if (this.w) {
+            this.w.send("FastForward" + factor);
         }
     }
 }

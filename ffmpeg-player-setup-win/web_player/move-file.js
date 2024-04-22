@@ -9,8 +9,8 @@ const sourceDir = // current directory
 const destinationDir = '../../PlayerServer/PlayerServer/wwwroot/player';
 
 // Define files to move
-const filesToCopy = ['index.html', 'build/i2v_player.min.js', 'moment.min.js'];
-const filestoCopyTo = ['index.html', 'i2v_player.min.js', 'moment.min.js'];
+const filesToCopy = ['index.html', 'build/i2v_player.min.js', 'build/i2v-player.js', 'moment.min.js', 'jmuxer.js'];
+const filestoCopyTo = ['index.html', 'i2v_player.min.js', 'i2v-player.js', 'moment.min.js', 'jmuxer.js'];
 // Create destination directory if it doesn't exist
 if (!fs.existsSync(destinationDir)) {
   fs.mkdirSync(destinationDir, { recursive: true });

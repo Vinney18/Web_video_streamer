@@ -156,7 +156,8 @@
             outline: none;
             box-shadow: none;
         }
-        .select-dropdown label{
+
+        .select-dropdown label {
             margin-left: 7px;
             font-size: 12px;
             font-weight: bold;
@@ -174,6 +175,10 @@
             border-top: 5px solid #aaa;
             border-right: 5px solid transparent;
             border-left: 5px solid transparent;
+        }
+
+        .slider {
+            padding: 0;
         }
 
         @media (max-width: 600px) {
@@ -263,13 +268,34 @@
                 <option value="v2" selected>v2</option>
             </select>
         </div>
+        <!-- input Range 0-10 for fast forward -->
+        <div class="form-item slider">
+            <input type="range" min="0.5" max="5" value="1" step="0.5" style="padding: 0;" id="fast_forward"
+                onchange="fastForward()" list="steps">
+            <label for="fast_forward">Fast Forward: 1x</label>
+
+            <datalist id="steps">
+                <option value="0.5" label="0.5x">
+                <option value="1" label="1x">
+                <option value="1.5" label="1.5x">
+                <option value="2" label="2x">
+                <option value="2.5" label="2.5x">
+                <option value="3" label="3x">
+                <option value="3.5" label="3.5x">
+                <option value="4" label="4x">
+                <option value="4.5" label="4.5x">
+                <option value="5" label="5x">
+            </datalist>    
+        </div>
     </div>
 
 
     <div class="video-container" id="viewInit"></div>
 
     <script src="i2v_player.min.js"></script>
-
+    <!-- On for debug -->
+    <!-- <script src="i2v-player.js"></script>
+    <script src="jmuxer.js"></script> -->
     <script>
         var sdk;
         var playerObj;
@@ -350,14 +376,14 @@
             startTime = moment(date + " " + startTime).unix();
             if (document.getElementById("version").value == "v1") {
                 endTime = 0;
-            } else
-            {
+            } else {
                 endTime = moment(date + " " + endTime).unix();
             }
-            var _playbackviaapache = "0";
 
+            var _playbackviaapache = "0";
+            var fastForwardValue = document.getElementById("fast_forward").value;
             //create new player object, video will start automatically
-            playerObj = sdk.GetPlaybackPlayer(viewIdManager, cameraId, startTime, endTime, _playbackviaapache);
+            playerObj = sdk.GetPlaybackPlayer(viewIdManager, cameraId, startTime, endTime, _playbackviaapache, fastForwardValue);
 
             //set Error callback for play method
             playerObj.setErrorCallback(function (err) {
@@ -378,6 +404,7 @@
             var a = document.createElement("a"); //Create <a>
             a.href = imgData; //Image Base64 Goes here
             // name based on current time and date + camera id
+            // date time in local time format DD-MM-YYYY_HH-MM-SS
             a.download = "snapshot_" + document.getElementById("cameraId").value + "_" + moment().local().format('DD-MM-YYYY_HH:mm:ss') + ".jpeg"; //File name Here
             a.click();
         }
@@ -421,6 +448,15 @@
             }
         }
 
+        // fast forward
+        function fastForward() {
+            var fastForwardValue = document.getElementById("fast_forward").value;
+            document.querySelector("label[for='fast_forward']").innerText = "Fast Forward: " + fastForwardValue + "x";
+            if (playerObj) {
+                playerObj.FastForward(fastForwardValue);
+            }
+        }
+
         function versionChange() {
             var version = document.getElementById("version").value;
             if (version == "v1") {
@@ -432,6 +468,49 @@
                 // show endTime
                 document.getElementById("end_time_form").style.display = "block";
             }
+        }
+        function isDaylightSavingTime(date) {
+            const january = new Date(date.getFullYear(), 0, 1);
+            const july = new Date(date.getFullYear(), 6, 1);
+            return date.getTimezoneOffset() < Math.max(january.getTimezoneOffset(), july.getTimezoneOffset());
+        }
+
+        // Apparently there is a thing called daylight saving time
+        // that messes up epoch by 1 hour, we need to account for that
+        // currently this function is only adding for dst
+        // Function to convert GMT epoch to local epoch
+
+        // NOTE: Not being Used, Handled in Player Server instead
+        function convertToLocalepoch(givenEpochTimestamp) {
+            // Get the current time zone offset in seconds
+            // let timezoneOffsetSeconds = new Date().getTimezoneOffset() * 60;
+
+            // // Create a Date object for the given epoch timestamp
+            let date = new Date(givenEpochTimestamp * 1000);
+
+            // Check if the given date is within daylight saving time
+            let isDst = isDaylightSavingTime(date);
+
+            // Adjust the offset for daylight saving time if necessary
+            if (isDst) {
+                givenEpochTimestamp += 3600; // Add 1 hour if in DST
+            }
+
+            // Convert the given epoch timestamp to local epoch timestamp
+            // let localEpochTimestamp = givenEpochTimestamp + timezoneOffsetSeconds;
+
+            return givenEpochTimestamp;
+        }
+
+        function getUnixTime(dateTime) {
+            // Create a new Date object for the Unix epoch (January 1, 1970)
+            var epoch = new Date(1970, 1, 1);
+
+            // Calculate the difference in milliseconds between the provided date and the Unix epoch
+            var milliseconds = dateTime - epoch.getTime();
+
+            // Convert milliseconds to seconds and return as a Unix timestamp
+            return Math.floor(milliseconds);
         }
 
     </script>

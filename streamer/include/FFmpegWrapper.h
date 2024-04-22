@@ -87,11 +87,13 @@ private:
 	InterruptParams params;
 
 	std::shared_ptr<spdlog::logger> logger;
+	float fastForwardFactor = 1;
+	int sleepTime = 0;
 	
 public:
 	FFmpegWrapper(string _cameraId, string _url, string _playmode, int start_seek_time, WebsocketDataCallback _websocketCallback,
 			WebsocketSDataCallback _websocketSCallback, string _connectionmode, string _serverIp, int _port,
-			std::shared_ptr<spdlog::logger> _logger) : Thread(), logger(std::move(_logger)) {
+			std::shared_ptr<spdlog::logger> _logger, float playbackSpeed) : Thread(), logger(std::move(_logger)) {
 		cameraId = _cameraId;
 		url = std::move(_url);
 		playmode = _playmode;
@@ -102,6 +104,7 @@ public:
 		connections = { {mp4, con_list()}, { rgba , con_list()} };
 		serverIp = _serverIp;
 		port = _port;
+		fastForwardFactor = playbackSpeed;
 	}
 
 	~FFmpegWrapper();
@@ -111,6 +114,7 @@ public:
 	void seek_video(int offset_time);
 	void Pause_video();
 	void SendVideoStartedEvent();
+	void FastForward_video(float factor);
 
 
 protected:

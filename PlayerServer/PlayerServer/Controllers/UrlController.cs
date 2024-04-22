@@ -103,6 +103,13 @@ namespace PlayerServer.Controllers
             }
             catch (Exception ex)
             {
+                // on for debugging
+                // TODO: make debug flag
+                // var url = @"{GetEventPlaybackUrlResult: 'D:\happytime-onvif-server\happytime-rtsp-server\sgv1.ts', Seek_Time_InSeconds: 0}";
+
+                // var obj = new { GetEventPlaybackUrlResult = @"http://192.168.1.9:9000//sgv1.ts", Seek_Time_InSeconds = 0 };
+                // url = JsonConvert.SerializeObject(obj);
+                // return Ok(url);
                 if (ex.Message.Contains("No connection could be made because the target machine actively refused it."))
                 {
                     return Ok("URL_Server_Not_Connected");
@@ -165,6 +172,11 @@ namespace PlayerServer.Controllers
             }
             catch (Exception ex)
             {
+                // var url = @"{GetEventPlaybackUrlResult: 'D:\happytime-onvif-server\happytime-rtsp-server\sgv1.ts', Seek_Time_InSeconds: 0}";
+
+                // var obj = new { ExportedVideoUrl = @"http://192.168.1.9:9000//face_det.ts", Seek_Time_InSeconds = 0 };
+                // url = JsonConvert.SerializeObject(obj);
+                // return Ok(url);
                 if (ex.Message.Contains("No connection could be made because the target machine actively refused it."))
                 {
                     return Ok("URL_Server_Not_Connected");
