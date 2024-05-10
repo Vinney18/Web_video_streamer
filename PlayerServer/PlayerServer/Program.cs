@@ -1,14 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 namespace PlayerServer
@@ -17,86 +13,58 @@ namespace PlayerServer
     {
         public static void Main(string[] args)
         {
+            var config = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .Build();
 
-            if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "config.json")))
+            var defaultPort = config.GetSection("DefaultPort").Value;
+            args = new string[] { defaultPort };
+            LoadConfig("config.json", (configObject) =>
             {
-                Console.WriteLine("json file exixts");
+                ServerDetails.AttachedServerIp = Convert.ToString(configObject["ServerIp"]);
+                ServerDetails.port = Convert.ToInt32(configObject["port"]);
+                ServerDetails.token = Convert.ToString(configObject["token"]);
+            }, new Dictionary<string, object> { { "ServerIp", "127.0.0.1" }, { "port", 8800 }, { "token", "" } });
 
-                var text = File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "config.json"));
-                if (!string.IsNullOrEmpty(text))
-                {
-                    var configObject = JsonConvert.DeserializeObject<Dictionary<string, object>>(text);
-                    if (configObject != null)
-                    {
-                        if (configObject.ContainsKey("ServerIp"))
-                        {
-                            ServerDetails.AttachedServerIp = Convert.ToString(configObject["ServerIp"]);
-                        }
-                        if (configObject.ContainsKey("port"))
-                        {
-                            ServerDetails.port = Convert.ToInt32(configObject["port"]);
-                        }
-                        if (configObject.ContainsKey("token"))
-                        {
-                            ServerDetails.token = Convert.ToString(configObject["token"]);
-                        }
-                        if (configObject.ContainsKey("PlayerServerPort"))
-                        {
-                            int port = Convert.ToInt32(configObject["PlayerServerPort"]);
-                            args = new List<string>() { port.ToString() }.ToArray();
-                        }
-                        else
-                        {
-                            args = new List<string>() { "8890" }.ToArray();
-                        }
-                    }
-                    else
-                    {
-                        args = new List<string>() { "8890" }.ToArray();
-                    }
-                }
-                else
-                {
-                    args = new List<string>() { "8890" }.ToArray();
-                }
-            }
-            else
+            LoadConfig("networkSetting.json", (configObject) =>
             {
-                Console.WriteLine("json file does not exixt");
-                Dictionary<string, object> serverDetails = new Dictionary<string, object>()
-                {
-                    {"ServerIp",ServerDetails.AttachedServerIp},
-                    {"port",ServerDetails.port},
-                    {"token",ServerDetails.token}
-                };
-                File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), "config.json"), JsonConvert.SerializeObject(serverDetails));
-                args = new List<string>() { "8890" }.ToArray();
-            }
+                ServerDetails.isVPN = Convert.ToBoolean(configObject["IsVPN"]);
+                ServerDetails.ReturnIp = Convert.ToString(configObject["ReturnIp"]);
+            }, new Dictionary<string, object> { { "IsVPN", false }, { "ReturnIp", "" } });
 
-            if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "networkSetting.json")))
-            {
-                var text = File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "networkSetting.json"));
-                if (!string.IsNullOrEmpty(text))
-                {
-                    var configObject = JsonConvert.DeserializeObject<Dictionary<string, object>>(text);
-                    if (configObject != null)
-                    {
-                        if (configObject.ContainsKey("IsVPN"))
-                        {
-                            ServerDetails.isVPN = Convert.ToBoolean(configObject["IsVPN"]);
-                        }
-                        if (configObject.ContainsKey("ReturnIp"))
-                        {
-                            ServerDetails.ReturnIp = Convert.ToString(configObject["ReturnIp"]);
-                        }
-                    }
-                }
-            }
             Licensing.LicenseManager.LoadLicense();
             CreateWebHostBuilder(args).Build().Run();
         }
 
-        public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
+        private static void LoadConfig(string fileName, Action<Dictionary<string, object>> action, Dictionary<string, object> defaultValues)
+        {
+            if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), fileName)))
+            {
+                var text = File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), fileName));
+                if (!string.IsNullOrEmpty(text))
+                {
+                    var configObject = JsonConvert.DeserializeObject<Dictionary<string, object>>(text);
+                    if (configObject != null)
+                    {
+                        action(configObject);
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"{fileName} is empty");
+                    File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), fileName), JsonConvert.SerializeObject(defaultValues));
+                }
+            }
+            else
+            {
+                Console.WriteLine($"{fileName} does not exist");
+                // create a new file with default json
+                File.WriteAllText(Path.Combine(Directory.GetCurrentDirectory(), fileName), JsonConvert.SerializeObject(defaultValues));
+            }
+        }
+
+        private static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
             WebHost.CreateDefaultBuilder(args)
                 .UseStartup<Startup>()
             .UseKestrel(options =>

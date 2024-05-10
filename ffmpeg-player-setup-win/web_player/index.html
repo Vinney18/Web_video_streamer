@@ -302,7 +302,7 @@
         var serverIp = "127.0.0.1"; //This is Ip of Player Server Module (Same as VMS if player server installed on same machine)
         var playerIp = "127.0.0.1"; //This is Ip of Player Stramer
         var UseSecureConnection = false;
-        var playerserverport = 8890;
+        var playerserverport = parseInt(window.location.port) || 8890;
         var viewIdManager = "viewInit";
 
         document.getElementById("date").defaultValue = moment().format('YYYY-MM-DD');
