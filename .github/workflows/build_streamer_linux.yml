@@ -63,13 +63,13 @@ jobs:
         asset_name: streamer-${{runner.os}}.zip
         asset_content_type: application/zip
 
-    - name: Push Docker image
-      run: |
-        docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-        cd /app/code/streamer/build/Release
-        rm -rf lib
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/streamer:${{ github.event.release.tag_name }} -f ${{github.workspace}}/streamer_github_action.Dockerfile .
-        docker push ${{ secrets.DOCKER_USERNAME }}/streamer:${{ github.event.release.tag_name }}
+    # - name: Push Docker image
+    #   run: |
+    #     docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+    #     cd /app/code/streamer/build/Release
+    #     rm -rf lib
+    #     docker build -t ${{ secrets.DOCKER_USERNAME }}/streamer:${{ github.event.release.tag_name }} -f ${{github.workspace}}/streamer_github_action.Dockerfile .
+    #     docker push ${{ secrets.DOCKER_USERNAME }}/streamer:${{ github.event.release.tag_name }}
         
     # - name: Upload release Folder as artifact
     #   uses: actions/upload-artifact@v4
