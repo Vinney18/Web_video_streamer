@@ -73,6 +73,9 @@ jobs:
     needs: build
 
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
     - name: make app directory
       run: |
         mkdir app
@@ -81,12 +84,9 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: streamer-${{runner.os}}
-        path: /app
-
 
     - name: Unzip release
       run: |
-        cd /app
         unzip streamer-${{runner.os}}.zip
 
     - name: Build Docker image
