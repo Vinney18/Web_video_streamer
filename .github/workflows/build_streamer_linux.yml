@@ -53,14 +53,10 @@ jobs:
 
     # upload release assets
     - name: Upload to release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: actions/upload-artifact@v2
       with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: /app/code/streamer/build/streamer-${{runner.os}}.zip
-        asset_name: streamer-${{runner.os}}.zip
-        asset_content_type: application/zip
+        name: streamer-${{runner.os}}.zip
+        path: /app/code/streamer/build/streamer-${{runner.os}}.zip
 
 
   build_docker_image:
