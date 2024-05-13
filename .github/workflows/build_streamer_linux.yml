@@ -75,8 +75,7 @@ jobs:
     - name: download release
       uses: actions/download-artifact@v2
       with:
-        name: streamer-${{runner.os}}
-        path: /app
+        name: streamer-${{runner.os}}.zip
 
     - name: Unzip release
       run: |
