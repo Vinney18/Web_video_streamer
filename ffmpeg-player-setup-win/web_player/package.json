@@ -1,6 +1,6 @@
 {
   "name": "@i2v-systems/i2v-web-player-sdk",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "",
   "main": "i2v-player.ts",
   "files": [

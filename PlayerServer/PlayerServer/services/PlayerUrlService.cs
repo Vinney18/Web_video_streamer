@@ -47,6 +47,27 @@ namespace PlayerServer.services
             return "";
         }
 
+        public async Task<string> GetLiveVaUrlAsync(string cameraId, int streamType, string analyticType, string vaServerId, string vaServerPipeId)
+        {
+            var restUrl = "/RestService/server/LiveVaUrl?cameraId=" + cameraId + "&streamType=" + streamType + "&analyticType=" + analyticType + "&vaServerId=" + vaServerId + "&vaServerPipeId=" + vaServerPipeId;
+            var httpResponse = await httpClient.GetAsync(restUrl);
+            if (httpResponse.StatusCode == System.Net.HttpStatusCode.OK)
+            {
+                var responseString = await httpResponse.Content.ReadAsStringAsync();
+                if (responseString.StartsWith("\""))
+                {
+                    var url = JsonConvert.DeserializeObject<string>(responseString);
+                    return url;
+                }
+                else
+                {
+                    return responseString;
+                }
+               
+            }
+            return "";
+        }
+        
         public async Task<string> GetPlaybackUrl(string cameraId, long time, bool streamviaapache)
         {
             DateTimeOffset dateTime = DateTimeOffset.FromUnixTimeSeconds(time);
