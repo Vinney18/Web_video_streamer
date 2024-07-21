@@ -1,24 +1,24 @@
 declare var JMuxer: any;
 
 class I2vSdk {
-    clVersion: string = "7.1.0";
+    clVersion: string = "7.2.0";
     wPlayerIp: string = "localhost";
     wServerIp: string;
     wServerPort: any = 8890;
     useSecureConnection: boolean = false;
     player: I2vPlayer;
+    vaServerId: string;
+    vaServerPipeId: string;
 
     constructor(_wPlayerIp: string, _wServerIp: string, _wServerPort?: any, useSecureConnection?: boolean) {
         this.wPlayerIp = _wPlayerIp;
         this.wServerIp = _wServerIp;
-        this.wServerPort = _wServerPort;
-        if (useSecureConnection) {
-            this.useSecureConnection = useSecureConnection;
-        }
+        this.wServerPort = _wServerPort || this.wServerPort;
+        this.useSecureConnection = useSecureConnection || this.useSecureConnection;
     }
 
-    GetLivePlayer(elId: any, cameraId: number, streamtype: number, analyticType: string, connectionmode: string) {
-        this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, 0, analyticType, connectionmode, this.clVersion, this.useSecureConnection);
+    GetLivePlayer(elId: any, cameraId: number, streamtype: number, analyticType: string, connectionmode: string, vaServerId?: string, vaServerPipeId?: string) {
+        this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, 0, analyticType, connectionmode, this.clVersion, this.useSecureConnection, 1, vaServerId, vaServerPipeId);
         this.player.wPlayerIp = this.wPlayerIp;
         this.player.wServerIp = this.wServerIp;
         this.player.wServerPort = this.wServerPort;
@@ -74,7 +74,7 @@ class I2vPlayer {
     w: WebSocket; //websocket client
     v: HTMLVideoElement; // Video element
     c: HTMLCanvasElement; // Canvas element
-    
+
     jmuxer: any;
     width: number;
     height: number;
@@ -96,8 +96,10 @@ class I2vPlayer {
     svVersion: any;
 
     playbackSpeed: number = 1;
+    vaServerId: string;
+    vaServerPipeId: string;
 
-    constructor(elId: any, cameraId: number, mode: string, streamtype: number, startTime: number, endTime: number, _analyticType: string, _connectionmode: string, _clVersion: string, useSecureConnection: boolean, playbackSpeed: number = 1) {
+    constructor(elId: any, cameraId: number, mode: string, streamtype: number, startTime: number, endTime: number, _analyticType: string, _connectionmode: string, _clVersion: string, useSecureConnection: boolean, playbackSpeed: number = 1, vaServerId: string = "", vaServerPipeId: string = "") {
         this.elId = elId;
         this.cameraId = cameraId;
         this.mode = mode;
@@ -116,6 +118,8 @@ class I2vPlayer {
         console.log("playbackSpeed Allowed: 0.5 to 5, with 0.5 step, 1 is default")
         console.log("playbackSpeed: " + playbackSpeed)
         this.playbackSpeed = playbackSpeed;
+        this.vaServerId = vaServerId;
+        this.vaServerPipeId = vaServerPipeId;
 
 
         if (!this.analyticType) this.analyticType = "";
@@ -191,7 +195,7 @@ class I2vPlayer {
         if (!this.IsEmptyUrl) this.showErrorMessage("Trying to Connect...");
         this.IsPlayerServerConnected = false;
         this.URL_Server_Not_Connected = false;
-        this.w = new WebSocket(`${protocolType}://${this.wPlayerIp}:${port}?cameraId~~${this.cameraId}&&mode~~${this.mode}&&streamType~~${this.streamType}&&startTime~~${this.startTime}&&endTime~~${this.endTime}&&analyticType~~${this.analyticType}&&connectionMode~~${this.connectionMode}&&wServerIp~~${this.wServerIp}&&wServerPort~~${this.wServerPort}&&clVersion~~${this.clVersion}&&playbackSpeed~~${this.playbackSpeed}`);
+        this.w = new WebSocket(`${protocolType}://${this.wPlayerIp}:${port}?cameraId~~${this.cameraId}&&mode~~${this.mode}&&streamType~~${this.streamType}&&startTime~~${this.startTime}&&endTime~~${this.endTime}&&analyticType~~${this.analyticType}&&connectionMode~~${this.connectionMode}&&wServerIp~~${this.wServerIp}&&wServerPort~~${this.wServerPort}&&clVersion~~${this.clVersion}&&playbackSpeed~~${this.playbackSpeed}&&vaServerId~~${this.vaServerId}&&vaServerPipeId~~${this.vaServerPipeId}`);
 
         this.w.binaryType = 'arraybuffer';
 
@@ -472,7 +476,7 @@ class I2vPlayer {
 
     Createjmuxerobject() {
         this.jmuxer = null;
-        if (this.v) {   
+        if (this.v) {
             this.jmuxer = new JMuxer({
                 node: this.v.id,
                 debug: false,

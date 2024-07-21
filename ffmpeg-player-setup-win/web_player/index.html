@@ -205,27 +205,35 @@
         <div class="form-item">
             <input class="input-field" id="elementId" placeholder="elementId" />
             <label for="elementId">Element ID:</label>
-
         </div>
         <div class="form-item">
             <input class="input-field" id="streamType" placeholder="streamType" />
             <label for="streamType">Stream Type:</label>
-
         </div>
         <div class="form-item">
             <input class="input-field" id="analyticType" placeholder="analyticType" />
             <label for="analyticType">Analytic Type:</label>
-
         </div>
         <div class="form-item">
             <input class="input-field" id="wServerIp" placeholder="localhost" />
             <label for="wServerIp">Server IP:</label>
-
         </div>
         <div class="form-item">
             <input class="input-field" id="wStreamerIp" placeholder="localhost" />
             <label for="wStreamerIp">Streamer IP:</label>
-
+        </div>
+        <div class="form-item">
+            <input class="input-field" id="vaServerId" placeholder="0000-0000-0000-0000" />
+            <label for="vaServerId">VA Server Id:</label>
+        </div>
+        <div class="form-item">
+            <input class="input-field" id="vaServerPipeId" placeholder="0000-0000-0000-0000" />
+            <label for="vaServerPipeId">VA Server Pipe Id:</label>
+        </div>
+        <!-- UseSecureConnection checkbox -->
+        <div class="input-group-radio">
+            <input type="checkbox" id="UseSecureConnection" />
+            <label for="UseSecureConnection">Use Secure Connection</label>
         </div>
     </div>
     <div class="button-group">
@@ -304,7 +312,8 @@
         var UseSecureConnection = false;
         var playerserverport = parseInt(window.location.port) || 8890;
         var viewIdManager = "viewInit";
-
+        var vaServerId;
+        var vaServerPipeId;
         document.getElementById("date").defaultValue = moment().format('YYYY-MM-DD');
 
         function initI2vSdk() {
@@ -312,6 +321,7 @@
                 serverIp = document.getElementById("wServerIp").value;
             if (document.getElementById("wStreamerIp").value)
                 playerIp = document.getElementById("wStreamerIp").value;
+            UseSecureConnection = document.getElementById("UseSecureConnection").checked;
             sdk = new I2vSdk(playerIp, serverIp, playerserverport, UseSecureConnection);
         }
 
@@ -324,6 +334,9 @@
             initI2vSdk();
             var cameraId = document.getElementById("cameraId").value;
             var playerDiv = document.getElementById(viewIdManager);
+            var vaServerId = document.getElementById("vaServerId").value;
+            var vaServerPipeId = document.getElementById("vaServerPipeId").value;
+            
             var inputElementId = document.getElementById("elementId").value;
             if (inputElementId) playerDiv.id = inputElementId;
             else playerDiv.id = Math.trunc(Math.random() * 1000);
@@ -340,7 +353,7 @@
 
 
             //create new player object, video will start automatically
-            playerObj = sdk.GetLivePlayer(viewIdManager, cameraId, streamType, analyticType, connectionMode);
+            playerObj = sdk.GetLivePlayer(viewIdManager, cameraId, streamType, analyticType, connectionMode, vaServerId, vaServerPipeId);
 
             //set Error callback for play method
             playerObj.setErrorCallback(function (err) {

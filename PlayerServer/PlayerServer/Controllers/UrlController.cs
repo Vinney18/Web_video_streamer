@@ -53,6 +53,46 @@ namespace PlayerServer.Controllers
                 }
             }
         }
+        
+        [HttpGet]
+        [Route("~/url/GetLiveVaUrl")]
+        public async Task<IActionResult> GetLiveVaUrlAsync(string cameraId, int streamType, string analyticType, string vaServerId, string vaServerPipeId)
+        {
+            Console.WriteLine("Route -> ~/url/GetLiveVaUrl");
+            try
+            {
+                var url = await _playerUrlService.GetLiveVaUrlAsync(cameraId, streamType, analyticType, vaServerId, vaServerPipeId);
+                Console.WriteLine(url);
+                if (url.Contains("127.0.0.1") || url.Contains("localhost"))
+                {
+                    if (ServerDetails.isVPN)
+                    {
+                        url = url.Replace("127.0.0.1", ServerDetails.ReturnIp);
+                        url = url.Replace("localhost", ServerDetails.ReturnIp);
+                    }
+                    else
+                    {
+                        string clientIp = HttpContext.Connection.RemoteIpAddress.ToString();
+                        var hostIP = CommonMethods.GetBindIP(clientIp);
+                        url = url.Replace("127.0.0.1", hostIP);
+                        url = url.Replace("localhost", hostIP);
+                    }
+                }
+
+                return Ok(url);
+            }
+            catch (Exception ex)
+            {
+                if(ex.Message.Contains("No connection could be made because the target machine actively refused it."))
+                {
+                    return Ok("URL_Server_Not_Connected");
+                }
+                else
+                {
+                    return BadRequest();
+                }
+            }
+        }
 
         [HttpGet]
         [Route("~/url/GetPlaybackUrl")]

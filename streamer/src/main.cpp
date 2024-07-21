@@ -57,7 +57,7 @@ void on_close(connection_hdl hdl);
 void on_message(websocketpp::server<websocketpp::config::asio>* s, connection_hdl hdl, message_ptr msg);
 
 // For Getting URL
-string Get_LiveUrl(connection_hdl hdl, string cameraId, int streamtype, string analyticType);
+string Get_LiveUrl(connection_hdl hdl, string cameraId, int streamtype, string analyticType, string vaServerId, string vaServerPipeId);
 string Get_PlayBackUrl(connection_hdl hdl, string cameraId, int start_time_ofplaybackfile, int* seekTime_ofFile);
 
 string Get_PlayBackUrl(connection_hdl hdl, string cameraId, int start_time_ofplaybackfile, int end_time_ofplaybackfile);
@@ -145,6 +145,8 @@ void on_open(connection_hdl hdl) {
 		string connectionmode = "tcp";
 		string clVersion = "";
 		float playbackSpeed = 1.0;
+		string vaServerId = "";
+		string vaServerPipeId = "";
 
 		//used to get data from methods
 		string url;
@@ -191,10 +193,12 @@ void on_open(connection_hdl hdl) {
 				if (playbackSpeed < 0.5) playbackSpeed = 0.5;
 				if (playbackSpeed > 5) playbackSpeed = 5;
 			}
+			else if (key == "vaServerId" && value != "") vaServerId = value;
+			else if (key == "vaServerPipeId" && value != "") vaServerPipeId = value;
 		}
 
 		if (mode == "Live") {
-			url = Get_LiveUrl(hdl, cameraId, streamtype, analyticType);
+			url = Get_LiveUrl(hdl, cameraId, streamtype, analyticType, vaServerId, vaServerPipeId);
 		}
 		else {
 			if (end_time_ofplaybackfile == 0) {
@@ -387,13 +391,18 @@ void SendStringData(websocketpp::connection_hdl& con_hndl, string sdata) {
 	}
 }
 
-string Get_LiveUrl(connection_hdl hdl, string cameraId, int streamtype, string analyticType) {
-
+string Get_LiveUrl(connection_hdl hdl, string cameraId, int streamtype, string analyticType, string vaServerId, string vaServerPipeId) {
 	if (mainLogger) { mainLogger->debug("In Get_LiveUrl, cameraId: {}, streamtype: {}, analyticType: {}", cameraId, streamtype, analyticType); }
 	string response;
 	string cameraId_instring = cameraId;
-
-	std::string endpoint = "/url/GetLiveUrl?cameraId=" + cameraId_instring + "&streamType=" + to_string(streamtype) + "&analyticType=" + analyticType;
+	// check if any vaServerId and vaServerPipeId is provided, if it is change url, else use default url
+	std::string endpoint = "";
+	if (vaServerId != "" || vaServerPipeId != "") {
+		endpoint = "/url/GetLiveVaUrl?cameraId=" + cameraId_instring + "&streamType=" + to_string(streamtype) + "&analyticType=" + analyticType + "&vaServerId=" + vaServerId + "&vaServerPipeId=" + vaServerPipeId;
+	}
+	else {
+		endpoint = "/url/GetLiveUrl?cameraId=" + cameraId_instring + "&streamType=" + to_string(streamtype) + "&analyticType=" + analyticType;
+	}
 	if (cameraId == "") {
 		return response;
 	}
