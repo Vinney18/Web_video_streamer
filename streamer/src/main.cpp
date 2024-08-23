@@ -39,6 +39,10 @@ std::shared_ptr<spdlog::logger> mainLogger;
 map<string, shared_ptr<FFmpegWrapper>> ffmpegList;
 map<boost::asio::detail::socket_ops::shared_cancel_token_type, string> connectionsIdMap;
 
+// Mutexes to protect the maps
+std::mutex ffmpegListMutex;
+std::mutex connectionsIdMapMutex;
+
 websocketpp::server<websocketpp::config::asio> websocket_server;
 
 ///Methods
@@ -54,6 +58,7 @@ void checkConfigFilePort(int currentServerPort);
 // WebSocket Related 
 void on_open(connection_hdl hdl);
 void on_close(connection_hdl hdl);
+void process_request(connection_hdl hdl,string query);
 void on_message(websocketpp::server<websocketpp::config::asio>* s, connection_hdl hdl, message_ptr msg);
 
 // For Getting URL
@@ -132,32 +137,177 @@ int main(int argc, char* argv[])
 	}
 }
 
+void insertToFfmpegList(const std::string& key, std::shared_ptr<FFmpegWrapper> value) {
+    std::lock_guard<std::mutex> lock(ffmpegListMutex);
+    ffmpegList[key] = value;
+}
+
+void insertToConnectionsIdMap(boost::asio::detail::socket_ops::shared_cancel_token_type key, const std::string& value) {
+    std::lock_guard<std::mutex> lock(connectionsIdMapMutex);
+    connectionsIdMap[key] = value;
+}
+
+std::shared_ptr<FFmpegWrapper> getFromFfmpegList(const std::string& key) {
+    std::lock_guard<std::mutex> lock(ffmpegListMutex);
+    auto it = ffmpegList.find(key);
+    if (it != ffmpegList.end()) {
+        return it->second;
+    }
+    return nullptr;
+}
+
+std::string getFromConnectionsIdMap(boost::asio::detail::socket_ops::shared_cancel_token_type key) {
+    std::lock_guard<std::mutex> lock(connectionsIdMapMutex);
+    auto it = connectionsIdMap.find(key);
+    if (it != connectionsIdMap.end()) {
+        return it->second;
+    }
+    return "";
+}
+
+void process_request(connection_hdl hdl,string query)
+{
+	std::cout << "Starting heavy computation on thread: " << std::this_thread::get_id() << std::endl;
+	//info from web socket
+	string cameraId;
+	string mode = "Live";
+	int streamtype = 0;
+	int start_time_ofplaybackfile = 0;
+	int end_time_ofplaybackfile = 0;
+	string analyticType = "";
+	string connectionmode = "tcp";
+	string clVersion = "";
+	float playbackSpeed = 1.0;
+	string vaServerId = "";
+	string vaServerPipeId = "";
+
+	//used to get data from methods
+	string url;
+	int seekTime_ofFile = 0;
+	vector<string> props;
+	boost::algorithm::split_regex(props, query, boost::regex("&&"));
+	for (auto const& prop : props)
+	{
+		vector<string> keyValue;
+		boost::algorithm::split_regex(keyValue, prop, boost::regex("~~"));
+		if (keyValue.size() < 2) continue;
+		auto& key = keyValue[0];
+		auto& value = keyValue[1];
+
+		if (key == "cameraId") cameraId = value;
+		else if (key == "mode") mode = value;
+		else if (key == "streamType" || key == "streamtype") streamtype = stoi(value);
+		else if (key == "startTime") start_time_ofplaybackfile = stoi(value);
+		else if (key == "endTime") end_time_ofplaybackfile = stoi(value);
+		else if (key == "analyticType") analyticType = value;
+		else if (key == "connectionMode") connectionmode = value;
+		else if (key == "wServerIp") checkConfigFileIp(hdl, value);
+		else if (key == "wServerPort") checkConfigFilePort(stoi(value));
+		else if (key == "clVersion" && value != "") clVersion = value;
+		else if (key == "playbackSpeed" && value != "") {
+			playbackSpeed = stof(value);
+			// should be between 0.5 to 5
+			if (playbackSpeed < 0.5) playbackSpeed = 0.5;
+			if (playbackSpeed > 5) playbackSpeed = 5;
+		}
+		else if (key == "vaServerId" && value != "") vaServerId = value;
+		else if (key == "vaServerPipeId" && value != "") vaServerPipeId = value;
+	}
+	if (mode == "Live")
+	{
+			url = Get_LiveUrl(hdl, cameraId, streamtype, analyticType, vaServerId, vaServerPipeId);
+			std::cout <<"Call End\n";
+	}
+	else 
+	{
+		if (end_time_ofplaybackfile == 0) {
+			url = Get_PlayBackUrl(hdl, cameraId, start_time_ofplaybackfile, &seekTime_ofFile);
+		}
+		else {	
+			url = Get_PlayBackUrl(hdl, cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile);
+		}
+	}
+	//cout << url << " ## " << seekTime_ofFile << endl;
+	//cout << endl;
+	
+	if (mainLogger) { mainLogger->debug("on_open url returned is: {}", url); }
+
+	if (url.empty() || boost::starts_with(url, "Player_Server_Not_Connected") || boost::starts_with(url, "URL_Server_Not_Connected")) {
+		if (boost::starts_with(url, "Player_Server_Not_Connected")) {
+			websocket_server.send(hdl, "Player_Server_Not_Connected", 27, websocketpp::frame::opcode::TEXT);
+			websocket_server.pause_reading(hdl);
+			websocket_server.close(hdl, 0, "Player_Server_Not_Connected");
+		}
+		else if (boost::starts_with(url, "URL_Server_Not_Connected")) {
+			websocket_server.send(hdl, "URL_Server_Not_Connected", 24, websocketpp::frame::opcode::TEXT);
+			websocket_server.pause_reading(hdl);
+			websocket_server.close(hdl, 0, "URL_Server_Not_Connected");
+		}
+		else
+		{
+			websocket_server.send(hdl, "EmptyUrl", 8, websocketpp::frame::opcode::TEXT);
+			websocket_server.pause_reading(hdl);
+			websocket_server.close(hdl, 0, "EmptyUrl");
+		}
+		return;
+	}
+
+	if (mode == "Live")
+	{
+		string keyValue = cameraId + "~~" + mode + "~~" + url;
+		if (getFromFfmpegList(keyValue) == nullptr) {
+			//cout << "CameraId- " << cameraId << ", count()- " << ffmpegList.count(keyValue) << endl;
+			auto ffmpeg = make_shared<FFmpegWrapper>(cameraId, url, mode, seekTime_ofFile, &SendData, &SendStringData,
+				connectionmode, playerServerIp, playerServerPort, mainLogger, playbackSpeed);
+			insertToFfmpegList(keyValue, ffmpeg);
+			ffmpeg->startThread();
+		}
+		// Add connection to the existing or new FFmpegWrapper
+        auto ffmpeg = getFromFfmpegList(keyValue);
+        if (ffmpeg != nullptr) {
+            ffmpeg->addConnection(hdl);
+        }
+
+        // Insert into connectionsIdMap
+        insertToConnectionsIdMap(hdl.lock(), keyValue);
+	}
+	else
+	{
+		int random = generateAndCheckRandomNumber();
+		string keyValue = to_string(random) + "~~" + mode;
+		//cout << ", Random- " << random << ", CameraId - " << cameraId << ", count() - " << ffmpegList.count(cameraId) << endl;
+		auto ffmpeg = make_shared<FFmpegWrapper>(cameraId, url, mode, seekTime_ofFile, &SendData, &SendStringData,
+			connectionmode, playerServerIp, playerServerPort, mainLogger, playbackSpeed);
+		insertToFfmpegList(keyValue, ffmpeg);
+        ffmpeg->startThread();
+
+        // Add connection to the new FFmpegWrapper
+        ffmpeg->addConnection(hdl);
+
+        // Insert into connectionsIdMap
+        insertToConnectionsIdMap(hdl.lock(), keyValue);
+	}
+}
+
 void on_open(connection_hdl hdl) {
 	try
 	{
-		//info from web socket
-		string cameraId;
-		string mode = "Live";
-		int streamtype = 0;
-		int start_time_ofplaybackfile = 0;
-		int end_time_ofplaybackfile = 0;
-		string analyticType = "";
-		string connectionmode = "tcp";
-		string clVersion = "";
-		float playbackSpeed = 1.0;
-		string vaServerId = "";
-		string vaServerPipeId = "";
-
-		//used to get data from methods
-		string url;
-		int seekTime_ofFile = 0;
+		std::stringstream ss;
+		ss <<"ThreadId :: "<< std::this_thread::get_id();
+		std::cout <<ss.str()<<std::endl;
+		auto start = std::chrono::system_clock::now();
+		std::time_t end_time = std::chrono::system_clock::to_time_t(start);
+		std::cout << "Connection open at " << std::ctime(&end_time);
+		
 
 
 		websocketpp::server<websocketpp::config::asio>::connection_ptr con = websocket_server.get_con_from_hdl(hdl);
 		string query = con->get_uri()->get_query();
-
-		cout << endl;
-		cout << endl;
+		std::thread t([hdl,query](){
+		process_request(hdl,query);
+		});
+		t.detach();
+		
 		cout << query << endl;
 		if (mainLogger) { mainLogger->debug("on_open - Query -> " + query); }
 
@@ -166,101 +316,7 @@ void on_open(connection_hdl hdl) {
 			cout << "Query is Empty" << endl;
 			return;
 		}
-
-		vector<string> props;
-		boost::algorithm::split_regex(props, query, boost::regex("&&"));
-		for (auto const& prop : props)
-		{
-			vector<string> keyValue;
-			boost::algorithm::split_regex(keyValue, prop, boost::regex("~~"));
-			if (keyValue.size() < 2) continue;
-			auto& key = keyValue[0];
-			auto& value = keyValue[1];
-
-			if (key == "cameraId") cameraId = value;
-			else if (key == "mode") mode = value;
-			else if (key == "streamType" || key == "streamtype") streamtype = stoi(value);
-			else if (key == "startTime") start_time_ofplaybackfile = stoi(value);
-			else if (key == "endTime") end_time_ofplaybackfile = stoi(value);
-			else if (key == "analyticType") analyticType = value;
-			else if (key == "connectionMode") connectionmode = value;
-			else if (key == "wServerIp") checkConfigFileIp(hdl, value);
-			else if (key == "wServerPort") checkConfigFilePort(stoi(value));
-			else if (key == "clVersion" && value != "") clVersion = value;
-			else if (key == "playbackSpeed" && value != "") {
-				playbackSpeed = stof(value);
-				// should be between 0.5 to 5
-				if (playbackSpeed < 0.5) playbackSpeed = 0.5;
-				if (playbackSpeed > 5) playbackSpeed = 5;
-			}
-			else if (key == "vaServerId" && value != "") vaServerId = value;
-			else if (key == "vaServerPipeId" && value != "") vaServerPipeId = value;
-		}
-
-		if (mode == "Live") {
-			url = Get_LiveUrl(hdl, cameraId, streamtype, analyticType, vaServerId, vaServerPipeId);
-		}
-		else {
-			if (end_time_ofplaybackfile == 0) {
-				url = Get_PlayBackUrl(hdl, cameraId, start_time_ofplaybackfile, &seekTime_ofFile);
-			}
-			else {	
-				url = Get_PlayBackUrl(hdl, cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile);
-			}
-		}
-		cout << url << " ## " << seekTime_ofFile << endl;
-		cout << endl;
-
-		if (mainLogger) { mainLogger->debug("on_open url returned is: {}", url); }
-
-		if (url.empty() || boost::starts_with(url, "Player_Server_Not_Connected") || boost::starts_with(url, "URL_Server_Not_Connected")) {
-			if (boost::starts_with(url, "Player_Server_Not_Connected")) {
-				websocket_server.send(hdl, "Player_Server_Not_Connected", 27, websocketpp::frame::opcode::TEXT);
-				websocket_server.pause_reading(hdl);
-				websocket_server.close(hdl, 0, "Player_Server_Not_Connected");
-			}
-			else if (boost::starts_with(url, "URL_Server_Not_Connected")) {
-				websocket_server.send(hdl, "URL_Server_Not_Connected", 24, websocketpp::frame::opcode::TEXT);
-				websocket_server.pause_reading(hdl);
-				websocket_server.close(hdl, 0, "URL_Server_Not_Connected");
-			}
-			else
-			{
-				websocket_server.send(hdl, "EmptyUrl", 8, websocketpp::frame::opcode::TEXT);
-				websocket_server.pause_reading(hdl);
-				websocket_server.close(hdl, 0, "EmptyUrl");
-			}
-			return;
-		}
-
-		if (mode == "Live")
-		{
-			string keyValue = cameraId + "~~" + mode + "~~" + url;
-			if (ffmpegList.count(keyValue) > 0) {
-				//cout << "Shared FFmpegWrapper.count(cameraId)- " << ffmpegList.count(keyValue) << endl;
-			}
-			else {
-				//cout << "CameraId- " << cameraId << ", count()- " << ffmpegList.count(keyValue) << endl;
-				auto ffmpeg = make_shared<FFmpegWrapper>(cameraId, url, mode, seekTime_ofFile, &SendData, &SendStringData,
-					connectionmode, playerServerIp, playerServerPort, mainLogger, playbackSpeed);
-				ffmpegList.insert(std::make_pair(keyValue, ffmpeg));
-				ffmpeg->startThread();
-			}
-			ffmpegList[keyValue]->addConnection(hdl);
-			connectionsIdMap.insert(std::make_pair(hdl.lock(), keyValue));
-		}
-		else
-		{
-			int random = generateAndCheckRandomNumber();
-			string keyValue = to_string(random) + "~~" + mode;
-			//cout << ", Random- " << random << ", CameraId - " << cameraId << ", count() - " << ffmpegList.count(cameraId) << endl;
-			auto ffmpeg = make_shared<FFmpegWrapper>(cameraId, url, mode, seekTime_ofFile, &SendData, &SendStringData,
-				connectionmode, playerServerIp, playerServerPort, mainLogger, playbackSpeed);
-			ffmpegList.insert(std::make_pair(keyValue, ffmpeg));
-			ffmpeg->startThread();
-			ffmpegList[keyValue]->addConnection(hdl);
-			connectionsIdMap.insert(std::make_pair(hdl.lock(), keyValue));
-		}
+		
 	}
 	catch (const std::exception& ex)
 	{
@@ -268,6 +324,8 @@ void on_open(connection_hdl hdl) {
 		else { std::cout << ex.what() << std::endl; }
 	}
 }
+
+
 
 void on_close(connection_hdl hdl) {
 	
