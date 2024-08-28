@@ -40,7 +40,7 @@ int FFmpegWrapper::run()
 			}
 		}
 
-		if (!mStop) {
+		if (!mStop) {  
 			for (webConnHdl connHdl : connections[rgba])
 			{
 				websocketSCallback(connHdl, "retrying");
@@ -72,6 +72,7 @@ FFmpegWrapper::~FFmpegWrapper() {
 
 void FFmpegWrapper::readInput()
 {
+	if ( logger ) { logger->debug("In FFmpegWrapper::readInput"); }
 	int frameFinished;
 	AVPacket packet;
 	AVPixelFormat pixFormat;
@@ -409,6 +410,8 @@ void FFmpegWrapper::freeRgbaOutMemory()
 
 	// Close the codecs
 	avcodec_close(decoderCodecContext);
+
+	if ( logger ) { logger->debug("In freeRgbaOutMemory"); }
 }
 
 void FFmpegWrapper::closeInput()
@@ -420,6 +423,7 @@ void FFmpegWrapper::closeInput()
 		avformat_close_input(&this->inputFormatCtx);
 		inputFormatCtx = NULL;
 		inputCodecID = AV_CODEC_ID_NONE;
+		if (logger) { logger->debug("In closeInput: Closed input"); }
 	}
 	catch (const std::exception& ex) {
 		std::cout << ex.what() << std::endl;
@@ -453,6 +457,7 @@ void FFmpegWrapper::addConnection(webConnHdl connHdl)
 
 bool FFmpegWrapper::removeConnection(webConnHdl connHdl)
 {
+	if (logger) { logger->debug("In removeConnection"); }
 	if (!tempConnections.empty()) {
 		auto foundInTemp = false;
 		std::vector<std::pair<webConnHdl, bool>>::iterator foundPair;
@@ -470,6 +475,7 @@ bool FFmpegWrapper::removeConnection(webConnHdl connHdl)
 		}
 		if (connections[mp4].empty() && connections[rgba].empty()) {
 			// no more connections so tell 
+			if (logger) { logger->debug("In removeConnection: All connections are removed"); }
 			return true;
 		}
 	}
@@ -505,6 +511,7 @@ bool FFmpegWrapper::removeConnection(webConnHdl connHdl)
 
 		if (connections[mp4].empty() && connections[rgba].empty()) {
 			// no more connections so tell 
+			if (logger) { logger->debug("In removeConnection: All connections are removed"); }
 			return true;
 		}
 	}
