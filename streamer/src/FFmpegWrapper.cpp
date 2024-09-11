@@ -111,6 +111,7 @@ void FFmpegWrapper::readInput()
 		this->params.lastStopped = GetTickCount();
 		bool sendData = true;
 		int frameNumber = 0;
+		bool ifFirstFrameSent = false;
 		int64_t firstDts = this->inputFormatCtx->streams[videoStream]->first_dts;
 		while (av_read_frame(this->inputFormatCtx, &packet) >= 0 && !mStop)
 		{
@@ -138,7 +139,7 @@ void FFmpegWrapper::readInput()
 					// Did we get a video frame?
 					if (frameFinished)
 					{
-						if (frameNumber == 1)
+						if (!ifFirstFrameSent)
 						{
 							switch ((AVPixelFormat)pFrame->format)
 							{
@@ -170,7 +171,7 @@ void FFmpegWrapper::readInput()
 
 							for (webConnHdl connHdl : connections[rgba])
 							{
-								string data = "rgba " + to_string(pFrame->width) + "x" + to_string(pFrame->height);
+								string data = "rgba " + to_string(pFrame->width) + "x" + to_string(pFrame->height) + "x" + to_string(inputFPS);
 								websocketSCallback(connHdl, data);
 							}
 							if (isLiveMode()) {
@@ -181,6 +182,7 @@ void FFmpegWrapper::readInput()
 								sendData = false;
 								if (this->initial_seek_time > 0) seek_video(this->initial_seek_time);
 							}
+							ifFirstFrameSent = true;
 						}
 						if (!isLiveMode()) {
 							if (frameNumber == inputFPS) { sleepTime = int(1000 / inputFPS); sendData = true; SendVideoStartedEvent(); }
@@ -219,8 +221,13 @@ void FFmpegWrapper::readInput()
 				// h264
 				if (!connections[mp4].empty())
 				{
-					if (frameNumber == 1)
+					if (!ifFirstFrameSent)
 					{
+						for (webConnHdl connHdl : connections[mp4])
+						{
+							string data = "mp4 " + to_string(pFrame->width) + "x" + to_string(pFrame->height) + "x" + to_string(inputFPS);
+							websocketSCallback(connHdl, data);
+						}
 						if (isLiveMode()) {
 							SendVideoStartedEvent();
 						}
@@ -229,6 +236,7 @@ void FFmpegWrapper::readInput()
 							sendData = false;
 							if (this->initial_seek_time > 0) seek_video(this->initial_seek_time);
 						}
+						ifFirstFrameSent = true;
 					}
 
 					if (!isLiveMode()) {
