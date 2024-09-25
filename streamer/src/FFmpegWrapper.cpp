@@ -256,7 +256,10 @@ void FFmpegWrapper::readInput()
 					}
 				}
 			}
-
+			else {
+				// reset frame number
+				frameNumber--;
+			}
 
 
 
