@@ -75,6 +75,10 @@ void WebSocketWrapper::on_open(connection_hdl hdl) {
 }
 
 void WebSocketWrapper::on_close(connection_hdl hdl) {
+	// print time
+	// auto start = std::chrono::system_clock::now();
+	// std::time_t end_time = std::chrono::system_clock::to_time_t(start);
+	// std::cout << "Connection closed at " << std::ctime(&end_time);
 	std::lock_guard<std::mutex> guard(connectionsIdMapMutex); // Lock mutex for safe access
 
     if (mainLogger) {
@@ -175,25 +179,44 @@ void WebSocketWrapper::on_message(connection_hdl hdl, websocketpp::server<websoc
 }
 
 void WebSocketWrapper::SendData(websocketpp::connection_hdl& con_hndl, std::vector<uint8_t>& data, int64_t timestamp) {
-    try {
-        if (timestamp >= 0) {
-            data.insert(data.begin(), sizeof(timestamp), 0);
-            for (size_t i = 0; i < sizeof(timestamp); ++i) {
-                data[i] = timestamp & 0xFF;
-                timestamp >>= 8;
-            }
-        }
-        websocket_server.send(con_hndl, data.data(), data.size(), websocketpp::frame::opcode::BINARY);
-    }
-    catch (const std::exception& ex) {
-        if (mainLogger) { mainLogger->error("Error in SendData: {}", ex.what()); }
-        else { std::cout << ex.what() << std::endl; }
-    }
+	try {
+		/*if (timestamp >= 0) {
+			data.insert(data.begin(), sizeof(timestamp), 0);
+			for (size_t i = 0; i < sizeof(timestamp); ++i) {
+				data[i] = timestamp & 0xFF;
+				timestamp >>= 8;
+			}
+		}*/
+		std::future<void> result = std::async(std::launch::async, [this, con_hndl, data, timestamp]() {
+			//cout << "Thread ID (SendData): " << std::this_thread::get_id() << endl;
+			websocketpp::server<websocketpp::config::asio>::connection_ptr con = websocket_server.get_con_from_hdl(con_hndl);
+			if (con && con->get_state() == websocketpp::session::state::open) {
+				// Create the data message to send
+				con->send(data.data(), data.size(), websocketpp::frame::opcode::BINARY);
+				/*if (mainLogger) {
+					mainLogger->debug("Sent data to connection: {}", con_hndl.lock());
+				}*/
+			}
+			});
+	}
+	catch (const std::exception& ex) {
+		if (mainLogger) { mainLogger->error("Error in SendData: {}", ex.what()); }
+		else { std::cout << ex.what() << std::endl; }
+	}
 }
-
 void WebSocketWrapper::SendStringData(websocketpp::connection_hdl& con_hndl, std::string sdata) {
     try {
-        websocket_server.send(con_hndl, sdata.c_str(), sdata.size(), websocketpp::frame::opcode::TEXT);
+		std::future<void> result = std::async(std::launch::async, [this, con_hndl, sdata]() {
+			cout << "Thread ID (SendStringData): " << std::this_thread::get_id() << endl;
+
+			websocketpp::server<websocketpp::config::asio>::connection_ptr con = websocket_server.get_con_from_hdl(con_hndl);
+			if (con && con->get_state() == websocketpp::session::state::open) {
+				con->send(sdata, websocketpp::frame::opcode::TEXT);
+				/*if (mainLogger) {
+					mainLogger->debug("Sent string data to connection: {}", con_hndl.lock());
+				}*/
+			}
+			});
     }
     catch (const std::exception& ex) {
         if (mainLogger) { mainLogger->error("Error in SendStringData: {}", ex.what()); }
@@ -347,6 +370,7 @@ std::string WebSocketWrapper::Get_LiveUrl(connection_hdl hdl, const std::string&
 	}
 	try
 	{
+		playerServerIp = "192.168.5.49";
 		std::string url = "http://" + playerServerIp + ":" + to_string(playerServerPort) + endpoint;
 		auto res = cpr::Get(cpr::Url{ url });
 		if (mainLogger) { mainLogger->debug("In Get_LiveUrl -> " + res.text); }

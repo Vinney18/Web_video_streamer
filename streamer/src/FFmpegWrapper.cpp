@@ -67,7 +67,7 @@ int FFmpegWrapper::run()
 }
 
 FFmpegWrapper::~FFmpegWrapper() {
-
+	std::cout << "FFmpegWrapper Destructor Called" << std::endl;
 }
 
 void FFmpegWrapper::readInput()
@@ -205,8 +205,16 @@ void FFmpegWrapper::readInput()
 							std::vector<uint8_t> rgbData(&frameData[0], &frameData[pFrame->width * pFrame->height * 4]);
 							for (webConnHdl hndl : connections[rgba])
 							{
+								if (position >= 0) {
+									rgbData.insert(rgbData.begin(), sizeof(position), 0);
+									for (size_t i = 0; i < sizeof(position); ++i) {
+										rgbData[i] = position & 0xFF;
+										position >>= 8;
+									}
+								}
 								websocketCallback(hndl, rgbData, position);
 							}
+							//this_thread::sleep_for(std::chrono::milliseconds(10));
 							canSend = false;
 						}
 					}
@@ -250,8 +258,17 @@ void FFmpegWrapper::readInput()
 						vector<uint8_t> mp4Data(packet.data, packet.data + packet.buf->size);
 						for (webConnHdl hndl : connections[mp4])
 						{
+							if (position >= 0) {
+								mp4Data.insert(mp4Data.begin(), sizeof(position), 0);
+								for (size_t i = 0; i < sizeof(position); ++i) {
+									mp4Data[i] = position & 0xFF;
+									position >>= 8;
+								}
+							}
 							websocketCallback(hndl, mp4Data, position);
 						}
+						//this_thread::sleep_for(std::chrono::milliseconds(10));
+
 						canSend = false;
 					}
 				}
@@ -433,11 +450,6 @@ void FFmpegWrapper::closeInput()
 	}
 }
 
-void FFmpegWrapper::receiveMp4Chunk(vector<uint8_t> data, int64_t _vidPosition) {
-	for (webConnHdl hndl : connections[mp4]) {
-		websocketCallback(hndl, data, _vidPosition);
-	}
-}
 
 void FFmpegWrapper::addConnection(webConnHdl connHdl)
 {

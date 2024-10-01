@@ -82,23 +82,9 @@ int main(int argc, char* argv[])
 		if (mainLogger) { mainLogger->info("Starting websocket server on port: {}", websocket_server_port); }
 		if (mainLogger) { mainLogger->info("Player server IP is: {0} and port is: {1}", playerServerIp, playerServerPort); }
 
-		// Set logging settings
-		//websocket_server.set_access_channels(websocketpp::log::alevel::connect); // enable logging of new connections
-		// websocket_server.clear_access_channels(websocketpp::log::alevel::all); // disable all logs
-
-		// // Initialize Asio
-		// websocket_server.init_asio();
 		WebSocketWrapper ws_wrapper(websocket_server_port, playerServerIp, playerServerPort, mainLogger, isVMS, vmsStreamUserName, vmsStreamPassword);
 		ws_wrapper.run();
 
-		// // Listen on port 8181
-		// websocket_server.listen(websocket_server_port);
-
-		// // Start the server accept loop
-		// websocket_server.start_accept();
-
-		// // Start the ASIO io_service run loop
-		// websocket_server.run();
 	}
 	catch (const websocketpp::exception& e) {
 		if (mainLogger) { mainLogger->error("main Error in websocket server: {}", e.what()); }

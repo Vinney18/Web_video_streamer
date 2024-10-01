@@ -133,7 +133,6 @@ private:
 	void freeRgbaOutMemory();
 	void closeInput();
 
-	void receiveMp4Chunk(vector<uint8_t> data, int64_t _vidPosition);
 	bool isLiveMode();
 
 
