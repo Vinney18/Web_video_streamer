@@ -385,7 +385,7 @@ std::string WebSocketWrapper::Get_LiveUrl(connection_hdl hdl, const std::string&
 	}
 	try
 	{
-		playerServerIp = "192.168.1.36";
+		// playerServerIp = "192.168.1.36";
 		std::string url = "http://" + playerServerIp + ":" + to_string(playerServerPort) + endpoint;
 		auto res = cpr::Get(cpr::Url{ url });
 		if (mainLogger) { mainLogger->debug("In Get_LiveUrl -> " + res.text); }
