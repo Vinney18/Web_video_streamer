@@ -67,6 +67,7 @@ private:
 	bool fileseekingstarted = false;
 	bool playbackFileStared = false;
 	std::map<OutputType, con_list> connections; //keys mp4 and rgba
+	std::mutex connectionsMutex; // Mutex to protect access to connections
 	std::vector<std::pair<websocketpp::connection_hdl, bool>> tempConnections;
 	//std::mutex connectionlock;
 	AVFormatContext* inputFormatCtx = NULL;
@@ -89,7 +90,7 @@ private:
 	std::shared_ptr<spdlog::logger> logger;
 	float fastForwardFactor = 1;
 	int sleepTime = 0;
-	
+
 public:
 	FFmpegWrapper(string _cameraId, string _url, string _playmode, int start_seek_time, WebsocketDataCallback _websocketCallback,
 			WebsocketSDataCallback _websocketSCallback, string _connectionmode, string _serverIp, int _port,

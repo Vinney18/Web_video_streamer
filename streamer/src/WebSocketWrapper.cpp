@@ -75,35 +75,50 @@ void WebSocketWrapper::on_open(connection_hdl hdl) {
 }
 
 void WebSocketWrapper::on_close(connection_hdl hdl) {
-	// print time
-	// auto start = std::chrono::system_clock::now();
-	// std::time_t end_time = std::chrono::system_clock::to_time_t(start);
-	// std::cout << "Connection closed at " << std::ctime(&end_time);
-	std::lock_guard<std::mutex> guard(connectionsIdMapMutex); // Lock mutex for safe access
+	// Log the connection closure
+	if (mainLogger) {
+		mainLogger->debug("on_close websocket connection closed");
+	}
 
-    if (mainLogger) {
-        mainLogger->debug("on_close websocket connection closed");
-    }
+	// Safely lock and convert the weak pointer to a shared pointer
+	auto shared_hdl = hdl.lock();
+	if (!shared_hdl) {
+		if (mainLogger) {
+			mainLogger->error("Failed to lock connection handle, the connection may have already been closed");
+		}
+		return;
+	}
 
-    std::string keyValue = connectionsIdMap[hdl.lock()]; // Access shared resource
+	// Lock mutex for safe access to connectionsIdMap
+	std::lock_guard<std::mutex> guard(connectionsIdMapMutex);
 
-    if (!keyValue.empty()) {
-        bool canStop = false;
-        {
-            // Lock mutex for safe access to ffmpegList
-            std::lock_guard<std::mutex> ffmpegGuard(ffmpegListMutex);
-            canStop = ffmpegList[keyValue]->removeConnection(hdl);
+	// Ensure the handle exists in the map
+	auto it = connectionsIdMap.find(shared_hdl);
+	if (it == connectionsIdMap.end()) {
+		if (mainLogger) {
+			mainLogger->error("Connection handle not found in connectionsIdMap");
+		}
+		return;
+	}
 
-            if (canStop) {
-                ffmpegList[keyValue]->stopThread();
-                ffmpegList.erase(keyValue);
-            }
-        } // Mutex for ffmpegList is unlocked here
+	std::string keyValue = it->second; // Retrieve key associated with the handle
 
-    }
+	if (!keyValue.empty()) {
+		bool canStop = false;
 
-    connectionsIdMap.erase(hdl.lock()); // Erase from connectionsIdMap
+		// Lock mutex for safe access to ffmpegList
+		std::lock_guard<std::mutex> ffmpegGuard(ffmpegListMutex);
+
+		canStop = ffmpegList[keyValue]->removeConnection(shared_hdl);
+		if (canStop) {
+			ffmpegList[keyValue]->stopThread();
+			ffmpegList.erase(keyValue); // Safely remove the ffmpeg instance
+		}
+	}
+
+	connectionsIdMap.erase(shared_hdl); // Safely erase the handle from the map
 }
+
 
 void WebSocketWrapper::on_message(connection_hdl hdl, websocketpp::server<websocketpp::config::asio>::message_ptr msg) {
     std::string messagestring = msg->get_payload();
@@ -370,7 +385,7 @@ std::string WebSocketWrapper::Get_LiveUrl(connection_hdl hdl, const std::string&
 	}
 	try
 	{
-		playerServerIp = "192.168.5.49";
+		playerServerIp = "192.168.1.36";
 		std::string url = "http://" + playerServerIp + ":" + to_string(playerServerPort) + endpoint;
 		auto res = cpr::Get(cpr::Url{ url });
 		if (mainLogger) { mainLogger->debug("In Get_LiveUrl -> " + res.text); }
