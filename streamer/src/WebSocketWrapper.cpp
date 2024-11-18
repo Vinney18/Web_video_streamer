@@ -156,7 +156,7 @@ void WebSocketWrapper::on_message(connection_hdl hdl, websocketpp::server<websoc
         // Resume functionality is not implemented
     }
     else if (boost::starts_with(messagestring, "Version")) {
-        std::string version = "--version ";
+        std::string version = "--version " + i2v::VERSION;
         websocket_server.send(hdl, version.c_str(), version.size(), websocketpp::frame::opcode::TEXT);
     }
     else if (boost::starts_with(messagestring, "Server Status")) {

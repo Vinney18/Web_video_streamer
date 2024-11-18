@@ -473,6 +473,9 @@ void FFmpegWrapper::addConnection(webConnHdl connHdl)
 		tempConnections.push_back(std::make_pair(connHdl, false));
 	}
 	else {
+		if (inputFPS == 0 || inputFPS < 0 || inputFPS > 100) {
+			inputFPS = 25;
+		}
 		string data = to_string(pFrame->width) + "x" + to_string(pFrame->height) + "x" + to_string(inputFPS);
 
         if (inputCodecID == AV_CODEC_ID_H264)
@@ -486,7 +489,7 @@ void FFmpegWrapper::addConnection(webConnHdl connHdl)
         }
         else
         {
-			string data = "rgba " + to_string(pFrame->width) + "x" + to_string(pFrame->height) + "x" + to_string(inputFPS);
+			//string data = "rgba " + to_string(pFrame->width) + "x" + to_string(pFrame->height) + "x" + to_string(inputFPS);
 			websocketSCallback(connHdl, "rgba");
 			//websocketSCallback(connHdl, data);
             addConnToList(connHdl, rgba);

@@ -242,7 +242,6 @@
         <button class="action-button" onClick="version()">Version</button>
         <button class="action-button" onClick="servStatus()">Serv Status</button>
         <button class="action-button" onClick="closeView()">Close</button>
-        <button class="action-button" onClick="logData()">Log Data</button>
     </div>
 
     <div class="input-group">
@@ -439,12 +438,6 @@
         function closeView() {
             if (playerObj) {
                 playerObj.Close();
-            }
-        }
-
-        function logData() {
-            if (playerObj) {
-                console.log(playerObj.status);
             }
         }
 

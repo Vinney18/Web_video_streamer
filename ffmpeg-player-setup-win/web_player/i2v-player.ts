@@ -1,7 +1,7 @@
 declare var JMuxer: any;
 
 class I2vSdk {
-    clVersion: string = "7.2.0";
+    clVersion: string = "7.2.1";
     wPlayerIp: string = "localhost";
     wServerIp: string;
     wServerPort: any = 8890;
@@ -483,7 +483,8 @@ class I2vPlayer {
                 node: this.v.id,
                 debug: false,
                 mode: 'video',
-                flushingTime: 0,
+                flushingTime: 1000,
+                clearBuffer: false,
                 fps: FPS * this.playbackSpeed // will be 1 at init
             });
         }
