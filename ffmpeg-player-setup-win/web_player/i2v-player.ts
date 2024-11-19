@@ -1,7 +1,7 @@
 declare var JMuxer: any;
 
 class I2vSdk {
-    clVersion: string = "7.2.0";
+    clVersion: string = "7.2.1";
     wPlayerIp: string = "localhost";
     wServerIp: string;
     wServerPort: any = 8890;
@@ -149,26 +149,24 @@ class I2vPlayer {
             this.doesStopRequested = true;
             if (this.playrecursivetimeout) {
                 clearTimeout(this.playrecursivetimeout);
+                this.playrecursivetimeout = null;
             }
-            try {
-                if (this.w) {
-                    this.w.close();
-                }
-            } catch (ex) {
-                console.error("wClient: Unable to close Websocket");
+            if (this.w) {
+                this.w.close();
+                this.w = null;
             }
 
             delete this.v;
             delete this.c;
             if (this.isRgb) {
-                var c = document.getElementById(`${this.elId}_canvas`) as HTMLCanvasElement;
+                let c = document.getElementById(`${this.elId}_canvas`) as HTMLCanvasElement;
                 if (c) {
-                    var c_context = c.getContext('2d');
+                    let c_context = c.getContext('2d');
                     c_context.clearRect(0, 0, this.width, this.height);
                     c.parentNode.removeChild(c);
                 }
             } else {
-                var v = document.getElementById(`${this.elId}_video`) as HTMLVideoElement;
+                let v = document.getElementById(`${this.elId}_video`) as HTMLVideoElement;
                 if (v) {
                     v.src = "";
                     v.parentNode.removeChild(v);
@@ -209,23 +207,21 @@ class I2vPlayer {
                 console.log('socket closed');
                 this.removeErrorMessage();
             } else {
+                let errMsg = "";
                 console.log('socket closed and retrying...');
                 if (this.IsPlayerServerConnected) {
-                    var errMsg = "Player Server Not Connected ";
-                    this.showErrorMessage(errMsg);
+                    errMsg = "Player Server Not Connected ";
                 }
                 else if (this.URL_Server_Not_Connected) {
-                    var errMsg = "URL Server Not Connected";
-                    this.showErrorMessage(errMsg);
+                    errMsg = "URL Server Not Connected";
                 }
                 else if (this.IsEmptyUrl) {
-                    var errMsg = this.mode == "Live" ? "Stream not Found" : "Recording not Found";
-                    this.showErrorMessage(errMsg);
+                    errMsg = this.mode == "Live" ? "Stream not Found" : "Recording not Found";
                 }
                 else {
-                    this.showErrorMessage("Player Not Connected...");
+                    errMsg = "Player Not Connected...";
                 }
-
+                this.showErrorMessage(errMsg);
 
                 delete this.w;
                 if (this.jmuxer) {
@@ -236,14 +232,14 @@ class I2vPlayer {
                 this.isPlayerSet = false;
                 this.isVisible = false;
                 if (this.isRgb) {
-                    var c = document.getElementById(`${this.elId}_canvas`) as HTMLCanvasElement;
+                    let c = document.getElementById(`${this.elId}_canvas`) as HTMLCanvasElement;
                     if (c) {
-                        var c_context = c.getContext('2d');
+                        let c_context = c.getContext('2d');
                         c_context.clearRect(0, 0, this.width, this.height);
                         c.parentNode.removeChild(c);
                     }
                 } else {
-                    var v = document.getElementById(`${this.elId}_video`) as HTMLVideoElement;
+                    let v = document.getElementById(`${this.elId}_video`) as HTMLVideoElement;
                     if (v) {
                         v.src = "";
                         v.parentNode.removeChild(v);
@@ -369,16 +365,22 @@ class I2vPlayer {
                         this.v.autoplay = true;
                         this.v.muted = true;
                         this.isVisible = true;
-                        if (document.addEventListener) {
-                            document.addEventListener("visibilitychange", this.OnVideoVisiblityChange)
-                        }
-                        this.Createjmuxerobject();
+                        // The visibilitychange event is fired at the document when the contents of its tab have become visible or have been hidden.
+                        // if (document.addEventListener) {
+                        //     document.addEventListener("visibilitychange", this.OnVideoVisiblityChange)
+                        // }
+                        this.isPlayerSet = false;
+                    }
+                    else if (e.data.startsWith("mp4")) {
+                        let metadata: any = e.data.substring(5);
+                        let frameRate = metadata.split("x")[2]
+                        this.Createjmuxerobject(parseInt(frameRate));
                         this.isPlayerSet = true;
                     }
                     else if (e.data === "rgba") {
                         this.removeErrorMessage();
                         this.c = document.createElement("canvas");
-                        var div = document.getElementById(this.elId);
+                        let div = document.getElementById(this.elId);
                         div.style.background = "black";
                         div.appendChild(this.c);
                         this.c.id = `${this.elId}_canvas`;
@@ -387,14 +389,14 @@ class I2vPlayer {
                         this.c.style.display = "inline";
                         this.isRgb = true;
                         this.isVisible = true;
-                        if (document.addEventListener) {
-                            document.addEventListener("visibilitychange", this.OnVideoVisiblityChange)
-                        }
+                        // if (document.addEventListener) {
+                        //     document.addEventListener("visibilitychange", this.OnVideoVisiblityChange)
+                        // }
                         this.isPlayerSet = false;
                     }
                     else if (e.data.startsWith("rgba")) {
-                        var metadata: any = e.data.substring(5);
-                        var dimensions = metadata.split('x');
+                        let metadata: any = e.data.substring(5);
+                        let dimensions = metadata.split('x');
                         this.width = dimensions[0];
                         this.height = dimensions[1];
                         this.c.width = dimensions[0];
@@ -410,9 +412,9 @@ class I2vPlayer {
             }
             if (this.isVisible) {
                 if (!this.isRgb) {
-                    var mp4Data: Uint8Array;
+                    let mp4Data: Uint8Array;
                     if (this.mode !== "Live") {
-                        var incomingData: ArrayBuffer = (e.data as ArrayBuffer);
+                        let incomingData: ArrayBuffer = (e.data as ArrayBuffer);
                         // optimized, but not being used
                         // let dataView = new DataView(incomingData.slice(0, 8));
                         // let timestamp = dataView.getUint32(0) * 0x100000000 + dataView.getUint32(4);
@@ -425,7 +427,7 @@ class I2vPlayer {
                     if (this.jmuxer && this.jmuxer.mseReady) {
                         this.jmuxer.feed({
                             video: mp4Data,
-                            duration: 1000 / (30 * this.playbackSpeed) // this takes in milliseconds, using 30fps hardcoded, since we are not getting fps from server
+                            duration: 1000 / (this.jmuxer.options.fps * this.playbackSpeed) // this takes in milliseconds
                         });
                     }
                 }
@@ -456,7 +458,7 @@ class I2vPlayer {
                 }
             }
 
-        }, false);
+        }, true);
     }
 
     OnVideoVisiblityChange = (event) => {
@@ -474,15 +476,16 @@ class I2vPlayer {
         this.jmuxer = null;
     }
 
-    Createjmuxerobject() {
+    Createjmuxerobject(FPS = 30) {
         this.jmuxer = null;
         if (this.v) {
             this.jmuxer = new JMuxer({
                 node: this.v.id,
                 debug: false,
                 mode: 'video',
-                flushingTime: 0,
-                fps: 30 * this.playbackSpeed // will be 1 at init
+                flushingTime: 1000,
+                clearBuffer: false,
+                fps: FPS * this.playbackSpeed // will be 1 at init
             });
         }
     }
@@ -518,13 +521,15 @@ class I2vPlayer {
     removeErrorMessage() {
         try {
             this.isErrorMessageVisible = false;
-            var spanElement = document.getElementById("errorMessage" + this.elId);
+            let spanElement = document.getElementById("errorMessage" + this.elId);
             if (spanElement) {
-                var element = document.getElementById(this.elId);
-                element.removeChild(spanElement);
+                let element = document.getElementById(this.elId);
+                if (element) {
+                    element.removeChild(spanElement);
+                }
             }
         } catch (ex) {
-
+            console.error("Error removing error message: ", ex)
         }
     }
 
