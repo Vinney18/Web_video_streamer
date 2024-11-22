@@ -491,7 +491,13 @@ void FFmpegWrapper::addConnection(webConnHdl connHdl)
         {
 			//string data = "rgba " + to_string(pFrame->width) + "x" + to_string(pFrame->height) + "x" + to_string(inputFPS);
 			websocketSCallback(connHdl, "rgba");
-			//websocketSCallback(connHdl, data);
+			// send only if pframe width is not 0, i.e this stream is getting played for first time
+			// any subsequent connection will get the data from the first connection, thus width will not be 0
+			// need to send this data to client for each connection to make the canvas
+			if (pFrame->width != 0)
+			{
+				websocketSCallback(connHdl, "rgba " + data);
+			}
             addConnToList(connHdl, rgba);
         }
 	}

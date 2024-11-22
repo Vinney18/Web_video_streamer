@@ -427,7 +427,6 @@ class I2vPlayer {
                     if (this.jmuxer && this.jmuxer.mseReady) {
                         this.jmuxer.feed({
                             video: mp4Data,
-                            duration: 1000 / (this.jmuxer.options.fps * this.playbackSpeed) // this takes in milliseconds
                         });
                     }
                 }
@@ -483,9 +482,9 @@ class I2vPlayer {
                 node: this.v.id,
                 debug: false,
                 mode: 'video',
-                flushingTime: 1000,
-                clearBuffer: false,
-                fps: FPS * this.playbackSpeed // will be 1 at init
+                flushingTime: 0,
+                clearBuffer: true,
+                fps: FPS * this.playbackSpeed  // will be 1 at init
             });
         }
     }
