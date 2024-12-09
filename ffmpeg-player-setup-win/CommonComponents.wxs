@@ -38,7 +38,7 @@
 				<File Id="fil76AF5E669F9AAAC1834540DACD7728A2" KeyPath="yes" Source="../streamer/build/Release/boost_filesystem-vc142-mt-x64-1_71.dll" />
 			</Component>
 			<Component Id="cmp7162C0675BC057491B370E835DAFB64C" Guid="*">
-				<File Id="fil313244577C4372F88A8460E8D02338B8" KeyPath="yes" Source="../streamer/build/Release/boost_filesystem-vc143-mt-x64-1_80.dll" />
+				<File Id="fil313244577C4372F88A8460E8D02338B8" KeyPath="yes" Source="../streamer/build/Release/boost_filesystem-vc143-mt-x64-1_85.dll" />
 			</Component>
 			<Component Id="cmp62B478AC8C4171193C5E62B4262B6B1B" Guid="*">
 				<File Id="fil6BF01406ACDD4C9DFA43826FB6DE5872" KeyPath="yes" Source="../streamer/build/Release/boost_regex-vc142-mt-x64-1_71.dll" />

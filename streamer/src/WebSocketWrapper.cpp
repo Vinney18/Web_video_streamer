@@ -12,19 +12,19 @@
 #include <thread>
 #include <Util.h>
 #include <boost/filesystem.hpp>
+#include <regex>
 
 
 // Add mutexes for thread safety
 std::mutex ffmpegListMutex;
 std::mutex connectionsIdMapMutex;
 
-bool isVMS_t = false;
-std::string vmsStreamUserName_t = "";
-std::string vmsStreamPassword_t = "";
+
 string config_dir_path = i2v::Util::getConfigFolderPath();
 std::string mainConfigFile_t = config_dir_path + "/mainConf.json";
 WebSocketWrapper::WebSocketWrapper(int port, const std::string& playerIp, int playerPort, std::shared_ptr<spdlog::logger> logger, bool isVMS, const std::string& vmsUser, const std::string& vmsPassword)
     : websocket_server_port(port), playerServerIp(playerIp), playerServerPort(playerPort), mainLogger(logger), isVMS(isVMS), vmsStreamUserName(vmsUser), vmsStreamPassword(vmsPassword) {}
+std::string addCredentialsToUrl(const std::string& url, const std::string& username, const std::string& password);
 
 void WebSocketWrapper::run() {
     try {
@@ -395,9 +395,8 @@ std::string WebSocketWrapper::Get_LiveUrl(connection_hdl hdl, const std::string&
 			string c = "\\";
 			command.erase(std::remove(command.begin(), command.end(), '\"'), command.end());
 			command.erase(std::remove(command.begin(), command.end(), '\\'), command.end());
-			if (isVMS_t) {
-				command = command.substr(7);
-				command = "rtsp://" + vmsStreamUserName_t + ":" + vmsStreamPassword_t + "@" + command;
+			if (isVMS) {
+				command = addCredentialsToUrl(command, vmsStreamUserName, vmsStreamPassword);
 			}
 			response = command;
 		}
@@ -642,4 +641,24 @@ int WebSocketWrapper::generateAndCheckRandomNumber() {
 	else {
 		return random;
 	}
+}
+
+// Method to check and add credentials to the URL if they are not already present
+std::string addCredentialsToUrl(const std::string& url, const std::string& username, const std::string& password) {
+    // Regular expression to check if the URL already contains credentials (e.g., "username:password@")
+    std::regex credentialsRegex(R"([^:]+:[^@]+@)");
+
+    if (std::regex_search(url, credentialsRegex)) {
+        return url;
+    } else {
+        size_t prefixPos = url.find("://");
+        if (prefixPos != std::string::npos) {
+            // Insert credentials after the protocol (e.g., "://")
+            std::string credentials = username + ":" + password + "@";
+            std::string newUrl = url.substr(0, prefixPos + 3) + credentials + url.substr(prefixPos + 3);
+            return newUrl;
+        } else {
+            throw std::invalid_argument("Invalid/Unexpected URL: " + url);
+        }
+    }
 }

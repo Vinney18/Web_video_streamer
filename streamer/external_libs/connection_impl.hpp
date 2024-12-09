@@ -1818,7 +1818,6 @@ void connection<config>::write_frame() {
 
             // Add the next message to the current list of messages
             m_current_msgs.push_back(next_message);
-            std::cout << "Queue size: " << m_current_msgs.size() << std::endl;
 
             // If the message isn't terminal, get the next one
             //if (!next_message->get_terminal()) {
