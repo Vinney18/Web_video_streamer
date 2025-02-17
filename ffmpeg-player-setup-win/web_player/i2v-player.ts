@@ -26,8 +26,8 @@ class I2vSdk {
         return this.player;
     }
 
-    GetPlaybackPlayer(elId: any, cameraId: number, startTime: number, endTime: number, _playbackviaapache: string, playbackSpeed: number = 1) {
-        this.player = new I2vPlayer(elId, cameraId, "PlayBack", 0, startTime, endTime, "", "tcp", this.clVersion, this.useSecureConnection, playbackSpeed);
+    GetPlaybackPlayer(elId: any, cameraId: number, startTime: number, endTime: number, _playbackviaapache: string, playbackSpeed: number = 1, connectionMode: string = "tcp") {
+        this.player = new I2vPlayer(elId, cameraId, "PlayBack", 0, startTime, endTime, "", connectionMode, this.clVersion, this.useSecureConnection, playbackSpeed);
         this.player.wPlayerIp = this.wPlayerIp;
         this.player.wServerIp = this.wServerIp;
         this.player.wServerPort = this.wServerPort;

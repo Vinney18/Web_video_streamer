@@ -235,6 +235,14 @@
             <input type="checkbox" id="UseSecureConnection" />
             <label for="UseSecureConnection">Use Secure Connection</label>
         </div>
+        <!-- connection mode tcp or udp -->
+        <div class="select-dropdown">
+            <label for="connectionMode">Connection Mode:</label>
+            <select id="connectionMode" onchange="connectionModeChange()">
+                <option value="tcp">TCP</option>
+                <option value="udp">UDP</option>
+            </select>
+        </div>
     </div>
     <div class="button-group">
         <button class="action-button" onClick="Play_Live()">Play Live</button>
@@ -346,7 +354,7 @@
                 streamType = document.getElementById("streamType").value;
 
             var analyticType = "";
-            var connectionMode = "tcp";
+            var connectionMode = document.getElementById("connectionMode").value;
             if (document.getElementById("analyticType").value)
                 analyticType = document.getElementById("analyticType").value;
 
@@ -394,8 +402,10 @@
 
             var _playbackviaapache = "0";
             var fastForwardValue = document.getElementById("fast_forward").value;
+            var connectionMode = document.getElementById("connectionMode").value;
+
             //create new player object, video will start automatically
-            playerObj = sdk.GetPlaybackPlayer(viewIdManager, cameraId, startTime, endTime, _playbackviaapache, fastForwardValue);
+            playerObj = sdk.GetPlaybackPlayer(viewIdManager, cameraId, startTime, endTime, _playbackviaapache, fastForwardValue, connectionMode);
 
             //set Error callback for play method
             playerObj.setErrorCallback(function (err) {
@@ -517,6 +527,11 @@
 
             // Convert milliseconds to seconds and return as a Unix timestamp
             return Math.floor(milliseconds);
+        }
+
+        function connectionModeChange() {
+            var connectionMode = document.getElementById("connectionMode").value;
+            console.log(connectionMode + " selected");
         }
 
     </script>

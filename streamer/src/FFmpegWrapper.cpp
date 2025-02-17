@@ -1,5 +1,9 @@
 #include "FFmpegWrapper.h"
-
+#define PRINT_FFMPEG_VERSION(lib) \
+    std::cout << #lib << " Version: " \
+              << AV_VERSION_MAJOR(lib##_version()) << "." \
+              << AV_VERSION_MINOR(lib##_version()) << "." \
+              << AV_VERSION_MICRO(lib##_version()) << "\n";
 int FFmpegWrapper::run()
 {
 	while (!mStop)
@@ -318,6 +322,23 @@ void FFmpegWrapper::readInput()
 
 bool FFmpegWrapper::openInput()
 {
+	std::cout << "FFmpeg Version Info:\n";
+    
+    std::cout << "  libavcodec  : "
+              << AV_VERSION_MAJOR(avcodec_version()) << "."
+              << AV_VERSION_MINOR(avcodec_version()) << "."
+              << AV_VERSION_MICRO(avcodec_version()) << "\n";
+
+    std::cout << "  libavformat : "
+              << AV_VERSION_MAJOR(avformat_version()) << "."
+              << AV_VERSION_MINOR(avformat_version()) << "."
+              << AV_VERSION_MICRO(avformat_version()) << "\n";
+
+    std::cout << "  libavutil   : "
+              << AV_VERSION_MAJOR(avutil_version()) << "."
+              << AV_VERSION_MINOR(avutil_version()) << "."
+              << AV_VERSION_MICRO(avutil_version()) << "\n";
+			  
 	this->inputFormatCtx = avformat_alloc_context();
 	this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
 	this->inputFormatCtx->interrupt_callback.opaque = this;
@@ -340,8 +361,10 @@ bool FFmpegWrapper::openInput()
 		{
 			av_dict_set(&options1, "rtsp_transport", "tcp", 0);
 		}
-		av_dict_set(&options1, "stimeout", "5000000", 0);//The unit us is 3s
-
+		av_dict_set(&options1, "max_delay", "500000000", 0); // 0.5 sec
+		av_dict_set(&options1, "stimeout", "1500000000", 0); // Timeout in microseconds
+		av_dict_set(&options1, "analyzeduration", "1000000000", 0); // 20 seconds
+		av_dict_set(&options1, "probesize", "1000000000", 0); // 10 MB
 	}
 	catch (boost::bad_lexical_cast)
 	{
