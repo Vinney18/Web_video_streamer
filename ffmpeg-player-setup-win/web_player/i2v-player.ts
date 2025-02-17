@@ -1,7 +1,7 @@
 declare var JMuxer: any;
 
 class I2vSdk {
-    clVersion: string = "7.2.1";
+    clVersion: string = "7.2.2";
     wPlayerIp: string = "localhost";
     wServerIp: string;
     wServerPort: any = 8890;
