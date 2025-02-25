@@ -7,8 +7,6 @@ class I2vSdk {
     wServerPort: any = 8890;
     useSecureConnection: boolean = false;
     player: I2vPlayer;
-    vaServerId: string;
-    vaServerPipeId: string;
 
     constructor(_wPlayerIp: string, _wServerIp: string, _wServerPort?: any, useSecureConnection?: boolean) {
         this.wPlayerIp = _wPlayerIp;
@@ -17,7 +15,10 @@ class I2vSdk {
         this.useSecureConnection = useSecureConnection || this.useSecureConnection;
     }
 
-    GetLivePlayer(elId: any, cameraId: number, streamtype: number, analyticType: string, connectionmode: string, vaServerId?: string, vaServerPipeId?: string) {
+    GetLivePlayer(elId: any, cameraId: number, streamtype: number, analyticType: string, connectionmode: string, vaServerId?: string, vaServerPipeId?: string, url?: string) {
+        if (this.UrlPlayableInBrowser(url)){
+            return new I2vPlayerStatic(elId, cameraId, "Live", streamtype, url, this.clVersion);
+        }
         this.player = new I2vPlayer(elId, cameraId, "Live", streamtype, 0, 0, analyticType, connectionmode, this.clVersion, this.useSecureConnection, 1, vaServerId, vaServerPipeId);
         this.player.wPlayerIp = this.wPlayerIp;
         this.player.wServerIp = this.wServerIp;
@@ -26,7 +27,10 @@ class I2vSdk {
         return this.player;
     }
 
-    GetPlaybackPlayer(elId: any, cameraId: number, startTime: number, endTime: number, _playbackviaapache: string, playbackSpeed: number = 1, connectionMode: string = "tcp") {
+    GetPlaybackPlayer(elId: any, cameraId: number, startTime: number, endTime: number, _playbackviaapache: string, playbackSpeed: number = 1, connectionMode: string = "tcp", url?: string) {
+        if (this.UrlPlayableInBrowser(url)){
+            return new I2vPlayerStatic(elId, cameraId, "PlayBack", 0, url, this.clVersion);
+        }
         this.player = new I2vPlayer(elId, cameraId, "PlayBack", 0, startTime, endTime, "", connectionMode, this.clVersion, this.useSecureConnection, playbackSpeed);
         this.player.wPlayerIp = this.wPlayerIp;
         this.player.wServerIp = this.wServerIp;
@@ -51,6 +55,12 @@ class I2vSdk {
         if (this.player && this.player.mode != "Live") {
             this.player.FastForward(factor);
         }
+    }
+
+    UrlPlayableInBrowser(url: string) {
+        var video = document.createElement('video');
+        video.src = url;
+        return video.canPlayType('video/mp4') != '';
     }
 }
 
@@ -207,7 +217,7 @@ class I2vPlayer {
                 console.log('socket closed');
                 this.removeErrorMessage();
             } else {
-                let errMsg = "";
+                let errMsg;
                 console.log('socket closed and retrying...');
                 if (this.IsPlayerServerConnected) {
                     errMsg = "Player Server Not Connected ";
@@ -596,5 +606,156 @@ class I2vPlayer {
         if (this.w) {
             this.w.send("FastForward" + factor);
         }
+    }
+}
+
+class I2vPlayerStatic {
+    wPlayerIp: string;
+    elId: any;
+    cameraId: number;
+    mode: string;
+    streamType: number;
+    url: string;
+    clVersion: string;
+    errorCallback: any;
+    retryingCallback: any;
+    isErrorMessageVisible: boolean;
+    
+    constructor(elId: any, cameraId: number, mode: string, streamtype: number, url: string, clVersion: string) {
+        this.elId = elId;
+        this.cameraId = cameraId;
+        this.mode = mode;
+        this.streamType = streamtype;
+        this.url = url;
+        this.clVersion = clVersion;
+    }
+
+    setErrorCallback(errorCallback: any) {
+        this.errorCallback = errorCallback;
+    }
+
+    setRetryingCallback(retryingCallback: any) {
+        this.retryingCallback = retryingCallback;
+    }
+
+    play() {
+        this.removeErrorMessage();
+        console.log("Playing video from URL");
+        // create video element
+        var v = document.createElement("video");
+        var div = document.getElementById(this.elId);
+        div.style.background = "black";
+        div.appendChild(v);
+        v.id = `${this.elId}_video`;
+        v.style.height = "100%";
+        v.style.width = "100%";
+        v.style.display = "inline";
+        v.muted = true;
+        v.src = this.url;
+        v.play().then(() => {
+            console.log("Video started");
+            this.errorCallback("Video_Started");
+        }).catch((error) => {
+            console.error("Error playing video:", error);
+            if (this.errorCallback) {
+                this.errorCallback("Error playing video");
+            }
+        });
+    }
+    
+    showErrorMessage(message: string) {
+        this.isErrorMessageVisible = true;
+        var spanElement = document.getElementById("errorMessage" + this.elId);
+        if (!spanElement) {
+            var span = document.createElement("span");
+            span.innerHTML = message + "...";
+            span.classList.add("errorMessage");
+            span.style.color = "red";
+            span.style.position = "absolute";
+            span.style.fontSize = "25px";
+            span.style.top = "50%";
+            span.style.height = "30px";
+            span.style.marginTop = "-15px";
+            span.style.width = "100%";
+            span.style.textAlign = "center";
+            span.style.fontWeight = "bold";
+            span.id = "errorMessage" + this.elId;
+            var element = document.getElementById(this.elId);
+            if (element) {
+                element.style.background = "black";
+                element.style.position = "relative";
+                element.appendChild(span);
+            }
+        } else {
+            spanElement.innerHTML = message + "...";
+        }
+    }
+
+    removeErrorMessage() {
+        try {
+            this.isErrorMessageVisible = false;
+            let spanElement = document.getElementById("errorMessage" + this.elId);
+            if (spanElement) {
+                let element = document.getElementById(this.elId);
+                if (element) {
+                    element.removeChild(spanElement);
+                }
+            }
+        } catch (ex) {
+            console.error("Error removing error message: ", ex)
+        }
+    }
+    
+    stop() {
+        this.removeErrorMessage();
+        var v = document.getElementById(`${this.elId}_video`) as HTMLVideoElement;
+        if (v) {
+            v.src = "";
+            v.parentNode.removeChild(v);
+        }
+    }
+    
+    pause() {
+        var v = document.getElementById(`${this.elId}_video`) as HTMLVideoElement;
+        if (v) {
+            v.pause();
+        }
+    }
+    
+    getBase64SnapshotUrl() {
+        var dataURI = "";
+        try {
+            var canvas = document.createElement('canvas');
+            var v = document.getElementById(`${this.elId}_video`) as HTMLVideoElement;
+            canvas.width = v.videoWidth;
+            canvas.height = v.videoHeight;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+            dataURI = canvas.toDataURL('image/png');
+        } catch (ex) {
+            console.log(ex);
+        }
+        return dataURI;
+    }
+    
+    downloadVideo() {
+        var v = document.getElementById(`${this.elId}_video`) as HTMLVideoElement;
+        var a = document.createElement('a');
+        document.body.appendChild(a);
+        a.style.display = 'none';
+        a.href = v.src;
+        a.download = 'video.mp4';
+        a.click();
+        document.body.removeChild(a);
+    }
+    
+    mute() {
+        var v = document.getElementById(`${this.elId}_video`) as HTMLVideoElement;
+        v.muted = true;
+    }
+    
+    unmute() {
+        var v = document.getElementById(`${this.elId}_video`) as HTMLVideoElement;
+        v.muted = false;
     }
 }
