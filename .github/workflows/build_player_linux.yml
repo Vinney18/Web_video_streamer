@@ -1,0 +1,65 @@
+name: build Player Linux
+
+on:
+    release:
+      types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v2
+        with:
+          dotnet-version: '7.0.x'  # Specify your .NET version
+
+      - name: Install Node.js and npm
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'  
+
+      - name: Diagnostic step
+        run: |
+          cd ./ffmpeg-player-setup-win//web_player
+          npm install -f  # Ensure dependencies are installed
+          npm install typescript
+          npm list typescript
+          node -v
+          npm -v
+          ls -la ./node_modules/.bin/
+          ls -la ./node_modules/typescript/bin/
+          echo "Current directory: $(pwd)"
+
+      - name: Build i2v-player
+        run: |
+          cd ./ffmpeg-player-setup-win//web_player
+          node "$(pwd)/node_modules/typescript/bin/tsc"
+          npm run uglify
+          if [ -f "move-file.js" ]; then
+            node move-file.js
+          else
+            echo "Warning: move-file.js not found"
+          fi
+
+      - name: Build PlayerServer
+        run: dotnet publish ./PlayerServer/PlayerServer/PlayerServer.csproj --configuration Release --runtime linux-x64 --output ./Release  # Adjust the path
+
+      - name: Display build output and add release notes
+        run: |
+          cd ./Release  # Change to the output directory
+          ls
+          echo "Release Version: ${{ github.event.release.tag_name }}" > release_notes.md
+
+      - name: Zip the output
+        run: zip -r player-Linux.zip ./Release  # Zipping the published output
+
+      - name: Upload to GitHub Releases
+        uses: softprops/action-gh-release@v1
+        with:
+          files: player-Linux.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

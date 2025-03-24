@@ -65,6 +65,7 @@
     <Content Include="web_player\package-lock.json" />
     <Content Include="web_player\package.json" />
     <Content Include="web_player\tsconfig.json" />
+    <Content Include="web_player\run_player.sh" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="lib" />

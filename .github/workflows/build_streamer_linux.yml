@@ -37,6 +37,7 @@ jobs:
         mkdir Release
         mkdir Release/lib
         cp streamer ./Release
+        cp /app/code/streamer/run_streamer.sh ./Release
         cd Release
         ldd ./streamer | grep "=>" | awk '{print $3}' | xargs -I '{}' cp -v '{}' ./lib
 
