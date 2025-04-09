@@ -76,44 +76,100 @@ int FFmpegWrapper::run()
 }
 
 FFmpegWrapper::~FFmpegWrapper() {
-	std::cout << "FFmpegWrapper Destructor Called" << std::endl;
+    try {
+        std::cout << "FFmpegWrapper Destructor Called" << std::endl;
+        // Signal threads to stop
+        mStop = true;
+        
+        // Notify any waiting threads
+        cv.notify_all();
+        
+        // Free resources in a specific order to avoid dependency issues
+        try {
+            freeRgbaOutMemory();
+        } catch (const std::exception& ex) {
+            if (logger) { logger->error("Error in ~FFmpegWrapper while freeing RGBA memory: {}", ex.what()); }
+        }
+        
+        try {
+            closeInput();
+        } catch (const std::exception& ex) {
+            if (logger) { logger->error("Error in ~FFmpegWrapper while closing input: {}", ex.what()); }
+        }
+        
+        // Ensure codec contexts are freed
+        if (decoderCodecContext) {
+            avcodec_free_context(&decoderCodecContext);
+            decoderCodecContext = nullptr;
+        }
+        
+        if (inputCodecCtx) {
+            avcodec_free_context(&inputCodecCtx);
+            inputCodecCtx = nullptr;
+        }
+        
+        // Close input format context if it still exists
+        if (inputFormatCtx) {
+            avformat_close_input(&inputFormatCtx);
+            inputFormatCtx = nullptr;
+        }
+        
+        // Free allocated buffer
+        if (buffer) {
+            av_free(buffer);
+            buffer = nullptr;
+        }
+        
+        // Free conversion context
+        if (conversion_context) {
+            sws_freeContext(conversion_context);
+            conversion_context = nullptr;
+        }
+        
+    } catch (const std::exception& ex) {
+        if (logger) { logger->error("Unhandled exception in ~FFmpegWrapper: {}", ex.what()); }
+        else { std::cout << "Error in ~FFmpegWrapper: " << ex.what() << std::endl; }
+    }
 }
 
 void FFmpegWrapper::readInput()
 {
-	if ( logger ) { logger->debug("In FFmpegWrapper::readInput"); }
-	int frameFinished;
-	AVPacket packet;
-	AVPixelFormat pixFormat;
+    if (logger) { logger->debug("In FFmpegWrapper::readInput"); }
+    int frameFinished;
+    AVPacket packet;
+    AVPixelFormat pixFormat;
 
-	//Control input frame rate
-	sleepTime = 0;
-	if (inputFPS == 0 || inputFPS < 0 || inputFPS > 100) {
-		inputFPS = 25;
-	}
+    // Control input frame rate
+    sleepTime = 0;
+    if (inputFPS == 0 || inputFPS < 0 || inputFPS > 100) {
+        inputFPS = 25;
+    }
 
-	std::mutex mut;
-	std::atomic<bool> canSend = true;
-	std::condition_variable condition_v;
-	std::thread thread1;
+    std::mutex mut;
+    std::atomic<bool> canSend = true;
+    std::condition_variable condition_v;
+    std::unique_ptr<std::thread> thread1;  // Use smart pointer for automatic cleanup
 
-	if (!isLiveMode()) {
-		thread1 = std::thread([&]()
-			{
-				while (!mStop)
-				{
-					if (!fileseekingstarted)
-					{
-						std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
-						canSend = true;
-						condition_v.notify_all();
-					}
-				}
-			});
-	}
+    if (!isLiveMode()) {
+        thread1 = std::make_unique<std::thread>([&]()
+            {
+                while (!mStop)
+                {
+                    if (!fileseekingstarted)
+                    {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
+                        canSend = true;
+                        condition_v.notify_all();
+                    }
+                }
+            });
+    }
 
-	AVPacket packetEncoded;
-	av_init_packet(&packetEncoded);
+    AVPacket packetEncoded;
+    av_init_packet(&packetEncoded);
+    packetEncoded.data = nullptr;
+    packetEncoded.size = 0;
+
 
 	try
 	{
@@ -208,6 +264,12 @@ void FFmpegWrapper::readInput()
 						}
 						if (sendData) {
 							// Convert the YUV frame to RGB
+							if (pendingOperationsCounter->load()  > maxPendingOperations) {
+								// Skip some frames to help WebSocket catch up
+								// For video, we can drop frames to maintain real-time streaming
+								av_packet_unref(&packet);
+								continue;
+							}
 							sws_scale(conversion_context, pFrame->data, pFrame->linesize, 0, pFrame->height, rgb_frame->data, rgb_frame->linesize);
 
 							uint8_t* frameData = rgb_frame->data[0];
@@ -269,6 +331,12 @@ void FFmpegWrapper::readInput()
 						}
 					}
 					if (sendData) {
+						if (pendingOperationsCounter->load()  > maxPendingOperations) {
+							// Skip some frames to help WebSocket catch up
+							// For video, we can drop frames to maintain real-time streaming
+							av_packet_unref(&packet);
+							continue;
+						}
 						vector<uint8_t> mp4Data(packet.data, packet.data + packet.buf->size);
 						{
 							std::lock_guard<std::mutex> lock(connectionsMutex);
@@ -296,103 +364,124 @@ void FFmpegWrapper::readInput()
 				frameNumber--;
 			}
 
-
-
 			// Free the packet that was allocated by av_read_frame
 			av_free_packet(&packet);
 		}
 		if (!isLiveMode())
-		{
-			for (webConnHdl hndl : connections[mp4]) {
-				websocketSCallback(hndl, "Playback_Finished");
-			}
-			for (webConnHdl hndl1 : connections[rgba]) {
-				websocketSCallback(hndl1, "Playback_Finished");
-			}
-			mStop = true;
-			thread1.join();
-			cout << "Thread 1 join";
-		}
+        {
+            std::lock_guard<std::mutex> lock(connectionsMutex);
+            for (webConnHdl hndl : connections[mp4]) {
+                websocketSCallback(hndl, "Playback_Finished");
+            }
+            for (webConnHdl hndl1 : connections[rgba]) {
+                websocketSCallback(hndl1, "Playback_Finished");
+            }
+        }
 		mStop = true;
 	}
-	catch (const exception& ex) {
-		cout << ex.what() << std::endl;
-	}
+	catch (const std::exception& ex) {
+        if (logger) { logger->error("Exception in readInput: {}", ex.what()); }
+        else { std::cout << ex.what() << std::endl; }
+    }
+	// Clean up resources
+    mStop = true;
+    
+    // Cleanup the encoded packet
+    av_packet_unref(&packetEncoded);
+    
+    // Join the thread if it exists
+    if (thread1 && thread1->joinable()) {
+        thread1->join();
+        if (logger) { logger->debug("Thread joined successfully"); }
+    }
 }
 
 bool FFmpegWrapper::openInput()
 {
-	std::cout << "FFmpeg Version Info:\n";
+              
+    this->inputFormatCtx = avformat_alloc_context();
+    if (!this->inputFormatCtx) {
+        if (logger) { logger->error("Failed to allocate input format context"); }
+        return false;
+    }
     
-    std::cout << "  libavcodec  : "
-              << AV_VERSION_MAJOR(avcodec_version()) << "."
-              << AV_VERSION_MINOR(avcodec_version()) << "."
-              << AV_VERSION_MICRO(avcodec_version()) << "\n";
+    this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
+    this->inputFormatCtx->interrupt_callback.opaque = this;
+    const char* fileName = this->url.c_str();
+    
+    // Open file
+    AVDictionary* options1 = nullptr;
+    bool success = false;
+    
+    try {
+        if (connectionmode == "tcp") {
+            av_dict_set(&options1, "rtsp_transport", "tcp", 0);
+        } else if (connectionmode == "udp") {
+            av_dict_set(&options1, "rtsp_transport", "udp", 0);
+        } else {
+            av_dict_set(&options1, "rtsp_transport", "tcp", 0);
+        }
+        
+        av_dict_set(&options1, "max_delay", "500000000", 0); // 0.5 sec
+        av_dict_set(&options1, "stimeout", "1500000000", 0); // Timeout in microseconds
+        av_dict_set(&options1, "analyzeduration", "1000000000", 0); // 20 seconds
+        av_dict_set(&options1, "probesize", "1000000000", 0); // 10 MB
+        
+        this->params.lastStopped = GetTickCount();
 
-    std::cout << "  libavformat : "
-              << AV_VERSION_MAJOR(avformat_version()) << "."
-              << AV_VERSION_MINOR(avformat_version()) << "."
-              << AV_VERSION_MICRO(avformat_version()) << "\n";
+        // First attempt
+        if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0) {
+            if (connectionmode == "") {
+                // Try UDP as fallback
+                av_dict_free(&options1); // Free previous dictionary
+                options1 = nullptr;      // Reset pointer
+                
+                av_dict_set(&options1, "rtsp_transport", "udp", 0);
+                if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0) {
+                    // Clean up on failure
+                    av_dict_free(&options1);
+                    avformat_close_input(&this->inputFormatCtx);
+                    return false;
+                }
+            } else {
+                // Clean up on failure
+                av_dict_free(&options1);
+                avformat_close_input(&this->inputFormatCtx);
+                return false;
+            }
+        }
+		std::cout << "FFmpeg Version Info:\n";
 
-    std::cout << "  libavutil   : "
-              << AV_VERSION_MAJOR(avutil_version()) << "."
-              << AV_VERSION_MINOR(avutil_version()) << "."
-              << AV_VERSION_MICRO(avutil_version()) << "\n";
-			  
-	this->inputFormatCtx = avformat_alloc_context();
-	this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
-	this->inputFormatCtx->interrupt_callback.opaque = this;
-	const char* fileName = this->url.c_str();
-	//const char* fileName = "rtsp://192.168.0.40:8556/test";
-	//cout << fileName << endl;
-	// Open file
-	AVDictionary* options1 = nullptr;
-	try
-	{
-		if (connectionmode == "tcp")
-		{
-			av_dict_set(&options1, "rtsp_transport", "tcp", 0);
-		}
-		else if (connectionmode == "udp")
-		{
-			av_dict_set(&options1, "rtsp_transport", "udp", 0);
-		}
-		else
-		{
-			av_dict_set(&options1, "rtsp_transport", "tcp", 0);
-		}
-		av_dict_set(&options1, "max_delay", "500000000", 0); // 0.5 sec
-		av_dict_set(&options1, "stimeout", "1500000000", 0); // Timeout in microseconds
-		av_dict_set(&options1, "analyzeduration", "1000000000", 0); // 20 seconds
-		av_dict_set(&options1, "probesize", "1000000000", 0); // 10 MB
-	}
-	catch (boost::bad_lexical_cast)
-	{
-		// bad parameter
-	}
+		std::cout << "  libavcodec  : "
+			<< AV_VERSION_MAJOR(avcodec_version()) << "."
+			<< AV_VERSION_MINOR(avcodec_version()) << "."
+			<< AV_VERSION_MICRO(avcodec_version()) << "\n";
 
-	this->params.lastStopped = GetTickCount();
+		std::cout << "  libavformat : "
+			<< AV_VERSION_MAJOR(avformat_version()) << "."
+			<< AV_VERSION_MINOR(avformat_version()) << "."
+			<< AV_VERSION_MICRO(avformat_version()) << "\n";
 
-	if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
-	{
-		if (connectionmode == "")
-		{
-			av_dict_set(&options1, "rtsp_transport", "udp", 0);
-			if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
-			{
-				return false;
-			}
-		}
-		else
-		{
-			return false;
-		}
-	}
-
-	// Dump information about file onto standard error
-	av_dump_format(this->inputFormatCtx, 0, fileName, 0);
-
-	return true;
+		std::cout << "  libavutil   : "
+			<< AV_VERSION_MAJOR(avutil_version()) << "."
+			<< AV_VERSION_MINOR(avutil_version()) << "."
+			<< AV_VERSION_MICRO(avutil_version()) << "\n";
+        // Dump information about file onto standard error
+        av_dump_format(this->inputFormatCtx, 0, fileName, 0);
+        success = true;
+    }
+    catch (const std::exception& ex) {
+        if (logger) { logger->error("Exception in openInput: {}", ex.what()); }
+        // Clean up on exception
+        if (this->inputFormatCtx) {
+            avformat_close_input(&this->inputFormatCtx);
+        }
+        success = false;
+    }
+    
+    // Always free the dictionary
+    av_dict_free(&options1);
+    return success;
 }
 
 bool FFmpegWrapper::GetInputCodecInfo()
@@ -434,7 +523,7 @@ bool FFmpegWrapper::createRgbaOutput()
 
 	// Copy context
 	this->decoderCodecContext = avcodec_alloc_context3(this->decoderCodec);
-	if (avcodec_copy_context(this->decoderCodecContext, this->inputCodecCtx) != 0) {
+	if (avcodec_parameters_to_context(decoderCodecContext, this->inputFormatCtx->streams[videoStream]->codecpar)!= 0) {
 		fprintf(stderr, "Couldn't copy codec context");
 		return false; // Error copying codec context
 	}
@@ -476,15 +565,16 @@ void FFmpegWrapper::closeInput()
 {
 	try {
 		avcodec_close(inputCodecCtx);
-		inputCodecCtx = NULL;
+		inputCodecCtx = nullptr;
 		// Close the video file
 		avformat_close_input(&this->inputFormatCtx);
-		inputFormatCtx = NULL;
+		inputFormatCtx = nullptr;
 		inputCodecID = AV_CODEC_ID_NONE;
 		if (logger) { logger->debug("In closeInput: Closed input"); }
 	}
 	catch (const std::exception& ex) {
-		std::cout << ex.what() << std::endl;
+		if (logger) { logger->error("Exception in closeInput: {}", ex.what()); }
+        else { std::cout << "Error in closeInput: " << ex.what() << std::endl; }
 	}
 }
 

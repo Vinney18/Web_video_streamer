@@ -90,11 +90,13 @@ private:
 	std::shared_ptr<spdlog::logger> logger;
 	float fastForwardFactor = 1;
 	int sleepTime = 0;
+	std::atomic<size_t>* pendingOperationsCounter;
+	size_t maxPendingOperations;
 
 public:
 	FFmpegWrapper(string _cameraId, string _url, string _playmode, int start_seek_time, WebsocketDataCallback _websocketCallback,
 			WebsocketSDataCallback _websocketSCallback, string _connectionmode, string _serverIp, int _port,
-			std::shared_ptr<spdlog::logger> _logger, float playbackSpeed) : Thread(), logger(std::move(_logger)) {
+			std::shared_ptr<spdlog::logger> _logger, float playbackSpeed,std::atomic<size_t>& pendingOpsCounter, size_t maxPendingOps) : Thread(), logger(std::move(_logger)) {
 		cameraId = _cameraId;
 		url = std::move(_url);
 		playmode = _playmode;
@@ -106,6 +108,8 @@ public:
 		serverIp = _serverIp;
 		port = _port;
 		fastForwardFactor = playbackSpeed;
+		maxPendingOperations = maxPendingOps;
+		pendingOperationsCounter = &pendingOpsCounter;
 	}
 
 	~FFmpegWrapper();

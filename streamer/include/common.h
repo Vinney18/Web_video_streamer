@@ -19,6 +19,9 @@ namespace i2v {
     static const std::string VMS_STREAM_USERNAME = "admin";
     static const std::string VMS_STREAM_PASSWORD = "admin";
 
+    static const std::string emptyUrlMsg = "EmptyUrl";
+    static const std::string playerServerNotConnectedMsg = "Player_Server_Not_Connected";
+    static const std::string urlServerNotConnectedMsg = "URL_Server_Not_Connected";
 }
 
 #endif //MAIN_COMMON_H

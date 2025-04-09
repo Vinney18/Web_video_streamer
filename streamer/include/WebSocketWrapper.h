@@ -22,6 +22,11 @@ public:
     void on_message(connection_hdl hdl, websocketpp::server<websocketpp::config::asio>::message_ptr msg);
     void SendData(connection_hdl& con_hndl, std::vector<uint8_t>& data, int64_t timestamp);
     void SendStringData(connection_hdl& con_hndl, std::string sdata);
+    std::atomic<size_t>& getPendingOperationsCounter() { return pendingOperations; }
+    size_t getMaxPendingOperations() const {
+        return MAX_PENDING_OPERATIONS;
+    }
+
 
 private:
     int generateAndCheckRandomNumber();
@@ -48,4 +53,7 @@ private:
     bool isVMS;
     std::string vmsStreamUserName;
     std::string vmsStreamPassword;
+
+    std::atomic<size_t> pendingOperations{0};
+    static constexpr size_t MAX_PENDING_OPERATIONS = 30;
 };

@@ -19,7 +19,6 @@
 std::mutex ffmpegListMutex;
 std::mutex connectionsIdMapMutex;
 
-
 string config_dir_path = i2v::Util::getConfigFolderPath();
 std::string mainConfigFile_t = config_dir_path + "/mainConf.json";
 WebSocketWrapper::WebSocketWrapper(int port, const std::string& playerIp, int playerPort, std::shared_ptr<spdlog::logger> logger, bool isVMS, const std::string& vmsUser, const std::string& vmsPassword)
@@ -195,30 +194,37 @@ void WebSocketWrapper::on_message(connection_hdl hdl, websocketpp::server<websoc
 
 void WebSocketWrapper::SendData(websocketpp::connection_hdl& con_hndl, std::vector<uint8_t>& data, int64_t timestamp) {
 	try {
-		/*if (timestamp >= 0) {
-			data.insert(data.begin(), sizeof(timestamp), 0);
-			for (size_t i = 0; i < sizeof(timestamp); ++i) {
-				data[i] = timestamp & 0xFF;
-				timestamp >>= 8;
-			}
-		}*/
+		// Increment pending operations counter
+		pendingOperations++;
+
+		// Use std::async with capture-by-value (makes a copy automatically)
 		std::future<void> result = std::async(std::launch::async, [this, con_hndl, data, timestamp]() {
-			//cout << "Thread ID (SendData): " << std::this_thread::get_id() << endl;
-			websocketpp::server<websocketpp::config::asio>::connection_ptr con = websocket_server.get_con_from_hdl(con_hndl);
-			if (con && con->get_state() == websocketpp::session::state::open) {
-				// Create the data message to send
-				con->send(data.data(), data.size(), websocketpp::frame::opcode::BINARY);
-				/*if (mainLogger) {
-					mainLogger->debug("Sent data to connection: {}", con_hndl.lock());
-				}*/
+			try {
+				auto con = websocket_server.get_con_from_hdl(con_hndl);
+				if (con && con->get_state() == websocketpp::session::state::open) {
+					// Send the data
+					con->send(data.data(), data.size(), websocketpp::frame::opcode::BINARY);
+				}
 			}
+			catch (const std::exception& ex) {
+				if (mainLogger) {
+					mainLogger->error("Error in SendData async task: {}", ex.what());
+				}
+			}
+
+			// Decrement the counter
+			pendingOperations--;
 			});
+
 	}
 	catch (const std::exception& ex) {
-		if (mainLogger) { mainLogger->error("Error in SendData: {}", ex.what()); }
-		else { std::cout << ex.what() << std::endl; }
+		if (mainLogger) {
+			mainLogger->error("Error in SendData: {}", ex.what());
+		}
+		pendingOperations--; // Ensure counter is decremented if we fail
 	}
 }
+
 void WebSocketWrapper::SendStringData(websocketpp::connection_hdl& con_hndl, std::string sdata) {
     try {
 		std::future<void> result = std::async(std::launch::async, [this, con_hndl, sdata]() {
@@ -303,26 +309,39 @@ void WebSocketWrapper::process_request(connection_hdl hdl, std::string& query) {
 	//cout << url << " ## " << seekTime_ofFile << endl;
 	//cout << endl;
 	
-	if (mainLogger) { mainLogger->debug("on_open url returned is: {}", url); }
+	try {
+		if (mainLogger) {
+			mainLogger->debug("on_open url returned is: {}", url);
+		}
 
-	if (url.empty() || boost::starts_with(url, "Player_Server_Not_Connected") || boost::starts_with(url, "URL_Server_Not_Connected")) {
+		if (url.empty()) {
+			websocket_server.send(hdl, i2v::emptyUrlMsg.c_str(), i2v::emptyUrlMsg.size(), websocketpp::frame::opcode::TEXT);
+			websocket_server.pause_reading(hdl);
+			websocket_server.close(hdl, 0, i2v::emptyUrlMsg);
+			return;
+		}
+
 		if (boost::starts_with(url, "Player_Server_Not_Connected")) {
-			websocket_server.send(hdl, "Player_Server_Not_Connected", 27, websocketpp::frame::opcode::TEXT);
+			websocket_server.send(hdl, i2v::playerServerNotConnectedMsg.c_str(), i2v::playerServerNotConnectedMsg.size(), websocketpp::frame::opcode::TEXT);
 			websocket_server.pause_reading(hdl);
-			websocket_server.close(hdl, 0, "Player_Server_Not_Connected");
+			websocket_server.close(hdl, 0, i2v::playerServerNotConnectedMsg);
+			return;
 		}
-		else if (boost::starts_with(url, "URL_Server_Not_Connected")) {
-			websocket_server.send(hdl, "URL_Server_Not_Connected", 24, websocketpp::frame::opcode::TEXT);
+
+		if (boost::starts_with(url, "URL_Server_Not_Connected")) {
+			websocket_server.send(hdl, i2v::urlServerNotConnectedMsg.c_str(), i2v::urlServerNotConnectedMsg.size(), websocketpp::frame::opcode::TEXT);
 			websocket_server.pause_reading(hdl);
-			websocket_server.close(hdl, 0, "URL_Server_Not_Connected");
+			websocket_server.close(hdl, 0, i2v::urlServerNotConnectedMsg);
+			return;
 		}
-		else
-		{
-			websocket_server.send(hdl, "EmptyUrl", 8, websocketpp::frame::opcode::TEXT);
-			websocket_server.pause_reading(hdl);
-			websocket_server.close(hdl, 0, "EmptyUrl");
+	}
+	catch (const std::exception& ex) {
+		if (mainLogger) {
+			mainLogger->error("Exception in processing URL: {}", ex.what());
 		}
-		return;
+		else {
+			std::cout << "Exception in processing URL: " << ex.what() << std::endl;
+		}
 	}
 
     std::lock_guard<std::mutex> ffmpegGuard(ffmpegListMutex);
@@ -336,7 +355,7 @@ void WebSocketWrapper::process_request(connection_hdl hdl, std::string& query) {
         std::string keyValue = cameraId + "~~" + mode + "~~" + url;
         if (ffmpegList.find(keyValue) == ffmpegList.end()) {
             auto ffmpeg = std::make_shared<FFmpegWrapper>(cameraId, url, mode, seekTime_ofFile, sendDataFunc, sendStringDataFunc,
-                connectionmode, playerServerIp, playerServerPort, mainLogger, playbackSpeed);
+                connectionmode, playerServerIp, playerServerPort, mainLogger, playbackSpeed, pendingOperations, MAX_PENDING_OPERATIONS );
             ffmpegList[keyValue] = ffmpeg;
             ffmpeg->startThread();
         }
@@ -355,7 +374,7 @@ void WebSocketWrapper::process_request(connection_hdl hdl, std::string& query) {
         std::string keyValue = std::to_string(random) + "~~" + mode;
 
         auto ffmpeg = std::make_shared<FFmpegWrapper>(cameraId, url, mode, seekTime_ofFile, sendDataFunc, sendStringDataFunc,
-            connectionmode, playerServerIp, playerServerPort, mainLogger, playbackSpeed);
+            connectionmode, playerServerIp, playerServerPort, mainLogger, playbackSpeed,this->getPendingOperationsCounter(),this->getMaxPendingOperations());
         ffmpegList[keyValue] = ffmpeg;
         ffmpeg->startThread();
 
