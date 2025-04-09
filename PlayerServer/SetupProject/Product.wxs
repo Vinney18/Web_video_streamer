@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+	<Product Id="*" Name="i2V_Player_Server" Language="1033" Version="7.2.1" Manufacturer="i2v" UpgradeCode="13b8582c-d118-4c6b-ab9b-8311008c65f2">
+		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+
+		<MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+		<MediaTemplate EmbedCab="yes"/>
+
+    <WixVariable Id="WixUILicenseRtf" Value="Software_licence_agreement.rtf" />
+
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER"/>
+    <UIRef Id="MyWixUI_InstallDir"/>
+
+    <Feature Id="ProductFeature" Title="SetupProject" Level="1">
+			<ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="playerServerComponent" />
+		</Feature>
+
+    <CustomAction Id="SetCustomActionDataValue" Return="check"
+                   Property="OnAfterInstallAction" Value="INSTALLEDPATH=[INSTALLFOLDER];" />
+
+    <CustomAction Id="SetCustomActionDataValue1" Return="check"
+               Property="OnUninstallAction" Value="INSTALLEDPATH=[INSTALLFOLDER];" />
+
+
+    <InstallExecuteSequence>
+
+      <Custom Action="SetCustomActionDataValue" Before="OnAfterInstallAction" />
+      <Custom Action="OnAfterInstallAction" Before="InstallFinalize">
+        NOT REMOVE
+      </Custom>
+
+      <Custom Action="SetCustomActionDataValue1" Before="OnUninstallAction" />
+      <Custom Action="OnUninstallAction" Before="RemoveFiles">Installed AND NOT UPGRADINGPRODUCTCODE </Custom>
+
+
+    </InstallExecuteSequence>
+	</Product>
+
+	<Fragment>
+		<Directory Id="TARGETDIR" Name="SourceDir">
+			<Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="i2v_Player_Server" >
+          <Directory Id="server_Path" Name="server"/>
+
+		</Directory>
+			</Directory>
+		</Directory>
+	</Fragment>
+
+	<Fragment>
+		<ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="ProductComponent" Guid="F95611DA84C44DE5870FBE7B93FDCDE7">
+        <File Source="nssm.exe" />
+      </Component>
+		</ComponentGroup>
+	</Fragment>
+
+  <Fragment>
+    <Binary Id="SetupCA2"  SourceFile="$(var.InstallUninstallCustomAction.TargetDir)/InstallUninstallCustomAction.CA.dll" />
+    <CustomAction Id="OnAfterInstallAction"
+              BinaryKey="SetupCA2"
+              DllEntry="OnAfterInstall"
+              Execute="deferred"
+              Return="check"
+             />
+
+
+    <CustomAction Id="OnUninstallAction"
+             BinaryKey="SetupCA2"
+             DllEntry="OnUninstall"
+             Execute="deferred"
+             Return="check"
+             />
+
+
+  </Fragment>
+</Wix>

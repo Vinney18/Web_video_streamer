@@ -1,0 +1,178 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Fragment>
+        <DirectoryRef Id="server_Path">
+
+			<Component Id="fa324bd3310d44e9852b8d899faa2a9b" Guid="*">
+				<File Id="b4287c8a1da945729a2f998c1a872503" KeyPath="yes" Source="../PlayerServer/lib/boost_filesystem-vc140-mt-x64-1_70.dll" />
+			</Component>
+
+			<Component Id="dd9457cfcac240be9e59c540e5d9633f" Guid="*">
+				<File Id="bed34aced5384706b8ef279d2afc37c6" KeyPath="yes" Source="../PlayerServer/lib/libliblicenser.so" />
+			</Component>
+
+			<Component Id="b323b6c35f614e618d171bf60b518a54" Guid="*">
+				<File Id="acf21dd8621243bfb98c169f5e31c80e" KeyPath="yes" Source="../PlayerServer/lib/liblicenser.dll" />
+			</Component>
+			
+			
+            <Component Id="cmpE53B744293A53C2996CB5DEB23D98430" Guid="*">
+                <File Id="filEC0A82FCDEBB399D5651C3B56D7B6133" KeyPath="yes" Source="$(var.serverPath)\appsettings.Development.json" />
+            </Component>
+            <Component Id="cmpC15DCDD613E04D681744ED67D352F6E4" Guid="*">
+                <File Id="fil105B422D41276ECD223DFDE49ADB5BBA" KeyPath="yes" Source="$(var.serverPath)\appsettings.json" />
+            </Component>
+            <Component Id="cmp311148B2A7753F1F9899B09F38CA3894" Guid="*">
+                <File Id="fil5EA3B8F5742A339A927D6849B5604E8E" KeyPath="yes" Source="$(var.serverPath)\config.json" />
+            </Component>
+            <Component Id="cmpEEC72832A30BB1F9192464822043AF1B" Guid="*">
+                <File Id="filD6A9E18CD6D4C384E285DD8533738CFE" KeyPath="yes" Source="$(var.serverPath)\Licensing.dll" />
+            </Component>
+            <Component Id="cmp44E977D19328AEC156816FF6C1206CFF" Guid="*">
+                <File Id="fil6A1E8DFDD8B029BD61114A758409BD17" KeyPath="yes" Source="$(var.serverPath)\Microsoft.AspNetCore.JsonPatch.dll" />
+            </Component>
+            <Component Id="cmp8CD615391687D600BD632017D433E58C" Guid="*">
+                <File Id="fil7CF5BEDEF7E997DAC263D67CA6951791" KeyPath="yes" Source="$(var.serverPath)\Microsoft.AspNetCore.Mvc.NewtonsoftJson.dll" />
+            </Component>
+            <Component Id="cmp7097FBCC97F425D8BFF3B46CE27F51EF" Guid="*">
+                <File Id="fil7DF976F083B346D29B99FEEBABF7A3B9" KeyPath="yes" Source="$(var.serverPath)\networkSetting.json" />
+            </Component>
+            <Component Id="cmpDFFBAC61E5D439A9437809693C1AA3EC" Guid="*">
+                <File Id="fil0B471885BD9E1A28708F24923075D718" KeyPath="yes" Source="$(var.serverPath)\Newtonsoft.Json.Bson.dll" />
+            </Component>
+            <Component Id="cmp2B02E829CF1171D65F053CF7B96C09B6" Guid="*">
+                <File Id="fil03CBA29B5DF11ED01B0B9EE8524203CA" KeyPath="yes" Source="$(var.serverPath)\Newtonsoft.Json.dll" />
+            </Component>
+            <Component Id="cmpE593D3BBE259517471DA4BBA1A455A22" Guid="*">
+                <File Id="fil1E47DAA690F9C4AC6A98EABB4E9C2ABF" KeyPath="yes" Source="$(var.serverPath)\package-lock.json" />
+            </Component>
+            <Component Id="cmp9CA5C0F7D6E012DF67F805BFB427D610" Guid="*">
+                <File Id="filDBCC56F4C0C92F60E70C8AE64952D657" KeyPath="yes" Source="$(var.serverPath)\package.json" />
+            </Component>
+            <Component Id="cmp26258580F622C387F20F112DE630F1C0" Guid="*">
+                <File Id="filB281B3E606B4AE2A2F60C353E861C1BA" KeyPath="yes" Source="$(var.serverPath)\PlayerServer.bat" />
+            </Component>
+            <Component Id="cmp1DB813760D2BB7C6A1664AD5CAB32BDC" Guid="*">
+                <File Id="fil23D3E657539FC6C8DF703620A5123A51" KeyPath="yes" Source="$(var.serverPath)\PlayerServer.deps.json" />
+            </Component>
+            <Component Id="cmp22D5E6DC9CCD15349989BE58989FFF14" Guid="*">
+                <File Id="filB6F025DDDDA23604E56E79BA2C900D2C" KeyPath="yes" Source="$(var.serverPath)\PlayerServer.dll" />
+            </Component>
+            <Component Id="cmpA248CE911AF34455A29F0375D1DDA89F" Guid="*">
+                <File Id="fil1E3719C8DAE8901A2ED1C6466D2A2344" KeyPath="yes" Source="$(var.serverPath)\PlayerServer.exe" />
+            </Component>
+            <Component Id="cmp726C8BA5F2AA5677A873821D1B0E94A7" Guid="*">
+                <File Id="fil670D949305EFAE8C9A4C3E3D699D2439" KeyPath="yes" Source="$(var.serverPath)\PlayerServer.pdb" />
+            </Component>
+            <Component Id="cmp5F889F68C9908B747566AD99277F5B4C" Guid="*">
+                <File Id="filDADA27DBE7FFECEB26BE78648745C168" KeyPath="yes" Source="$(var.serverPath)\PlayerServer.runtimeconfig.json" />
+            </Component>
+            <Component Id="cmpF438BDA967CE1938C923F51626946148" Guid="*">
+                <File Id="filA6DA886591A238AFCA49484433B04996" KeyPath="yes" Source="$(var.serverPath)\public_key.xml" />
+            </Component>
+            <Directory Id="dirE07B14945E98E589658EAC2D92F14119" Name="setup">
+                <Component Id="cmpA9C4380868ABE902B0228B3873876F43" Guid="*">
+                    <File Id="fil12E89BB696FBA7716A68FA6B5303FC6C" KeyPath="yes" Source="$(var.serverPath)\setup\i2v_player.msi" />
+                </Component>
+            </Directory>
+            <Directory Id="dir2B9F990EBBC427BA64388038D52C4357" Name="wwwroot">
+                <Component Id="cmp5DB8203593E21202460A12B60169B289" Guid="*">
+                    <File Id="fil2216B8C82397B5C89B685F00CF95CA25" KeyPath="yes" Source="$(var.serverPath)\wwwroot\index.html" />
+                </Component>
+                <Component Id="cmp14514D1768FC5B27A14E345760544CEA" Guid="*">
+                    <File Id="fil3CE892E5F6B228C0BF827E94829ACEBE" KeyPath="yes" Source="$(var.serverPath)\wwwroot\license.html" />
+                </Component>
+                <Component Id="cmp0F8155DD3A78A3897CB7CDC15E6D34B7" Guid="*">
+                    <File Id="fil820767385030340FB66D6F7866519A0E" KeyPath="yes" Source="$(var.serverPath)\wwwroot\licenseDetails.html" />
+                </Component>
+                <Component Id="cmp9FA481B2DE4245B61F565F328DD0FB5A" Guid="*">
+                    <File Id="fil60E40747B38E8253DC5A0B9F93192B46" KeyPath="yes" Source="$(var.serverPath)\wwwroot\licenseSetting.html" />
+                </Component>
+                <Component Id="cmpC80D161EABDDBBE83E002876C1E4967D" Guid="*">
+                    <File Id="fil2136467EF8EC02FD9C88CE963DBEE2A8" KeyPath="yes" Source="$(var.serverPath)\wwwroot\network.html" />
+                </Component>
+                <Component Id="cmpE70C2276C3B4457F10B9BD76D91D055A" Guid="*">
+                    <File Id="fil586627AF857986208A1F636868BBD4F5" KeyPath="yes" Source="$(var.serverPath)\wwwroot\ServerError.html" />
+                </Component>
+                <Directory Id="dir5D846E3E0E051E151B0765635D636AE9" Name="css">
+                    <Component Id="cmp80FC2798EC2F79640050B183470F93A8" Guid="*">
+                        <File Id="filC0A176E82409F72AD04F62E5EB3FB8CF" KeyPath="yes" Source="$(var.serverPath)\wwwroot\css\toastr.css" />
+                    </Component>
+                </Directory>
+                <Directory Id="dirD230CFA2023C32863DCA6AFBA0CFFB19" Name="js">
+                    <Component Id="cmpEC940043FE8A96AF3889AC16F1B4F987" Guid="*">
+                        <File Id="fil631AA76A4233C17C7E893D709B8A009B" KeyPath="yes" Source="$(var.serverPath)\wwwroot\js\home.js" />
+                    </Component>
+                    <Component Id="cmpA72F50D81E5B231A3A90D49F0F8723DF" Guid="*">
+                        <File Id="fil9E35AD2284F2943652887859C7386E83" KeyPath="yes" Source="$(var.serverPath)\wwwroot\js\jquery.js" />
+                    </Component>
+                    <Component Id="cmp773331DA569C50B03F5E31A3E4E9CADF" Guid="*">
+                        <File Id="filA74709F10C79D2E57FAEB2A73C1212FF" KeyPath="yes" Source="$(var.serverPath)\wwwroot\js\license.js" />
+                    </Component>
+                    <Component Id="cmp8C5ACFF2728DDF7DEB8CE4D49044A58E" Guid="*">
+                        <File Id="filFE7FC9AF91A0E1207F2AE932450F3278" KeyPath="yes" Source="$(var.serverPath)\wwwroot\js\moment.min.js" />
+                    </Component>
+                    <Component Id="cmpD30666D9BE4BD52BE006A4A8E5E7B659" Guid="*">
+                        <File Id="filD8F4D843B9CC6E08F3D65AD01D897128" KeyPath="yes" Source="$(var.serverPath)\wwwroot\js\toastr.js" />
+                    </Component>
+                </Directory>
+                <Directory Id="dir4315BF0CFF1E985FFC77BF4AF78E5F2A" Name="player">
+                    <Component Id="cmp1442E61487A0C019020F53F7BAFA50E4" Guid="*">
+                        <File Id="fil479E1F48902B106F306EFDFDA3DCD061" KeyPath="yes" Source="$(var.serverPath)\wwwroot\player\i2v_player.min.js" />
+                    </Component>
+                    <Component Id="cmp49B1697E0E06A2E5EA2D3D9ED4D0D685" Guid="*">
+                        <File Id="filAAD88CB9886C6CE0DD72970051E8D76F" KeyPath="yes" Source="$(var.serverPath)\wwwroot\player\index.html" />
+                    </Component>
+                    <Component Id="cmp58BD01B4AAD1F0672064AB164C2AE40D" Guid="*">
+                        <File Id="fil6CEF1D0CAFAB59B6C161C904F370DC82" KeyPath="yes" Source="$(var.serverPath)\wwwroot\player\moment.min.js" />
+                    </Component>
+                </Directory>
+            </Directory>
+        </DirectoryRef>
+    </Fragment>
+    <Fragment>
+        <ComponentGroup Id="playerServerComponent">
+            <ComponentRef Id="cmpE53B744293A53C2996CB5DEB23D98430" />
+			<ComponentRef Id="fa324bd3310d44e9852b8d899faa2a9b" />
+			<ComponentRef Id="dd9457cfcac240be9e59c540e5d9633f" />
+			<ComponentRef Id="b323b6c35f614e618d171bf60b518a54" />
+
+
+
+			
+			<ComponentRef Id="cmpC15DCDD613E04D681744ED67D352F6E4" />
+            <ComponentRef Id="cmp311148B2A7753F1F9899B09F38CA3894" />
+            <ComponentRef Id="cmpEEC72832A30BB1F9192464822043AF1B" />
+            <ComponentRef Id="cmp44E977D19328AEC156816FF6C1206CFF" />
+            <ComponentRef Id="cmp8CD615391687D600BD632017D433E58C" />
+            <ComponentRef Id="cmp7097FBCC97F425D8BFF3B46CE27F51EF" />
+            <ComponentRef Id="cmpDFFBAC61E5D439A9437809693C1AA3EC" />
+            <ComponentRef Id="cmp2B02E829CF1171D65F053CF7B96C09B6" />
+            <ComponentRef Id="cmpE593D3BBE259517471DA4BBA1A455A22" />
+            <ComponentRef Id="cmp9CA5C0F7D6E012DF67F805BFB427D610" />
+            <ComponentRef Id="cmp26258580F622C387F20F112DE630F1C0" />
+            <ComponentRef Id="cmp1DB813760D2BB7C6A1664AD5CAB32BDC" />
+            <ComponentRef Id="cmp22D5E6DC9CCD15349989BE58989FFF14" />
+            <ComponentRef Id="cmpA248CE911AF34455A29F0375D1DDA89F" />
+            <ComponentRef Id="cmp726C8BA5F2AA5677A873821D1B0E94A7" />
+            <ComponentRef Id="cmp5F889F68C9908B747566AD99277F5B4C" />
+            <ComponentRef Id="cmpF438BDA967CE1938C923F51626946148" />
+            <ComponentRef Id="cmpA9C4380868ABE902B0228B3873876F43" />
+            <ComponentRef Id="cmp5DB8203593E21202460A12B60169B289" />
+            <ComponentRef Id="cmp14514D1768FC5B27A14E345760544CEA" />
+            <ComponentRef Id="cmp0F8155DD3A78A3897CB7CDC15E6D34B7" />
+            <ComponentRef Id="cmp9FA481B2DE4245B61F565F328DD0FB5A" />
+            <ComponentRef Id="cmpC80D161EABDDBBE83E002876C1E4967D" />
+            <ComponentRef Id="cmpE70C2276C3B4457F10B9BD76D91D055A" />
+            <ComponentRef Id="cmp80FC2798EC2F79640050B183470F93A8" />
+            <ComponentRef Id="cmpEC940043FE8A96AF3889AC16F1B4F987" />
+            <ComponentRef Id="cmpA72F50D81E5B231A3A90D49F0F8723DF" />
+            <ComponentRef Id="cmp773331DA569C50B03F5E31A3E4E9CADF" />
+            <ComponentRef Id="cmp8C5ACFF2728DDF7DEB8CE4D49044A58E" />
+            <ComponentRef Id="cmpD30666D9BE4BD52BE006A4A8E5E7B659" />
+            <ComponentRef Id="cmp1442E61487A0C019020F53F7BAFA50E4" />
+            <ComponentRef Id="cmp49B1697E0E06A2E5EA2D3D9ED4D0D685" />
+            <ComponentRef Id="cmp58BD01B4AAD1F0672064AB164C2AE40D" />
+        </ComponentGroup>
+    </Fragment>
+</Wix>

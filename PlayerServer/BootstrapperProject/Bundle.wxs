@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:bal="http://schemas.microsoft.com/wix/BalExtension">
+  <Bundle Name="i2V Web Player Msi Installer" Version="7.2.1" Manufacturer="I2V"
+          UpgradeCode="b052a793-219b-4ae4-b160-406cf2986e83" >
+
+
+    <BootstrapperApplicationRef Id="WixStandardBootstrapperApplication.RtfLicense">
+      <bal:WixStandardBootstrapperApplication
+        LicenseUrl=""
+        LogoFile ="Resource/$(var.OEMNAME)/logo.jpg"
+        ThemeFile="Resource/MyCustomBootstrapperTheme.xml"
+        LocalizationFile="Resource/MyCustomBootstrapperTheme.wxl" />
+    </BootstrapperApplicationRef>
+
+    <Chain>
+      <!--<ExePackage SourceFile="External_Dependencies/dotnet-hosting-2.2.7-win.exe" Permanent="yes" Compressed="yes" Vital="no"   />
+      <ExePackage SourceFile="External_Dependencies/vcredist_x64.exe" Permanent="yes" Compressed="yes" Vital="no"   />
+      <ExePackage SourceFile="External_Dependencies/vcredist_x64 (2).exe" Permanent="yes" Compressed="yes" Vital="no"   />
+      <ExePackage SourceFile="External_Dependencies/vcredist_x64 (3).exe" Permanent="yes" Compressed="yes" Vital="no"   />-->
+      <MsiPackage SourceFile="$(var.SetupProject.TargetPath)" Permanent="no" Visible="yes" DisplayInternalUI="yes" Compressed="yes" Vital="yes"   >
+      </MsiPackage>
+      <MsiPackage SourceFile="../../ffmpeg-player-setup-win/bin/Release/i2v_player.msi" Permanent="no" Visible="yes" DisplayInternalUI="yes" Compressed="yes" Vital="yes"   >
+      </MsiPackage>
+    </Chain>
+
+  </Bundle>
+</Wix>

@@ -1,0 +1,53 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <IsWindows Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true'">true</IsWindows>
+    <IsOSX Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true'">true</IsOSX>
+    <IsLinux Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true'">true</IsLinux>
+    <ApplicationIcon />
+    <OutputType>Exe</OutputType>
+    <StartupObject />
+  </PropertyGroup>
+  
+  <PropertyGroup Condition="'$(IsWindows)'=='true'">
+    <DefineConstants>Windows</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(IsOSX)'=='true'">
+    <DefineConstants>OSX</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(IsLinux)'=='true'">
+    <DefineConstants>Linux</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- <PackageReference Include="Microsoft.AspNet.WebApi.Core" Version="7.0.14" /> -->
+    <!-- <PackageReference Include="Microsoft.AspNetCore.All" Version="2.2.7" /> -->
+    <!-- <PackageReference Include="Microsoft.AspNetCore.App" /> -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="7.0.14" />
+    <!-- <PackageReference Include="System.Management" Version="4.7.0" /> -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Licensing">
+      <HintPath>Licensing.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="PlayerServer.bat" CopyToPublishDirectory="Always" />
+    <None Include="public_key.xml" CopyToPublishDirectory="Always"></None>
+    <None Include="setup\**" CopyToPublishDirectory="Always" />
+  </ItemGroup>
+  <!-- Add the following Target section to copy files from lib during the build -->
+  <Target Name="CopyFiles" AfterTargets="Build;Publish">
+    <ItemGroup>
+      <_FilesToCopy Include="lib\**\*.*" />
+      <FilesToCopy Include="@(_FilesToCopy->'%(FullPath)')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(PublishDir)\%(RecursiveDir)" />
+  </Target>
+  <ItemGroup>
+    <Folder Include="setup\" />
+  </ItemGroup>
+
+</Project>

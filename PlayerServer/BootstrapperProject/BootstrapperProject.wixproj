@@ -1,0 +1,249 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" InitialTargets="EnsureWixToolsetInstalled" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+    <ProductVersion>3.10</ProductVersion>
+    <ProjectGuid>7c8728fe-61f1-40f4-8931-674e50286e6a</ProjectGuid>
+    <SchemaVersion>2.0</SchemaVersion>
+    <OutputName>PlayerInstaller</OutputName>
+    <OutputType>Bundle</OutputType>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
+    <DefineConstants>Debug</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|ia64' ">
+    <DefineConstants>Debug</DefineConstants>
+    <OutputPath>bin\$(Platform)\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|ia64' ">
+    <OutputPath>bin\$(Platform)\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <DefineConstants>Debug</DefineConstants>
+    <OutputPath>bin\$(Platform)\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <OutputPath>bin\$(Platform)\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <DefineConstants>Debug</DefineConstants>
+    <OutputPath>bin\$(Platform)\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <OutputPath>bin\$(Platform)\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <DefineConstants>Debug</DefineConstants>
+    <OutputPath>bin\$(Platform)\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <OutputPath>bin\$(Platform)\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <DefineConstants>Debug</DefineConstants>
+    <OutputPath>bin\$(Platform)\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <OutputPath>bin\$(Platform)\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Bundle.wxs" />
+  </ItemGroup>
+  <ItemGroup>
+    <WixExtension Include="WixNetFxExtension">
+      <HintPath>$(WixExtDir)\WixNetFxExtension.dll</HintPath>
+      <Name>WixNetFxExtension</Name>
+    </WixExtension>
+    <WixExtension Include="WixBalExtension">
+      <HintPath>$(WixExtDir)\WixBalExtension.dll</HintPath>
+      <Name>WixBalExtension</Name>
+    </WixExtension>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="External_Dependencies" />
+    <Folder Include="Resource" />
+    <Folder Include="Resource\CPPLUS\" />
+    <Folder Include="Resource\i2V" />
+    <Folder Include="Resource\Intellivision\" />
+    <Folder Include="Resource\LevelOne\" />
+    <Folder Include="Resource\Milesight\" />
+    <Folder Include="Resource\Plexonics\" />
+    <Folder Include="Resource\Secura\" />
+    <Folder Include="Resource\Sparsh\" />
+    <Folder Include="Resource\VMS\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Resource\CPPLUS\Banner_short.jpg" />
+    <Content Include="Resource\CPPLUS\Ico_ConfigClient.ico" />
+    <Content Include="Resource\CPPLUS\Ico_Emap.ico" />
+    <Content Include="Resource\CPPLUS\Ico_LiveView.ico" />
+    <Content Include="Resource\CPPLUS\Ico_Playback.ico" />
+    <Content Include="Resource\CPPLUS\Ico_VideoAnalyticServer.ico" />
+    <Content Include="Resource\CPPLUS\Ico_wpfclient.ico" />
+    <Content Include="Resource\CPPLUS\logo.jpg" />
+    <Content Include="Resource\CPPLUS\MainIco.ico" />
+    <Content Include="Resource\CPPLUS\MS_Icon.ico" />
+    <Content Include="Resource\CPPLUS\rs_logo.ico" />
+    <Content Include="Resource\CPPLUS\Software_licence_agreement.rtf" />
+    <Content Include="Resource\CPPLUS\Uninstall.ico" />
+    <Content Include="Resource\i2V\Banner_short.jpg" />
+    <Content Include="Resource\i2V\Ico_ConfigClient.ico" />
+    <Content Include="Resource\i2V\Ico_EMap.ico" />
+    <Content Include="Resource\i2V\Ico_Liveview.ico" />
+    <Content Include="Resource\i2V\Ico_Playback.ico" />
+    <Content Include="Resource\i2V\Ico_VideoAnalyticServer.ico" />
+    <Content Include="Resource\i2V\Ico_wpfclient.ico" />
+    <Content Include="Resource\i2V\logo.jpg" />
+    <Content Include="Resource\i2V\MainIco.ico" />
+    <Content Include="Resource\i2V\MS_Icon.ico" />
+    <Content Include="Resource\i2V\rs_logo.ico" />
+    <Content Include="Resource\i2V\Software_licence_agreement.rtf" />
+    <Content Include="Resource\i2V\uninstall.ico" />
+    <Content Include="Resource\Intellivision\Banner_short.jpg" />
+    <Content Include="Resource\Intellivision\Ico_ConfigClient.ico" />
+    <Content Include="Resource\Intellivision\Ico_Emap.ico" />
+    <Content Include="Resource\Intellivision\Ico_LiveView.ico" />
+    <Content Include="Resource\Intellivision\Ico_Playback.ico" />
+    <Content Include="Resource\Intellivision\Ico_VideoAnalyticServer.ico" />
+    <Content Include="Resource\Intellivision\Ico_wpfclient.ico" />
+    <Content Include="Resource\Intellivision\logo.jpg" />
+    <Content Include="Resource\Intellivision\MainIco.ico" />
+    <Content Include="Resource\Intellivision\MS_Icon.ico" />
+    <Content Include="Resource\Intellivision\rs_logo.ico" />
+    <Content Include="Resource\Intellivision\Software_licence_agreement.rtf" />
+    <Content Include="Resource\Intellivision\Uninstall.ico" />
+    <Content Include="Resource\LevelOne\Banner_short.jpg" />
+    <Content Include="Resource\LevelOne\Ico_ConfigClient.ico" />
+    <Content Include="Resource\LevelOne\Ico_EMap.ico" />
+    <Content Include="Resource\LevelOne\Ico_LiveView.ico" />
+    <Content Include="Resource\LevelOne\Ico_Main.ico" />
+    <Content Include="Resource\LevelOne\Ico_Playback.ico" />
+    <Content Include="Resource\LevelOne\Ico_VideoAnalyticServer.ico" />
+    <Content Include="Resource\LevelOne\Ico_wpfclient.ico" />
+    <Content Include="Resource\LevelOne\logo.jpg" />
+    <Content Include="Resource\LevelOne\MainIco.ico" />
+    <Content Include="Resource\LevelOne\MS_Icon.ico" />
+    <Content Include="Resource\LevelOne\rs_logo.ico" />
+    <Content Include="Resource\LevelOne\Software_licence_agreement.rtf" />
+    <Content Include="Resource\LevelOne\uninstall.ico" />
+    <Content Include="Resource\Milesight\Banner_short.jpg" />
+    <Content Include="Resource\Milesight\Ico_ConfigClient.ico" />
+    <Content Include="Resource\Milesight\Ico_EMap.ico" />
+    <Content Include="Resource\Milesight\Ico_LiveView.ico" />
+    <Content Include="Resource\Milesight\Ico_Main.ico" />
+    <Content Include="Resource\Milesight\Ico_Playback.ico" />
+    <Content Include="Resource\Milesight\Ico_VideoAnalyticServer.ico" />
+    <Content Include="Resource\Milesight\Ico_wpfclient.ico" />
+    <Resource Include="Resource\Milesight\logo.jpg" />
+    <Content Include="Resource\Milesight\MainIco.ico" />
+    <Content Include="Resource\Milesight\MS_Icon.ico" />
+    <Content Include="Resource\Milesight\rs_logo.ico" />
+    <Content Include="Resource\Milesight\Software_licence_agreement.rtf" />
+    <Content Include="Resource\Milesight\uninstall.ico" />
+    <Content Include="Resource\MyCustomBootstrapperTheme.xml" />
+    <Content Include="Resource\Plexonics\Banner_short.jpg" />
+    <Content Include="Resource\Plexonics\Ico_ConfigClient.ico" />
+    <Content Include="Resource\Plexonics\Ico_EMap.ico" />
+    <Content Include="Resource\Plexonics\Ico_LiveView.ico" />
+    <Content Include="Resource\Plexonics\Ico_Main.ico" />
+    <Content Include="Resource\Plexonics\Ico_Playback.ico" />
+    <Content Include="Resource\Plexonics\Ico_Plexonics.ico" />
+    <Content Include="Resource\Plexonics\Ico_VideoAnalyticServer.ico" />
+    <Content Include="Resource\Plexonics\Ico_wpfclient.ico" />
+    <Resource Include="Resource\Plexonics\logo.jpg" />
+    <Content Include="Resource\Plexonics\MainIco.ico" />
+    <Content Include="Resource\Plexonics\MS_Icon.ico" />
+    <Content Include="Resource\Plexonics\rs_logo.ico" />
+    <Content Include="Resource\Plexonics\Software_licence_agreement.rtf" />
+    <Content Include="Resource\Plexonics\uninstall.ico" />
+    <Content Include="Resource\Secura\Banner_short.jpg" />
+    <Content Include="Resource\Secura\Ico_ConfigClient.ico" />
+    <Content Include="Resource\Secura\Ico_Emap.ico" />
+    <Content Include="Resource\Secura\Ico_LiveView.ico" />
+    <Content Include="Resource\Secura\Ico_Main.ico" />
+    <Content Include="Resource\Secura\Ico_Playback.ico" />
+    <Content Include="Resource\Secura\Ico_Secura.ico" />
+    <Content Include="Resource\Secura\Ico_VideoAnalyticServer.ico" />
+    <Content Include="Resource\Secura\Ico_wpfclient.ico" />
+    <Content Include="Resource\Secura\Logo.ico" />
+    <Content Include="Resource\Secura\logo.jpg" />
+    <Content Include="Resource\Secura\MainIco.ico" />
+    <Content Include="Resource\Secura\MS_Icon.ico" />
+    <Content Include="Resource\Secura\rs_logo.ico" />
+    <Content Include="Resource\Secura\Software_licence_agreement.rtf" />
+    <Content Include="Resource\Secura\Uninstall.ico" />
+    <Content Include="Resource\Software_licence_agreement.rtf" />
+    <Content Include="Resource\Sparsh\Banner_short.jpg" />
+    <Content Include="Resource\Sparsh\Ico_ConfigClient.ico" />
+    <Content Include="Resource\Sparsh\Ico_EMap.ico" />
+    <Content Include="Resource\Sparsh\Ico_LiveView.ico" />
+    <Content Include="Resource\Sparsh\Ico_Main.ico" />
+    <Content Include="Resource\Sparsh\Ico_Playback.ico" />
+    <Content Include="Resource\Sparsh\Ico_VideoAnalyticServer.ico" />
+    <Content Include="Resource\Sparsh\Ico_wpfclient.ico" />
+    <Content Include="Resource\Sparsh\logo.jpg" />
+    <Content Include="Resource\Sparsh\MainIco.ico" />
+    <Content Include="Resource\Sparsh\MS_Icon.ico" />
+    <Content Include="Resource\Sparsh\rs_logo.ico" />
+    <Content Include="Resource\Sparsh\Software_licence_agreement.rtf" />
+    <Content Include="Resource\Sparsh\uninstall.ico" />
+    <Content Include="Resource\VMS\Banner_short.jpg" />
+    <Content Include="Resource\VMS\Ico_ConfigClient.ico" />
+    <Content Include="Resource\VMS\Ico_ConfigClient1.ico" />
+    <Content Include="Resource\VMS\Ico_EMap.ico" />
+    <Content Include="Resource\VMS\Ico_LiveView.ico" />
+    <Content Include="Resource\VMS\Ico_Main.ico" />
+    <Content Include="Resource\VMS\Ico_Playback.ico" />
+    <Content Include="Resource\VMS\Ico_VideoAnalyticServer.ico" />
+    <Content Include="Resource\VMS\Ico_wpfclient.ico" />
+    <Content Include="Resource\VMS\logo.jpg" />
+    <Content Include="Resource\VMS\MainIco.ico" />
+    <Content Include="Resource\VMS\MS_Icon.ico" />
+    <Content Include="Resource\VMS\rs_logo.ico" />
+    <Content Include="Resource\VMS\Software_licence_agreement.rtf" />
+    <Content Include="Resource\VMS\uninstall.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resource\MyCustomBootstrapperTheme.wxl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SetupProject\SetupProject.wixproj">
+      <Name>SetupProject</Name>
+      <Project>{6c7fcb08-d40b-4fc2-b8b0-d1190b960b1e}</Project>
+      <Private>True</Private>
+      <DoNotHarvest>True</DoNotHarvest>
+      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
+      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(WixTargetsPath)" Condition=" '$(WixTargetsPath)' != '' " />
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.targets" Condition=" '$(WixTargetsPath)' == '' AND Exists('$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.targets') " />
+  <Target Name="EnsureWixToolsetInstalled" Condition=" '$(WixTargetsImported)' != 'true' ">
+    <Error Text="The WiX Toolset v3.11 (or newer) build tools must be installed to build this project. To download the WiX Toolset, see http://wixtoolset.org/releases/" />
+  </Target>
+  <Target Name="BeforeBuild">
+    <PropertyGroup>
+      <DefineConstants>OEMNAME=i2V</DefineConstants>
+    </PropertyGroup>
+  </Target>
+  <PropertyGroup>
+    <PreBuildEvent />
+  </PropertyGroup>
+</Project>

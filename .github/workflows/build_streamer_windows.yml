@@ -1,0 +1,72 @@
+name: Build Streamer Windows
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    # container:
+    #   image: i2vdocker/vcpkg-windows:1.0
+    #   credentials:
+    #     username: ${{ secrets.DOCKER_USERNAME }}
+    #     password: ${{ secrets.DOCKER_PASSWORD }}
+    #   options: --user=root  # Run as root to avoid permission issues
+    #   volumes:
+    #     - ${{ github.workspace }}:/app/code
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Docker
+      run: |
+        docker version
+
+    - name: Build streamer C++ app
+      run: |
+        cd streamer
+        mkdir build
+        set COMPOSE_CONVERT_WINDOWS_PATHS="true"
+        docker run --rm -v ${pwd}:/app/code -w /app/code/streamer/build i2vdocker/vcpkg-windows:1.0 cmake .. -G "Visual Studio 17 2022" -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake
+        docker run --rm -v ${pwd}:/app/code -w /app/code/streamer/build i2vdocker/vcpkg-windows:1.0 cmake --build . --config Release --target streamer
+
+    # - name: Build streamer C++ app
+    #   run: |
+    #     cd /app
+    #     cd code/streamer
+    #     mkdir build
+    #     set PATH="C:\Program Files\CMake\bin\";%PATH% 
+    #     cd build
+    #     cmake .. -G "Visual Studio 17 2022" -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake
+    #     cmake --build . --config Release --target streamer
+
+    - name: Copy external libs
+      run: |
+        cd /app/code/streamer/build
+        robocopy ..\external_libs .\Release /E /XO
+  
+    - name: Display build output And add release notes
+      run: |
+        cd /app/code/streamer/build/Release
+        dir
+        echo "Release Version:${{ github.event.release.tag_name }}" > release_notes.md
+    
+    - name: Pack to zip
+      run: |
+        cd /app/code/streamer/build
+        tar -a -cf streamer-${{runner.os}}.zip Release
+      
+
+    # upload release assets
+    - name: Upload to release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: /app/code/streamer/build/streamer-${{runner.os}}.zip
+        asset_name: streamer-${{runner.os}}.zip
+        asset_content_type: application/zip

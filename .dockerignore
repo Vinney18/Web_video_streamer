@@ -1,0 +1,11 @@
+.git
+.gitignore
+Dockerfile*
+docker-compose*
+README.md
+LICENSE
+.vscode
+cmake-build-debug
+cmake-build-release
+build
+.idea

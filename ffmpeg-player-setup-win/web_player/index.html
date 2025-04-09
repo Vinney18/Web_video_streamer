@@ -1,0 +1,541 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Test</title>
+    <script type="text/javascript" src="moment.min.js"></script>
+    <style>
+        .input-group {
+            margin-bottom: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            justify-content: flex-start;
+        }
+
+        .form-item {
+            position: relative;
+            flex: 0 0 calc(16.33% - 100px);
+            margin-bottom: 10px;
+        }
+
+        
+
+        .input-field {
+            width: 200px;
+        }
+
+        .form-item input {
+            display: block;
+            width: 120px;
+            height: 32px;
+            background: transparent;
+            border: solid 1px #ccc;
+            transition: all .3s ease;
+            padding: 0 15px
+        }
+
+        .form-item input:focus {
+            border-color: #007BFF
+        }
+
+        .form-item label {
+            position: absolute;
+            cursor: text;
+            z-index: 2;
+            top: 13px;
+            left: 10px;
+            font-size: 12px;
+            font-weight: bold;
+            background: #fff;
+            padding: 0 10px;
+            color: #999;
+            transition: all .3s ease
+        }
+
+        .form-item input:focus+label,
+        .form-item input:valid+label {
+            top: -5px;
+            font-size: 11px;
+        }
+
+        .form-item input:focus+label {
+            color: #007BFF
+        }
+
+        .button-group {
+            margin-bottom: 20px;
+        }
+
+
+
+        .action-button {
+            padding: 5px 10px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .action-button:hover {
+            background-color: #0056b3;
+        }
+
+        .action-button:active {
+            background-color: #003d80;
+            transform: scale(0.95);
+        }
+
+        ;
+
+
+        .action-button:hover {
+            background-color: #0056b3;
+        }
+
+        .action-button:active {
+            background-color: #003d80;
+            transform: scale(0.95);
+        }
+
+        .video-container {
+            height: 500px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
+        .input-group-radio {
+            display: flex;
+            gap: 5px;
+            justify-content: flex-start;
+        }
+
+        .input-group-radio input {
+            border-radius: 20px;
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+            line-height: 1.2;
+            border-color: #003d80;
+            color: #999;
+        }
+
+        .select-dropdown,
+        .select-dropdown * {
+            height: 28px;
+            margin: 0;
+            padding: 0;
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        .select-dropdown {
+            position: relative;
+            background-color: #E6E6E6;
+            border-radius: 4px;
+        }
+
+        .select-dropdown select {
+            font-size: 1rem;
+            font-weight: normal;
+            max-width: 100%;
+            padding: 3px 36px 6px 6px;
+            border: none;
+            background-color: transparent;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+
+        .select-dropdown select:active,
+        .select-dropdown select:focus {
+            outline: none;
+            box-shadow: none;
+        }
+
+        .select-dropdown label {
+            margin-left: 7px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #999;
+        }
+
+        .select-dropdown:after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            right: 8px;
+            width: 0;
+            height: 0;
+            margin-top: -2px;
+            border-top: 5px solid #aaa;
+            border-right: 5px solid transparent;
+            border-left: 5px solid transparent;
+        }
+
+        .slider {
+            padding: 0;
+        }
+
+        @media (max-width: 600px) {
+            .form-item {
+                flex: 0 0 100%;
+            }
+
+        }
+
+        @media screen and (max-width: 1300px) {
+            .video-container {
+                height: 390px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="input-group">
+        <div class="form-item">
+            <input class="input-field" id="cameraId" placeholder="cameraId" />
+            <label for="cameraId">Camera ID:</label>
+        </div>
+        <div class="form-item">
+            <input class="input-field" id="elementId" placeholder="elementId" />
+            <label for="elementId">Element ID:</label>
+        </div>
+        <div class="form-item">
+            <input class="input-field" id="streamType" placeholder="streamType" />
+            <label for="streamType">Stream Type:</label>
+        </div>
+        <div class="form-item">
+            <input class="input-field" id="analyticType" placeholder="analyticType" />
+            <label for="analyticType">Analytic Type:</label>
+        </div>
+        <div class="form-item">
+            <input class="input-field" id="wServerIp" placeholder="localhost" />
+            <label for="wServerIp">Server IP:</label>
+        </div>
+        <div class="form-item">
+            <input class="input-field" id="wStreamerIp" placeholder="localhost" />
+            <label for="wStreamerIp">Streamer IP:</label>
+        </div>
+        <div class="form-item">
+            <input class="input-field" id="vaServerId" placeholder="0000-0000-0000-0000" />
+            <label for="vaServerId">VA Server Id:</label>
+        </div>
+        <div class="form-item">
+            <input class="input-field" id="vaServerPipeId" placeholder="0000-0000-0000-0000" />
+            <label for="vaServerPipeId">VA Server Pipe Id:</label>
+        </div>
+        <!-- UseSecureConnection checkbox -->
+        <div class="input-group-radio">
+            <input type="checkbox" id="UseSecureConnection" />
+            <label for="UseSecureConnection">Use Secure Connection</label>
+        </div>
+        <!-- connection mode tcp or udp -->
+        <div class="select-dropdown">
+            <label for="connectionMode">Connection Mode:</label>
+            <select id="connectionMode" onchange="connectionModeChange()">
+                <option value="tcp">TCP</option>
+                <option value="udp">UDP</option>
+            </select>
+        </div>
+    </div>
+    <div class="button-group">
+        <button class="action-button" onClick="Play_Live()">Play Live</button>
+        <button class="action-button" onClick="snapshot()">Snapshot</button>
+        <button class="action-button" onClick="version()">Version</button>
+        <button class="action-button" onClick="servStatus()">Serv Status</button>
+        <button class="action-button" onClick="closeView()">Close</button>
+    </div>
+
+    <div class="input-group">
+        <div class="form-item">
+            <input class="input-field" id="date" type="date">
+            <label for="date">Date:</label>
+        </div>
+        <div class="form-item">
+            <input class="input-field" id="start_time" type="time" step="1" value="08:00">
+            <label for="start_time">Start Time:</label>
+        </div>
+        <div class="form-item" id="end_time_form">
+            <input class="input-field" id="end_time" type="time" step="1" value="08:00">
+            <label for="end_time">End Time:</label>
+        </div>
+        <div class="form-item">
+            <input class="input-field" id="seekInput" placeholder=" seek" />
+            <label for="seekInput">Seek:</label>
+        </div>
+
+        <div class="button-group">
+            <button class="action-button" onClick="Play_Playback()">Playback</button>
+            <button class="action-button" onClick="playPause()">Play Pause</button>
+            <button class="action-button" onClick="seekVideo()">Seek Video</button>
+        </div>
+        <div class="select-dropdown">
+            <label for="version">Version:</label>
+
+            <select id="version" onchange="versionChange()">
+                <option value="v1">v1</option>
+                <option value="v2" selected>v2</option>
+            </select>
+        </div>
+        <!-- input Range 0-10 for fast forward -->
+        <div class="form-item slider">
+            <input type="range" min="0.5" max="5" value="1" step="0.5" style="padding: 0;" id="fast_forward"
+                onchange="fastForward()" list="steps">
+            <label for="fast_forward">Fast Forward: 1x</label>
+
+            <datalist id="steps">
+                <option value="0.5" label="0.5x">
+                <option value="1" label="1x">
+                <option value="1.5" label="1.5x">
+                <option value="2" label="2x">
+                <option value="2.5" label="2.5x">
+                <option value="3" label="3x">
+                <option value="3.5" label="3.5x">
+                <option value="4" label="4x">
+                <option value="4.5" label="4.5x">
+                <option value="5" label="5x">
+            </datalist>    
+        </div>
+    </div>
+
+
+    <div class="video-container" id="viewInit"></div>
+
+    <script src="i2v_player.min.js"></script>
+    <!-- On for debug -->
+    <!-- <script src="i2v-player.js"></script>
+    <script src="jmuxer.js"></script> -->
+    <script>
+        var sdk;
+        var playerObj;
+        var serverIp = "127.0.0.1"; //This is Ip of Player Server Module (Same as VMS if player server installed on same machine)
+        var playerIp = "127.0.0.1"; //This is Ip of Player Stramer
+        var UseSecureConnection = false;
+        var playerserverport = parseInt(window.location.port) || 8890;
+        var viewIdManager = "viewInit";
+        var vaServerId;
+        var vaServerPipeId;
+        document.getElementById("date").defaultValue = moment().format('YYYY-MM-DD');
+
+        function initI2vSdk() {
+            if (document.getElementById("wServerIp").value)
+                serverIp = document.getElementById("wServerIp").value;
+            if (document.getElementById("wStreamerIp").value)
+                playerIp = document.getElementById("wStreamerIp").value;
+            UseSecureConnection = document.getElementById("UseSecureConnection").checked;
+            sdk = new I2vSdk(playerIp, serverIp, playerserverport, UseSecureConnection);
+        }
+
+        function Play_Live() {
+            // Check if player is running then stop first
+            if (playerObj) {
+                playerObj.stop();
+            }
+
+            initI2vSdk();
+            var cameraId = document.getElementById("cameraId").value;
+            var playerDiv = document.getElementById(viewIdManager);
+            var vaServerId = document.getElementById("vaServerId").value;
+            var vaServerPipeId = document.getElementById("vaServerPipeId").value;
+            
+            var inputElementId = document.getElementById("elementId").value;
+            if (inputElementId) playerDiv.id = inputElementId;
+            else playerDiv.id = Math.trunc(Math.random() * 1000);
+            viewIdManager = playerDiv.id;
+
+            var streamType = 0;
+            if (document.getElementById("streamType").value)
+                streamType = document.getElementById("streamType").value;
+
+            var analyticType = "";
+            var connectionMode = document.getElementById("connectionMode").value;
+            if (document.getElementById("analyticType").value)
+                analyticType = document.getElementById("analyticType").value;
+
+
+            //create new player object, video will start automatically
+            playerObj = sdk.GetLivePlayer(viewIdManager, cameraId, streamType, analyticType, connectionMode, vaServerId, vaServerPipeId);
+
+            //set Error callback for play method
+            playerObj.setErrorCallback(function (err) {
+                console.error(err);
+            });
+
+            //set retrying callback
+            playerObj.setRetryingCallback(function (err) {
+                console.log("disconnected, retrying to connect!!");
+            });
+
+            //call play method
+            playerObj.play();
+        }
+
+        function Play_Playback() {
+            if (playerObj) {
+                playerObj.stop();
+            }
+
+            initI2vSdk();
+            var cameraId = document.getElementById("cameraId").value;
+            var playerDiv = document.getElementById(viewIdManager);
+            var inputElementId = document.getElementById("elementId").value;
+            if (inputElementId) playerDiv.id = inputElementId;
+            else playerDiv.id = Math.trunc(Math.random() * 1000);
+            viewIdManager = playerDiv.id;
+
+            var date = document.getElementById("date").value;
+            var startTime = document.getElementById("start_time").value;
+            var endTime = document.getElementById("end_time").value;
+            // var datetime = moment(date + " " + time);
+            startTime = moment(date + " " + startTime).unix();
+            if (document.getElementById("version").value == "v1") {
+                endTime = 0;
+            } else {
+                endTime = moment(date + " " + endTime).unix();
+            }
+
+            var _playbackviaapache = "0";
+            var fastForwardValue = document.getElementById("fast_forward").value;
+            var connectionMode = document.getElementById("connectionMode").value;
+
+            //create new player object, video will start automatically
+            playerObj = sdk.GetPlaybackPlayer(viewIdManager, cameraId, startTime, endTime, _playbackviaapache, fastForwardValue, connectionMode);
+
+            //set Error callback for play method
+            playerObj.setErrorCallback(function (err) {
+                console.error(err);
+            });
+
+            //set retrying callback
+            playerObj.setRetryingCallback(function (err) {
+                console.log("disconnected, retrying to connect!!");
+            });
+
+            //call play method
+            playerObj.play();
+        }
+
+        function snapshot() {
+            var imgData = playerObj.getBase64SnapshotUrl()
+            var a = document.createElement("a"); //Create <a>
+            a.href = imgData; //Image Base64 Goes here
+            // name based on current time and date + camera id
+            // date time in local time format DD-MM-YYYY_HH-MM-SS
+            a.download = "snapshot_" + document.getElementById("cameraId").value + "_" + moment().local().format('DD-MM-YYYY_HH:mm:ss') + ".jpeg"; //File name Here
+            a.click();
+        }
+
+        function version() {
+            if (playerObj) {
+                playerObj.Version();
+            } else {
+                console.log("Please Connect to server via Play Live or Playback");
+            }
+        }
+
+        function servStatus() {
+            if (playerObj) {
+                playerObj.servStatus();
+            }
+        }
+
+        function closeView() {
+            if (playerObj) {
+                playerObj.Close();
+            }
+        }
+
+        function playPause() {
+            if (playerObj) {
+                playerObj.Pause();
+            }
+        }
+
+        function seekVideo() {
+            if (playerObj) {
+                var seekValue = document.getElementById("seekInput").value;
+                playerObj.SeekVideo(seekValue);
+            }
+        }
+
+        // fast forward
+        function fastForward() {
+            var fastForwardValue = document.getElementById("fast_forward").value;
+            document.querySelector("label[for='fast_forward']").innerText = "Fast Forward: " + fastForwardValue + "x";
+            if (playerObj) {
+                playerObj.FastForward(fastForwardValue);
+            }
+        }
+
+        function versionChange() {
+            var version = document.getElementById("version").value;
+            if (version == "v1") {
+                // hide endTime
+                // change endTime to 0
+                document.getElementById("end_time_form").style.display = "none";
+                document.getElementById("end_time").value = "00:00";
+            } else {
+                // show endTime
+                document.getElementById("end_time_form").style.display = "block";
+            }
+        }
+        function isDaylightSavingTime(date) {
+            const january = new Date(date.getFullYear(), 0, 1);
+            const july = new Date(date.getFullYear(), 6, 1);
+            return date.getTimezoneOffset() < Math.max(january.getTimezoneOffset(), july.getTimezoneOffset());
+        }
+
+        // Apparently there is a thing called daylight saving time
+        // that messes up epoch by 1 hour, we need to account for that
+        // currently this function is only adding for dst
+        // Function to convert GMT epoch to local epoch
+
+        // NOTE: Not being Used, Handled in Player Server instead
+        function convertToLocalepoch(givenEpochTimestamp) {
+            // Get the current time zone offset in seconds
+            // let timezoneOffsetSeconds = new Date().getTimezoneOffset() * 60;
+
+            // // Create a Date object for the given epoch timestamp
+            let date = new Date(givenEpochTimestamp * 1000);
+
+            // Check if the given date is within daylight saving time
+            let isDst = isDaylightSavingTime(date);
+
+            // Adjust the offset for daylight saving time if necessary
+            if (isDst) {
+                givenEpochTimestamp += 3600; // Add 1 hour if in DST
+            }
+
+            // Convert the given epoch timestamp to local epoch timestamp
+            // let localEpochTimestamp = givenEpochTimestamp + timezoneOffsetSeconds;
+
+            return givenEpochTimestamp;
+        }
+
+        function getUnixTime(dateTime) {
+            // Create a new Date object for the Unix epoch (January 1, 1970)
+            var epoch = new Date(1970, 1, 1);
+
+            // Calculate the difference in milliseconds between the provided date and the Unix epoch
+            var milliseconds = dateTime - epoch.getTime();
+
+            // Convert milliseconds to seconds and return as a Unix timestamp
+            return Math.floor(milliseconds);
+        }
+
+        function connectionModeChange() {
+            var connectionMode = document.getElementById("connectionMode").value;
+            console.log(connectionMode + " selected");
+        }
+
+    </script>
+
+</body>
+
+</html>

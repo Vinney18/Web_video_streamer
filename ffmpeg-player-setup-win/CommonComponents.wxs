@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+	<Fragment>
+
+		<ComponentGroup Id="StreamerConfigComponents" Directory="CONFIGFOLDER">
+			<Component Id="f5b7314c3d2c4fb4b81ffc3f4a3d1f8d" Guid="*">
+				<File Source="../streamer/build/Release/data/config/mainConf.json" />
+			</Component>
+		</ComponentGroup>
+
+		<ComponentGroup Id="MainApplicationComponents" Directory="INSTALLFOLDER">
+
+			<Component Id="MainApplicationchildComponents" Guid="DF8B23B810454113A66CCE9567347FCD">
+				<File Source="lib/nssm.exe" />
+				<File Source="run_service.bat" />
+				<File Source="remove_service.bat" />
+				<File Source="web_player/build/i2v_player.min.js" />
+				<File Source="web_player/moment.min.js" />
+				<File Source="web_player/index.html" />
+			</Component>
+
+			<Component Id="cmp53D75B0669E36BB321076A37070F3D4F" Guid="*">
+				<File Id="filA04AEC787EF0E16F2C2BCCAD92041401" KeyPath="yes" Source="../streamer/build/Release/avcodec-58.dll" />
+			</Component>
+			<Component Id="cmp3F2E8863FB9C34F778EB50C8B4959412" Guid="*">
+				<File Id="fil35DC8013DB9D683E80EF353E371276BD" KeyPath="yes" Source="../streamer/build/Release/avdevice-58.dll" />
+			</Component>
+			<Component Id="cmp6EE31EE1A8A07A0B78F7C4E8E489108B" Guid="*">
+				<File Id="fil399D2317B0A7D23F03D555EA7304546C" KeyPath="yes" Source="../streamer/build/Release/avfilter-7.dll" />
+			</Component>
+			<Component Id="cmpCC697E3CE06ABF01514288078F5198BD" Guid="*">
+				<File Id="fil99AFBB41D99667314A36FDC588216CD2" KeyPath="yes" Source="../streamer/build/Release/avformat-58.dll" />
+			</Component>
+			<Component Id="cmp2D21470358CFDCC29A5C47874B92DA3E" Guid="*">
+				<File Id="filDAA9BC1662B904BBEBF425A9CA7BFD8F" KeyPath="yes" Source="../streamer/build/Release/avutil-56.dll" />
+			</Component>
+			<Component Id="cmp8BAD07657F947A23C40F03A6537EE1FF" Guid="*">
+				<File Id="fil76AF5E669F9AAAC1834540DACD7728A2" KeyPath="yes" Source="../streamer/build/Release/boost_filesystem-vc142-mt-x64-1_71.dll" />
+			</Component>
+			<Component Id="cmp7162C0675BC057491B370E835DAFB64C" Guid="*">
+				<File Id="fil313244577C4372F88A8460E8D02338B8" KeyPath="yes" Source="../streamer/build/Release/boost_filesystem-vc143-mt-x64-1_85.dll" />
+			</Component>
+			<Component Id="cmp62B478AC8C4171193C5E62B4262B6B1B" Guid="*">
+				<File Id="fil6BF01406ACDD4C9DFA43826FB6DE5872" KeyPath="yes" Source="../streamer/build/Release/boost_regex-vc142-mt-x64-1_71.dll" />
+			</Component>
+			<Component Id="cmp1B8062C1AA5A034D28BCB969FC12CDA1" Guid="*">
+				<File Id="fil0F6DF6EB163931BEA6F14868A8E2626B" KeyPath="yes" Source="../streamer/build/Release/fmt.dll" />
+			</Component>
+			<Component Id="cmpBB85E73645BD08B9FE850BE19C671570" Guid="*">
+				<File Id="fil95A7848DCAAEBAFD6EB1BBB10B82857A" KeyPath="yes" Source="../streamer/build/Release/jsoncpp.dll" />
+			</Component>
+			<Component Id="cmpCBA7F669A12FD82AE62EB5C01A6DC07C" Guid="*">
+				<File Id="filDC37F51EF565C499794DDBED2C301A81" KeyPath="yes" Source="../streamer/build/Release/libcurl.dll" />
+			</Component>
+			<Component Id="cmp189015485AD52AB9A03990DB4546163C" Guid="*">
+				<File Id="fil7B66B8FD02FC9DD603F72D4FD4891794" KeyPath="yes" Source="../streamer/build/Release/pcre.dll" />
+			</Component>
+			<Component Id="cmp74839E067D07746922E9FEC6EB83C659" Guid="*">
+				<File Id="filB1D5B9E0BEDCE45A2511F6061A099AC9" KeyPath="yes" Source="../streamer/build/Release/PocoFoundation.dll" />
+			</Component>
+			<Component Id="cmp51F61FD246B60D9406DDB8CFD219F246" Guid="*">
+				<File Id="fil946015CEA1EF4BFEB1F3D1856EE18743" KeyPath="yes" Source="../streamer/build/Release/PocoNet.dll" />
+			</Component>
+			<Component Id="cmp1A79DCD8F11B0FFD2AE941AF0FB25F6F" Guid="*">
+				<File Id="filC70267F3780E0B5E4AC3329B7C53C4E5" KeyPath="yes" Source="../streamer/build/Release/spdlog.dll" />
+			</Component>
+			<Component Id="cmp015EE0DEE91CF143B43AC761ECC26D02" Guid="*">
+				<File Id="filEBE90D3BFE9E70F4876678079FB7CD26" KeyPath="yes" Source="../streamer/build/Release/streamer.exe" />
+			</Component>
+			<Component Id="cmp4A4264F70BA9A09830A598968FFDA985" Guid="*">
+				<File Id="fil3CF5AF4BB353DC6F382280F59F58945B" KeyPath="yes" Source="../streamer/build/Release/swresample-3.dll" />
+			</Component>
+			<Component Id="cmp9D3CD254488987C180F440C570842AA9" Guid="*">
+				<File Id="fil77823F8BB4F49BF220E1725AAAF1A30E" KeyPath="yes" Source="../streamer/build/Release/swscale-5.dll" />
+			</Component>
+			<Component Id="cmp78E80E09A31B96617555392615741895" Guid="*">
+				<File Id="fil16BD773A080FDC8EA6B94C56F4923CB4" KeyPath="yes" Source="../streamer/build/Release/zlib1.dll" />
+			</Component>
+                        
+			<Component Id="cmp_bcrypt" Guid="*">
+				<File Id="fil_bcrypt" KeyPath="yes" Source="../streamer/build/Release/bcrypt.dll" />
+			</Component>
+
+			<Component Id="cmp_msvcp140" Guid="*">
+				<File Id="fil_msvcp140" KeyPath="yes" Source="../streamer/build/Release/msvcp140.dll" />
+			</Component>
+
+			<Component Id="cmp_vcruntime140" Guid="*">
+				<File Id="fil_vcruntime140" KeyPath="yes" Source="../streamer/build/Release/vcruntime140.dll" />
+			</Component>
+
+			<Component Id="cmp_vcruntime140_1" Guid="*">
+				<File Id="fil_vcruntime140_1" KeyPath="yes" Source="../streamer/build/Release/vcruntime140_1.dll" />
+			</Component>
+
+			<Component Id="cmp_imm32" Guid="*">
+				<File Id="fil_imm32" KeyPath="yes" Source="../streamer/build/Release/imm32.dll" />
+			</Component>
+
+			<Component Id="cmp_ncrypt" Guid="*">
+				<File Id="fil_ncrypt" KeyPath="yes" Source="../streamer/build/Release/ncrypt.dll" />
+			</Component>
+
+			<Component Id="cmp_ntasn1" Guid="*">
+				<File Id="fil_ntasn1" KeyPath="yes" Source="../streamer/build/Release/ntasn1.dll" />
+			</Component>
+
+			<Component Id="cmp_cryptsp" Guid="*">
+				<File Id="fil_cryptsp" KeyPath="yes" Source="../streamer/build/Release/cryptsp.dll" />
+			</Component>
+
+			<Component Id="cmp_rsaenh" Guid="*">
+				<File Id="fil_rsaenh" KeyPath="yes" Source="../streamer/build/Release/rsaenh.dll" />
+			</Component>
+
+			<Component Id="cmp_cryptbase" Guid="*">
+				<File Id="fil_cryptbase" KeyPath="yes" Source="../streamer/build/Release/cryptbase.dll" />
+			</Component>
+
+			<Component Id="cmp_bcryptprimitives" Guid="*">
+				<File Id="fil_bcryptprimitives" KeyPath="yes" Source="../streamer/build/Release/bcryptprimitives.dll" />
+			</Component>
+
+			<Component Id="cmp_kernelappcore" Guid="*">
+				<File Id="fil_kernelappcore" KeyPath="yes" Source="../streamer/build/Release/kernel.appcore.dll" />
+			</Component>
+
+			<Component Id="cmp_ole32" Guid="*">
+				<File Id="fil_ole32" KeyPath="yes" Source="../streamer/build/Release/ole32.dll" />
+			</Component>
+
+			<Component Id="cmp_combase" Guid="*">
+				<File Id="fil_combase" KeyPath="yes" Source="../streamer/build/Release/combase.dll" />
+			</Component>
+
+			<Component Id="cmp_crypt32" Guid="*">
+				<File Id="fil_crypt32" KeyPath="yes" Source="../streamer/build/Release/crypt32.dll" />
+			</Component>
+
+			<Component Id="cmp_shell32" Guid="*">
+				<File Id="fil_shell32" KeyPath="yes" Source="../streamer/build/Release/shell32.dll" />
+			</Component>
+
+			<Component Id="cmp_ntdll" Guid="*">
+				<File Id="fil_ntdll" KeyPath="yes" Source="../streamer/build/Release/ntdll.dll" />
+			</Component>
+
+			<Component Id="cmp_kernel32" Guid="*">
+				<File Id="fil_kernel32" KeyPath="yes" Source="../streamer/build/Release/kernel32.dll" />
+			</Component>
+
+			<Component Id="cmp_kernelbase" Guid="*">
+				<File Id="fil_kernelbase" KeyPath="yes" Source="../streamer/build/Release/KernelBase.dll" />
+			</Component>
+
+			<Component Id="cmp_ws2_32" Guid="*">
+				<File Id="fil_ws2_32" KeyPath="yes" Source="../streamer/build/Release/ws2_32.dll" />
+			</Component>
+
+			<Component Id="cmp_rpcrt4" Guid="*">
+				<File Id="fil_rpcrt4" KeyPath="yes" Source="../streamer/build/Release/rpcrt4.dll" />
+			</Component>
+
+			<Component Id="cmp_user32" Guid="*">
+				<File Id="fil_user32" KeyPath="yes" Source="../streamer/build/Release/user32.dll" />
+			</Component>
+
+			<Component Id="cmp_win32u" Guid="*">
+				<File Id="fil_win32u" KeyPath="yes" Source="../streamer/build/Release/win32u.dll" />
+			</Component>
+
+			<Component Id="cmp_gdi32" Guid="*">
+				<File Id="fil_gdi32" KeyPath="yes" Source="../streamer/build/Release/gdi32.dll" />
+			</Component>
+
+			<Component Id="cmp_gdi32full" Guid="*">
+				<File Id="fil_gdi32full" KeyPath="yes" Source="../streamer/build/Release/gdi32full.dll" />
+			</Component>
+
+			<Component Id="cmp_msvcp_win" Guid="*">
+				<File Id="fil_msvcp_win" KeyPath="yes" Source="../streamer/build/Release/msvcp_win.dll" />
+			</Component>
+
+			<Component Id="cmp_ucrtbase" Guid="*">
+				<File Id="fil_ucrtbase" KeyPath="yes" Source="../streamer/build/Release/ucrtbase.dll" />
+			</Component>
+
+			<Component Id="cmp_advapi32" Guid="*">
+				<File Id="fil_advapi32" KeyPath="yes" Source="../streamer/build/Release/advapi32.dll" />
+			</Component>
+
+			<Component Id="cmp_msvcrt" Guid="*">
+				<File Id="fil_msvcrt" KeyPath="yes" Source="../streamer/build/Release/msvcrt.dll" />
+			</Component>
+
+			<Component Id="cmp_sechost" Guid="*">
+				<File Id="fil_sechost" KeyPath="yes" Source="../streamer/build/Release/sechost.dll" />
+			</Component>
+
+		</ComponentGroup>
+	</Fragment>
+</Wix>

@@ -1,0 +1,42 @@
+{
+	"name": "Web Player Server Dev",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "web_player_server_dev",	
+	
+	"workspaceFolder": "/app",
+	
+	// Set *default* container specific settings.json values on container create.
+	"settings": { 
+		"terminal.integrated.shell.linux": "/bin/bash",
+		"cmake.configureArgs": [
+			"-DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake"
+		],
+	},
+
+	// Add the IDs of extensions you want installed when the container is created.
+	"extensions": [
+		"ms-vscode.cpptools",
+		"ms-vscode.cmake-tools",
+		"twxs.cmake",
+		"eamodio.gitlens",
+		"coenraads.bracket-pair-colorizer-2",
+		"formulahendry.dotnet",
+		"ms-dotnettools.csharp",
+		"msjsdiag.debugger-for-chrome",
+		"ms-vsonline.vsonline",
+		"fernandoescolar.vscode-solution-explorer"
+	],
+
+	// Use 'forwardPorts' to make a list of ports insidse the container available locally.
+	"forwardPorts": [
+		8890
+	]
+
+	// Use 'postCreateCommand' to run commands after the container is created.
+	// "postCreateCommand": "gcc -v",
+
+	//"postStartCommand": "sh /home/Developement/projects/app/scripts/compile_required_deepstream_libs.sh",
+
+	// Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+	//"remoteUser": "vscode"
+}
