@@ -833,3 +833,4 @@ data/
 PlayerServer/PlayerServer/wwwroot/
 streamer/.vscode/
 .idea/
+!streamer/external_libs/*.dll

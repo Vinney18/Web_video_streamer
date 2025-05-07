@@ -78,7 +78,7 @@ if (WIN32)
 		cpr::cpr
 		jsoncpp_lib
 		#jsoncpp_static
-		cryptopp-static
+		cryptopp::cryptopp
 		fmt::fmt
 		spdlog::spdlog
 	)
