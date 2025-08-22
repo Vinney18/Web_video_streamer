@@ -94,10 +94,14 @@ template <typename config>
 lib::error_code connection<config>::send(void const * payload, size_t len,
     frame::opcode::value op)
 {
-    message_ptr msg = m_msg_manager->get_message(op,len);
-    msg->append_payload(payload,len);
+    if (m_send_queue.size() < 2)
+    {
+        message_ptr msg = m_msg_manager->get_message(op, len);
+        msg->append_payload(payload, len);
 
-    return send(msg);
+        return send(msg);
+    }
+    return lib::error_code();
 }
 
 template <typename config>
