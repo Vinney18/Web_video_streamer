@@ -31,7 +31,7 @@ void Thread::startThread() {
 
 void Thread::stopThread() {
 	//    Debug( 1, "Stopping thread %d (%s)", mTid, mThreadLabel.c_str() );
-	std::cout << "In Stop Thread" << std::endl;
+	// std::cout << "In Stop Thread" << std::endl;
 	mPaused = false;
 	mStop = true;
 	cv.notify_all();
@@ -40,7 +40,7 @@ void Thread::stopThread() {
 
 void Thread::join() {
 	//Debug( 1, "Joining thread %d (%s)", mTid, mThreadLabel.c_str() );
-	std::cout << "In Join Thread" << std::endl;
+	// std::cout << "In Join Thread" << std::endl;
 	std::lock_guard<std::mutex> locker(mThreadMutex);
 	if (mRunning) {
 		if (mThread.joinable()) {

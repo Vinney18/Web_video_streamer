@@ -222,7 +222,7 @@ void WebSocketWrapper::SendData(websocketpp::connection_hdl& con_hndl, std::vect
 void WebSocketWrapper::SendStringData(websocketpp::connection_hdl& con_hndl, std::string sdata) {
     try {
 		std::future<void> result = std::async(std::launch::async, [this, con_hndl, sdata]() {
-			cout << "Thread ID (SendStringData): " << std::this_thread::get_id() << endl;
+			// cout << "Thread ID (SendStringData): " << std::this_thread::get_id() << endl;
 
 			websocketpp::server<websocketpp::config::asio>::connection_ptr con = websocket_server.get_con_from_hdl(con_hndl);
 			if (con && con->get_state() == websocketpp::session::state::open) {
@@ -243,7 +243,7 @@ void WebSocketWrapper::SendStringData(websocketpp::connection_hdl& con_hndl, std
 
 // Ensure thread-safe access to ffmpegList and connectionsIdMap
 void WebSocketWrapper::process_request(connection_hdl hdl, std::string& query) {
-    std::cout << "Starting heavy computation on thread: " << std::this_thread::get_id() << std::endl;
+    // std::cout << "Starting heavy computation on thread: " << std::this_thread::get_id() << std::endl;
     std::string cameraId;
     std::string mode = "Live";
     int streamtype = 0;
@@ -505,7 +505,7 @@ std::string WebSocketWrapper::Get_PlayBackUrl(connection_hdl hdl, const std::str
 std::string WebSocketWrapper::Get_PlayBackUrl(connection_hdl hdl, const std::string& cameraId, int start_time_ofplaybackfile, int end_time_ofplaybackfile) {
     if (mainLogger) { mainLogger->debug("Get_PlayBackUrl, cameraId: {}, start_time_ofplaybackfile: {}, end_time_ofplaybackfile: {}", cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile); }
 	// print the start and end time of playback file
-	std::cout << "start_time_ofplaybackfile: " << start_time_ofplaybackfile << ", end_time_ofplaybackfile: " << end_time_ofplaybackfile << std::endl;
+	// std::cout << "start_time_ofplaybackfile: " << start_time_ofplaybackfile << ", end_time_ofplaybackfile: " << end_time_ofplaybackfile << std::endl;
 	string response;
 	string cameraId_instring = cameraId;
 	string seekVideo = "";

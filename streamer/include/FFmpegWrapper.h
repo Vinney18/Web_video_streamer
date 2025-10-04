@@ -88,8 +88,8 @@ private:
 	InterruptParams params;
 
 	std::shared_ptr<spdlog::logger> logger;
+	std::chrono::duration<double, std::milli> frameDuration;
 	float fastForwardFactor = 1;
-	int sleepTime = 0;
 
 public:
 	FFmpegWrapper(string _cameraId, string _url, string _playmode, int start_seek_time, WebsocketDataCallback _websocketCallback,
