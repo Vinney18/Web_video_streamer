@@ -1,0 +1,241 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>I2V – Multi Seek</title>
+  <style>
+    :root { --gap: 12px; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: var(--gap); align-items: flex-end; }
+    .field { position: relative; }
+    .field input {
+      width: 240px; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 6px;
+    }
+    .field input:focus { outline: none; border-color: #007bff; }
+    .field label {
+      position: absolute; top: -9px; left: 10px; font-size: 11px; background: #fff; padding: 0 6px; color: #777;
+    }
+    .btn { height: 36px; padding: 0 14px; border: 0; border-radius: 8px; cursor: pointer; color: #fff; background: #007bff; }
+    .btn:hover { background: #0056b3; }
+    .btn.secondary { background: #6c757d; }
+    .btn.danger { background: #dc3545; }
+    .btn.icon { width: 36px; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; }
+    /* .grid {
+      display: grid; gap: var(--gap); margin-top: 16px;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    } */
+    .tile {
+      background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 10px; overflow: hidden;
+      display: flex; flex-direction: column; min-height: 240px;
+    }
+    .tile-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 10px; background: #fff; border-bottom: 1px solid #e9ecef; font-size: 13px;
+    }
+    .video-viewport { flex: 1; display: flex; justify-content: center; align-items: center; background: #f3f3f3; }
+    .muted { color: #666; font-size: 12px; }
+    @media (max-width: 600px) {
+      .field input { width: 100%; }
+    }
+    .grid {
+      display: grid; gap: var(--gap); margin-top: 16px;
+      grid-template-columns: repeat(3, 1fr);
+    }
+    @media (max-width: 1200px) {
+      .grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Global (shared) settings -->
+  <div class="row" style="margin-bottom: 8px;">
+    <div class="field">
+      <label for="wServerIp">Server IP</label>
+      <input id="wServerIp" placeholder="127.0.0.1" />
+    </div>
+    <div class="field">
+      <label for="wStreamerIp">Streamer IP</label>
+      <input id="wStreamerIp" placeholder="127.0.0.1" />
+    </div>
+    <button class="btn" onclick="playAll()">Play All</button>
+    <button class="btn secondary" onclick="stopAll()">Stop All</button>
+    <span class="muted">Server/Streamer apply to all players</span>
+  </div>
+
+  <!-- Dynamic camera/seek rows -->
+  <div id="rows"></div>
+  <div style="margin: 10px 0;">
+    <button class="btn icon" title="Add row" onclick="addRow()">＋</button>
+  </div>
+
+  <!-- Where videos render -->
+  <div id="grid" class="grid"></div>
+
+  <!-- Required libs -->
+  <script src="i2v-player.js"></script>
+  <script src="jmuxer.js"></script>
+
+  <script>
+    // Globals
+    let sdk = null;                       // single SDK used for all players
+    let players = [];                     // [{ cameraId, seek, containerId, playerObj }]
+    let playerServerPort = parseInt(window.location.port) || 8890;
+    let serverIp = "127.0.0.1";
+    let streamerIp = "127.0.0.1";
+
+    // Helpers
+    function readGlobals() {
+      const s = document.getElementById('wServerIp').value.trim();
+      const p = document.getElementById('wStreamerIp').value.trim();
+      serverIp = s || serverIp;
+      streamerIp = p || streamerIp;
+    }
+
+    function ensureSdk() {
+      readGlobals();
+      // UseSecureConnection removed -> default false
+      const useSecure = false;
+      sdk = new I2vSdk(streamerIp, serverIp, playerServerPort, useSecure);
+    }
+
+    function addRow(initialCamera = "", initialSeek = "") {
+      const rows = document.getElementById('rows');
+      const rowId = `row_${Math.random().toString(36).slice(2, 8)}`;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'row';
+      wrapper.id = rowId;
+      wrapper.innerHTML = `
+        <div class="field">
+          <label>Camera ID</label>
+          <input placeholder="cameraId" data-field="camera" value="${initialCamera}"/>
+        </div>
+        <div class="field">
+          <label>Seek (epoch seconds)</label>
+          <input placeholder="e.g. 1727932800" data-field="seek" value="${initialSeek}"/>
+        </div>
+        <button class="btn" onclick="playOne('${rowId}')">Play</button>
+        <button class="btn secondary" onclick="stopOne('${rowId}')">Stop</button>
+        <button class="btn danger" onclick="removeRow('${rowId}')">Remove</button>
+      `;
+      rows.appendChild(wrapper);
+    }
+
+    function removeRow(rowId) {
+      stopOne(rowId);
+      const el = document.getElementById(rowId);
+      if (el) el.remove();
+    }
+
+    function getRowData(rowId) {
+      const row = document.getElementById(rowId);
+      if (!row) return null;
+      const camera = row.querySelector('[data-field="camera"]').value.trim();
+      const seekRaw = row.querySelector('[data-field="seek"]').value.trim();
+      return { cameraId: camera, seekRaw };
+    }
+
+    function makeTileTitle(cameraId, seek) {
+      const ts = Number(seek);
+      const when = isFinite(ts) ? new Date(ts * 1000).toLocaleString() : '—';
+      return `Camera: ${cameraId} • Seek: ${ts} (${when})`;
+    }
+
+    function playOne(rowId) {
+      // read data
+      const rowData = getRowData(rowId);
+      if (!rowData) return alert('Row not found.');
+      const { cameraId, seekRaw } = rowData;
+
+      if (!cameraId) return alert('Please enter Camera ID.');
+      if (!seekRaw || isNaN(seekRaw)) return alert('Seek must be epoch seconds.');
+
+      const seek = Number(seekRaw);
+
+      // init SDK once
+      if (!sdk) ensureSdk();
+
+      // create a tile container for this row (stable by rowId)
+      const grid = document.getElementById('grid');
+      const containerId = `v_${rowId}`;
+      let tile = document.getElementById(containerId);
+      if (!tile) {
+        tile = document.createElement('div');
+        tile.className = 'tile';
+        tile.id = containerId;
+
+        tile.innerHTML = `
+          <div class="tile-header">
+            <div class="title" id="${containerId}_title">${makeTileTitle(cameraId, seek)}</div>
+            <div>
+              <button class="btn secondary" onclick="stopOne('${rowId}')">Stop</button>
+            </div>
+          </div>
+          <div class="video-viewport" id="${containerId}_viewport">
+            <span class="muted">Connecting…</span>
+          </div>
+        `;
+        grid.appendChild(tile);
+      } else {
+        // update title when reusing tile
+        const t = document.getElementById(`${containerId}_title`);
+        if (t) t.textContent = makeTileTitle(cameraId, seek);
+      }
+
+      // stop previous player for this row if any
+      stopOne(rowId, /*silent*/ true);
+
+      // Create playback player at seek
+      // Signature per your original: GetPlaybackPlayer(viewId, cameraId, start, end, viaApacheFlag)
+      const viewportId = `${containerId}_viewport`;
+      const playerObj = sdk.GetPlaybackPlayer(viewportId, cameraId, seek, null, "true");
+
+      // callbacks
+      playerObj.setErrorCallback(function (err) {
+        console.error(err);
+        alert("Player error (" + cameraId + "): " + (err && err.message ? err.message : err));
+      });
+      playerObj.setRetryingCallback(function () {
+        console.log("Retrying " + cameraId);
+      });
+
+      // start
+      playerObj.play();
+
+      // track player
+      players = players.filter(p => p.rowId !== rowId); // replace if existed
+      players.push({ rowId, cameraId, seek, containerId, playerObj });
+    }
+
+    function stopOne(rowId, silent = false) {
+      const idx = players.findIndex(p => p.rowId === rowId);
+      if (idx >= 0) {
+        try { players[idx].playerObj.stop(); } catch (e) { if (!silent) console.warn(e); }
+        players.splice(idx, 1);
+      }
+    }
+
+    function playAll() {
+      // loop through current rows and play each
+      const rows = document.querySelectorAll('#rows .row');
+      if (rows.length === 0) {
+        addRow();
+        return;
+      }
+      if (!sdk) ensureSdk();
+      rows.forEach(r => playOne(r.id));
+    }
+
+    function stopAll() {
+      players.forEach(p => { try { p.playerObj.stop(); } catch (e) {} });
+      players = [];
+    }
+
+    // boot with one empty row
+    addRow();
+  </script>
+</body>
+</html>
