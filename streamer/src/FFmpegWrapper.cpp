@@ -115,6 +115,9 @@ FFmpegWrapper::~FFmpegWrapper()
 //     }
 // }
 
+
+
+
 void FFmpegWrapper::readInput()
 {
 	if (logger)
@@ -142,7 +145,7 @@ void FFmpegWrapper::readInput()
 		int64_t firstDts = this->inputFormatCtx->streams[videoStream]->first_dts;
 		auto startTime = std::chrono::steady_clock::now();
 		int64_t frameCount = 0;
-		frameDuration = std::chrono::duration<double, std::milli>(1000.0 / (inputFPS * fastForwardFactor));
+		double playbackStartPTS = -1.0; // Track the first PTS for playback sync
 		while (av_read_frame(this->inputFormatCtx, &packet) >= 0 && !mStop)
 		{
 
@@ -185,13 +188,54 @@ void FFmpegWrapper::readInput()
 						}
 					}
 
-					if (!isLiveMode())
+					if (!isLiveMode() && frameCount > 1)
 					{
+						// Get timestamp with fallback logic for files without PTS (like some .ts files)
+						double currentPTS;
 
-						auto targetTime = startTime + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-														  frameCount * frameDuration);
+						if (packet.pts != AV_NOPTS_VALUE)
+						{
+							// Use PTS if available (preferred)
+							currentPTS = packet.pts * av_q2d(inputFormatCtx->streams[videoStream]->time_base);
+						}
+						else if (packet.dts != AV_NOPTS_VALUE)
+						{
+							// Fallback to DTS if PTS not available
+							currentPTS = packet.dts * av_q2d(inputFormatCtx->streams[videoStream]->time_base);
+						}
+						else
+						{
+							// Fallback to frame-counting if no timestamps available
+							currentPTS = (frameCount - 1) / inputFPS;
+							std::cout << "----------Warning: No PTS/DTS available, using frame count for timing" << std::endl;
+						}
 
+						// Initialize playback start PTS on first frame with actual data to send
+						// (after seek completes if there was an initial seek)
+						if (playbackStartPTS < 0 && sendData)
+						{
+							playbackStartPTS = currentPTS;
+							startTime = std::chrono::steady_clock::now(); // Reset start time after seek
+						}
+
+						// Calculate relative time from start, adjusted for playback speed
+						double relativeTime = (currentPTS - playbackStartPTS) / fastForwardFactor;
+
+						// Calculate target wall-clock time
+						auto targetTime = startTime + std::chrono::duration<double>(relativeTime);
+
+						// Debug timing info
 						auto now = std::chrono::steady_clock::now();
+						double elapsed = std::chrono::duration<double>(now - startTime).count();
+						double sleepTime = std::chrono::duration<double>(targetTime - now).count();
+
+						// std::cout << "[" << cameraId << "] F#" << frameCount
+						// 		  << " PTS:" << std::fixed << std::setprecision(3) << currentPTS
+						// 		  << " RelT:" << relativeTime
+						// 		  << " Elap:" << elapsed
+						// 		  << " Sleep:" << sleepTime << "s" << std::endl;
+
+						// Sleep until target time
 						if (targetTime > now)
 						{
 							std::this_thread::sleep_until(targetTime);
@@ -353,7 +397,7 @@ bool FFmpegWrapper::GetInputCodecInfo()
 	{
 		this->inputFPS = r_frame_rate_fps;
 	}
-	
+
 	std::cout << "-------------Input FPS: " << this->inputFPS << " url " << url << std::endl;
 	return true;
 }
