@@ -45,6 +45,7 @@ var I2vPlayer = /** @class */ (function () {
         this.useSecureConnection = false;
         this.IsEmptyUrl = false;
         this.doesStopRequested = false;
+        this.NextVideoEmptyUrl = false;
         this.isErrorMessageVisible = false;
         this.IsPlayerServerConnected = false;
         this.URL_Server_Not_Connected = false;
@@ -149,6 +150,26 @@ var I2vPlayer = /** @class */ (function () {
                 console.log('socket closed');
                 _this.removeErrorMessage();
             }
+            else if(_this.NextVideoEmptyUrl)
+            {
+                var errMsg = _this.mode == "Live" ? "Stream not Found" : "Recording not Found";
+                _this.showErrorMessage(errMsg);
+                if (_this.isRgb) {
+                    var c = document.getElementById("".concat(_this.elId, "_canvas"));
+                    if (c) {
+                        var c_context = c.getContext('2d');
+                        c_context.clearRect(0, 0, _this.width, _this.height);
+                        c.parentNode.removeChild(c);
+                    }
+                }
+                else {
+                    var v = document.getElementById("".concat(_this.elId, "_video"));
+                    if (v) {
+                        v.src = "";
+                        v.parentNode.removeChild(v);
+                    }
+                }
+            }
             else {
                 console.log('socket closed and retrying...');
                 if (_this.IsPlayerServerConnected) {
@@ -246,6 +267,15 @@ var I2vPlayer = /** @class */ (function () {
                     var errMsg = _this.mode == "Live" ? "Stream not Found" : "Recording not Found";
                     if (_this.errorCallback) {
                         _this.errorCallback(errMsg);
+                    }
+                    _this.showErrorMessage(errMsg);
+                    return;
+                case "NextVideoEmptyUrl":
+                    _this.NextVideoEmptyUrl = true;
+                    var errMsg =
+                      _this.mode == "Live" ? "Stream not Found" : "Recording not Found";
+                    if (_this.errorCallback) {
+                      _this.errorCallback(errMsg);
                     }
                     _this.showErrorMessage(errMsg);
                     return;

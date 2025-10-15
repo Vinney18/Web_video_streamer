@@ -59,6 +59,8 @@ private:
 	string url;
 	string playmode;
 	int initial_seek_time = 0;
+	int originalRequestTime = 0;
+	int videoDuration=0;         // Original requested start time for playback
 	WebsocketDataCallback websocketCallback;
 	WebsocketSDataCallback websocketSCallback;
 	string connectionmode;
@@ -95,11 +97,13 @@ private:
 public:
 	FFmpegWrapper(string _cameraId, string _url, string _playmode, int start_seek_time, WebsocketDataCallback _websocketCallback,
 			WebsocketSDataCallback _websocketSCallback, string _connectionmode, string _serverIp, int _port,
-			std::shared_ptr<spdlog::logger> _logger, float playbackSpeed) : Thread(), logger(std::move(_logger)) {
+			std::shared_ptr<spdlog::logger> _logger, float playbackSpeed, int _requestTime = 0, int _playbackFileDuration=0) : Thread(), logger(std::move(_logger)) {
 		cameraId = _cameraId;
 		url = std::move(_url);
 		playmode = _playmode;
 		initial_seek_time = start_seek_time;
+		originalRequestTime = _requestTime;
+		videoDuration = _playbackFileDuration;
 		websocketCallback = _websocketCallback;
 		websocketSCallback = _websocketSCallback;
 		connectionmode = _connectionmode;
@@ -117,6 +121,7 @@ public:
 	void Pause_video();
 	void SendVideoStartedEvent();
 	void FastForward_video(float factor);
+	int getNextPlaybackTime();  // Returns the next playback time in seconds when segment finishes
 
 
 protected:

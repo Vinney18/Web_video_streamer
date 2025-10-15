@@ -27,7 +27,7 @@ private:
     int generateAndCheckRandomNumber();
     void process_request(connection_hdl hdl, std::string& query);
     std::string Get_LiveUrl(connection_hdl hdl, const std::string& cameraId, int streamtype, const std::string& analyticType, const std::string& vaServerId, const std::string& vaServerPipeId);
-    std::string Get_PlayBackUrl(connection_hdl hdl, const std::string& cameraId, int start_time_ofplaybackfile, int* seekTime_ofFile);
+    std::string Get_PlayBackUrl(connection_hdl hdl, const std::string& cameraId, int start_time_ofplaybackfile, int* seekTime_ofFile, float* duration_Minutes = nullptr);
     std::string Get_PlayBackUrl(connection_hdl hdl, const std::string& cameraId, int start_time_ofplaybackfile, int end_time_ofplaybackfile);
 
     void checkConfigFileIp(connection_hdl hdl, std::string& currentServerIp);

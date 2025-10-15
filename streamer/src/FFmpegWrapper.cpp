@@ -115,9 +115,6 @@ FFmpegWrapper::~FFmpegWrapper()
 //     }
 // }
 
-
-
-
 void FFmpegWrapper::readInput()
 {
 	if (logger)
@@ -270,15 +267,35 @@ void FFmpegWrapper::readInput()
 			// Free the packet that was allocated by av_read_frame
 			av_free_packet(&packet);
 		}
+
+		// Check if we're stopping - don't send finish message if stopped
+		if (mStop) {
+			if (logger) {
+				logger->info("Playback stopped by user request");
+			}
+			return;
+		}
+
 		if (!isLiveMode())
 		{
+			// Calculate next playback time and send as JSON
+			int nextPlaybackTime = getNextPlaybackTime();
+
+			if (logger)
+			{
+				logger->info("Playback segment finished. Next playback time: {}s", nextPlaybackTime);
+			}
+
+			// Send next playback time to WebSocket handler
+			std::string finishMessage = "{\"event\":\"Playback_Finished\",\"cameraId\":\"" + cameraId + "\",\"nextTime\":" + std::to_string(nextPlaybackTime) + "}";
+
 			for (webConnHdl hndl : connections[mp4])
 			{
-				websocketSCallback(hndl, "Playback_Finished");
+				websocketSCallback(hndl, finishMessage);
 			}
 			for (webConnHdl hndl1 : connections[rgba])
 			{
-				websocketSCallback(hndl1, "Playback_Finished");
+				websocketSCallback(hndl1, finishMessage);
 			}
 			mStop = true;
 		}
@@ -698,6 +715,59 @@ void FFmpegWrapper::FastForward_video(float speed)
 		// set sleepTime
 		// sleepTime = int(1000 / (inputFPS * fastForwardFactor));
 	}
+}
+
+int FFmpegWrapper::getNextPlaybackTime()
+{
+	// Calculate the next playback time based on segment duration
+	int nextTime = originalRequestTime;
+
+	// First, check if we have duration from HTTP response (preferred method)
+	if (videoDuration > 0)
+	{
+		// Use the duration provided from HTTP response (already in seconds)
+		double segmentDuration = static_cast<double>(videoDuration);
+
+		std::cout << "--------- Using HTTP response duration: " << segmentDuration << " seconds" << std::endl;
+
+		// Calculate: original request time + (segment duration - seek time)
+		// This gives us the timestamp where playback ended
+		nextTime = originalRequestTime + static_cast<int>(segmentDuration - initial_seek_time) + 1;
+
+		std::cout << "Calculated next playback time: original=" << originalRequestTime
+		          << ", segmentDuration=" << segmentDuration
+		          << ", seekTime=" << initial_seek_time
+		          << ", next=" << nextTime << std::endl;
+	}
+	else if (inputFormatCtx && videoStream >= 0)
+	{
+		// Fall back to calculating from stream metadata
+		double segmentDuration = 0.0;
+
+		// Get duration from stream
+		if (inputFormatCtx->streams[videoStream]->duration != AV_NOPTS_VALUE)
+		{
+			segmentDuration = inputFormatCtx->streams[videoStream]->duration *
+			                  av_q2d(inputFormatCtx->streams[videoStream]->time_base);
+		}
+
+		std::cout << "--------- Using stream metadata duration: " << segmentDuration << " seconds" << std::endl;
+
+		// Calculate: original request time + (segment duration - seek time)
+		// This gives us the timestamp where playback ended
+		nextTime = originalRequestTime + static_cast<int>(segmentDuration - initial_seek_time) + 1;
+
+		std::cout << "Calculated next playback time: original=" << originalRequestTime
+		          << ", segmentDuration=" << segmentDuration
+		          << ", seekTime=" << initial_seek_time
+		          << ", next=" << nextTime << std::endl;
+	}
+	else
+	{
+		std::cout << "--------- Warning: No duration available, using original request time" << std::endl;
+	}
+
+	return nextTime;
 }
 
 bool FFmpegWrapper::isLiveMode()
