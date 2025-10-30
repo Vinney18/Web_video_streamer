@@ -6,10 +6,26 @@
 			  << AV_VERSION_MICRO(lib##_version()) << "\n";
 int FFmpegWrapper::run()
 {
+	if (logger)
+	{
+		logger->debug("[CameraID: {}] FFmpegWrapper::run() - Starting main loop", cameraId);
+	}
+
 	while (!mStop)
 	{
+		if (logger)
+		{
+			logger->debug("[CameraID: {}] FFmpegWrapper::run() - Loop iteration start, mStop={}", cameraId, mStop);
+		}
+
 		params.isRunning = false;
 		auto opened = openInput();
+
+		if (logger)
+		{
+			logger->debug("[CameraID: {}] FFmpegWrapper::run() - openInput returned {}", cameraId, opened);
+		}
+
 		if (opened)
 		{
 			params.isRunning = true;
@@ -18,6 +34,11 @@ int FFmpegWrapper::run()
 
 			if (!tempConnections.empty())
 			{
+				if (logger)
+				{
+					logger->debug("[CameraID: {}] FFmpegWrapper::run() - Processing {} temp connections", cameraId, tempConnections.size());
+				}
+
 				for (auto &el : tempConnections)
 				{
 					if (inputCodecID == AV_CODEC_ID_NONE)
@@ -34,12 +55,24 @@ int FFmpegWrapper::run()
 			}
 			if (inputCodecID == AV_CODEC_ID_NONE)
 			{
+				if (logger)
+				{
+					logger->debug("[CameraID: {}] FFmpegWrapper::run() - No valid codec found, stopping", cameraId);
+				}
 				mStop = true;
 				closeInput();
 			}
 			else
 			{
+				if (logger)
+				{
+					logger->debug("[CameraID: {}] FFmpegWrapper::run() - Starting readInput()", cameraId);
+				}
 				readInput();
+				if (logger)
+				{
+					logger->debug("[CameraID: {}] FFmpegWrapper::run() - Finished readInput(), cleaning up", cameraId);
+				}
 				freeRgbaOutMemory();
 				closeInput();
 			}
@@ -47,8 +80,18 @@ int FFmpegWrapper::run()
 
 		if (!mStop)
 		{
+			if (logger)
+			{
+				logger->debug("[CameraID: {}] FFmpegWrapper::run() - Retry logic: acquiring connectionsMutex", cameraId);
+			}
 			{
 				std::lock_guard<std::mutex> lock(connectionsMutex);
+				if (logger)
+				{
+					logger->debug("[CameraID: {}] FFmpegWrapper::run() - Acquired connectionsMutex, sending retry to {} rgba and {} mp4 connections",
+								cameraId, connections[rgba].size(), connections[mp4].size());
+				}
+
 				for (webConnHdl connHdl : connections[rgba])
 				{
 					websocketSCallback(connHdl, "retrying");
@@ -57,15 +100,33 @@ int FFmpegWrapper::run()
 				{
 					websocketSCallback(connHdl, "retrying");
 				}
-				// wait for some time before retry
-				/*std::unique_lock<std::mutex> lk(mThreadMutex, std::defer_lock);
-				cv.wait_for(lk, std::chrono::seconds(1));*/
+
+				if (logger)
+				{
+					logger->debug("[CameraID: {}] FFmpegWrapper::run() - Releasing connectionsMutex", cameraId);
+				}
+			}
+			if (logger)
+			{
+				logger->debug("[CameraID: {}] FFmpegWrapper::run() - Sleeping for 1 second before retry", cameraId);
 			}
 			this_thread::sleep_for(std::chrono::seconds(1));
 		}
 	}
+
+	if (logger)
+	{
+		logger->debug("[CameraID: {}] FFmpegWrapper::run() - Exiting main loop, sending Stopped to all connections", cameraId);
+		logger->debug("[CameraID: {}] FFmpegWrapper::run() - Acquiring connectionsMutex for final cleanup", cameraId);
+	}
 	{
 		std::lock_guard<std::mutex> lock(connectionsMutex); // Protect access to the connections map
+		if (logger)
+		{
+			logger->debug("[CameraID: {}] FFmpegWrapper::run() - Acquired connectionsMutex for cleanup, {} rgba and {} mp4 connections",
+						cameraId, connections[rgba].size(), connections[mp4].size());
+		}
+
 		for (webConnHdl connHdl : connections[rgba])
 		{
 			websocketSCallback(connHdl, "Stopped");
@@ -74,8 +135,17 @@ int FFmpegWrapper::run()
 		{
 			websocketSCallback(connHdl, "Stopped");
 		}
+
+		if (logger)
+		{
+			logger->debug("[CameraID: {}] FFmpegWrapper::run() - Releasing connectionsMutex after cleanup", cameraId);
+		}
 	}
 
+	if (logger)
+	{
+		logger->debug("[CameraID: {}] FFmpegWrapper::run() - Exiting, returning 0", cameraId);
+	}
 	return 0;
 }
 
@@ -119,7 +189,7 @@ void FFmpegWrapper::readInput()
 {
 	if (logger)
 	{
-		logger->debug("In FFmpegWrapper::readInput");
+		logger->debug("[CameraID: {}] FFmpegWrapper::readInput() - Starting", cameraId);
 	}
 	int frameFinished;
 	AVPacket packet;
@@ -271,7 +341,7 @@ void FFmpegWrapper::readInput()
 		// Check if we're stopping - don't send finish message if stopped
 		if (mStop) {
 			if (logger) {
-				logger->info("Playback stopped by user request");
+				logger->info("[CameraID: {}] Playback stopped by user request", cameraId);
 			}
 			return;
 		}
@@ -283,7 +353,7 @@ void FFmpegWrapper::readInput()
 
 			if (logger)
 			{
-				logger->info("Playback segment finished. Next playback time: {}s", nextPlaybackTime);
+				logger->info("[CameraID: {}] Playback segment finished. Next playback time: {}s", cameraId, nextPlaybackTime);
 			}
 
 			// Send next playback time to WebSocket handler
@@ -415,7 +485,7 @@ bool FFmpegWrapper::GetInputCodecInfo()
 		this->inputFPS = r_frame_rate_fps;
 	}
 
-	std::cout << "-------------Input FPS: " << this->inputFPS << " url " << url << std::endl;
+	std::cout << "-------------Input FPS: " << this->inputFPS << " url " << url <<"  camera id  "<<cameraId<< std::endl;
 	return true;
 }
 
@@ -544,10 +614,16 @@ bool FFmpegWrapper::removeConnection(webConnHdl connHdl)
 {
 	if (logger)
 	{
-		logger->debug("In removeConnection");
+		logger->debug("[CameraID: {}] FFmpegWrapper::removeConnection() - Acquiring connectionsMutex", cameraId);
 	}
 
 	std::lock_guard<std::mutex> lock(connectionsMutex); // Protect shared resources
+
+	if (logger)
+	{
+		logger->debug("[CameraID: {}] FFmpegWrapper::removeConnection() - Acquired connectionsMutex, current connections: {} rgba, {} mp4",
+					cameraId, connections[rgba].size(), connections[mp4].size());
+	}
 
 	// Remove from temporary connections
 	auto foundPair = std::find_if(tempConnections.begin(), tempConnections.end(),
@@ -563,7 +639,7 @@ bool FFmpegWrapper::removeConnection(webConnHdl connHdl)
 	{
 		if (logger)
 		{
-			logger->debug("In removeConnection: All connections are removed");
+			logger->debug("[CameraID: {}] FFmpegWrapper::removeConnection() - All connections are removed, releasing connectionsMutex and returning true", cameraId);
 		}
 		return true;
 	}
@@ -602,18 +678,36 @@ bool FFmpegWrapper::removeConnection(webConnHdl connHdl)
 	{
 		if (logger)
 		{
-			logger->debug("In removeConnection: All connections are removed");
+			logger->debug("[CameraID: {}] FFmpegWrapper::removeConnection() - Connection removed, all connections now empty, releasing connectionsMutex and returning true", cameraId);
 		}
 		return true;
 	}
 
+	if (logger)
+	{
+		logger->debug("[CameraID: {}] FFmpegWrapper::removeConnection() - Connection removed, {} rgba and {} mp4 connections remain, releasing connectionsMutex and returning false",
+					cameraId, connections[rgba].size(), connections[mp4].size());
+	}
 	return false;
 }
 
 void FFmpegWrapper::addConnToList(webConnHdl connHdl, OutputType outType)
 {
+	if (logger)
+	{
+		logger->debug("[CameraID: {}] FFmpegWrapper::addConnToList() - Acquiring connectionsMutex to add {} connection", cameraId, (outType == mp4 ? "mp4" : "rgba"));
+	}
 	std::lock_guard<std::mutex> lock(connectionsMutex);
+	if (logger)
+	{
+		logger->debug("[CameraID: {}] FFmpegWrapper::addConnToList() - Acquired connectionsMutex, adding connection", cameraId);
+	}
 	connections[outType].insert(connHdl);
+	if (logger)
+	{
+		logger->debug("[CameraID: {}] FFmpegWrapper::addConnToList() - Connection added, total {} connections: {} rgba, {} mp4, releasing connectionsMutex",
+					cameraId, connections[rgba].size() + connections[mp4].size(), connections[rgba].size(), connections[mp4].size());
+	}
 }
 
 void FFmpegWrapper::SendVideoStartedEvent()
