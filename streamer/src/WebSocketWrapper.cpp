@@ -76,7 +76,6 @@ void WebSocketWrapper::on_open(connection_hdl hdl)
 {
 	std::thread t([this, hdl]()
 				  {
-		if (mainLogger) { mainLogger->debug("on_open websocket connection opened"); }
         std::stringstream ss;
         ss <<"ThreadId :: "<< std::this_thread::get_id();
         std::cout <<ss.str()<<std::endl;
@@ -87,7 +86,6 @@ void WebSocketWrapper::on_open(connection_hdl hdl)
         websocketpp::server<websocketpp::config::asio>::connection_ptr con = websocket_server.get_con_from_hdl(hdl);
         std::string query = con->get_uri()->get_query();
 
-        if (mainLogger) { mainLogger->debug("on_open - Query -> {}", query); }
         if (!query.empty()) {
             process_request(hdl, query);
         } else {
@@ -99,44 +97,23 @@ void WebSocketWrapper::on_open(connection_hdl hdl)
 
 void WebSocketWrapper::on_close(connection_hdl hdl)
 {
-	// Log the connection closure
-	if (mainLogger)
-	{
-		mainLogger->debug("on_close - WebSocket connection closed");
-	}
 
 	// Safely lock and convert the weak pointer to a shared pointer once
 	auto shared_hdl = hdl.lock();
 	if (!shared_hdl)
 	{
-		if (mainLogger)
-		{
-			mainLogger->error("on_close - Failed to lock connection handle, the connection may have already been closed");
-		}
 		return;
 	}
 
 	// Retrieve key associated with the handle
 	std::string keyValue = "";
 	{
-		if (mainLogger)
-		{
-			mainLogger->debug("on_close - Acquiring connectionsIdMapMutex to retrieve keyValue");
-		}
 		std::lock_guard<std::mutex> guard(connectionsIdMapMutex);
-		if (mainLogger)
-		{
-			mainLogger->debug("on_close - Acquired connectionsIdMapMutex, connectionsIdMap size: {}", connectionsIdMap.size());
-		}
 
 		// Ensure the handle exists in the map
 		auto it = connectionsIdMap.find(shared_hdl);
 		if (it == connectionsIdMap.end())
 		{
-			if (mainLogger)
-			{
-				mainLogger->error("on_close - Connection handle not found in connectionsIdMap, releasing connectionsIdMapMutex");
-			}
 			return;
 		}
 		keyValue = it->second;
@@ -166,51 +143,18 @@ void WebSocketWrapper::on_close(connection_hdl hdl)
 				ffmpegList.erase(keyValue); // Safely remove the ffmpeg instance
 			}
 		}
-		else
-		{
-			if (mainLogger)
-			{
-				mainLogger->warn("on_close keyValue not found in ffmpegList");
-			}
-		}
-
-		if (mainLogger)
-		{
-			mainLogger->debug("on_close  Releasing ffmpegListMutex");
-		}
 	}
 
 	// Remove from connections map
 	{
-		if (mainLogger)
-		{
-			mainLogger->debug("on_close -  Acquiring connectionsIdMapMutex to erase connection");
-		}
 		std::lock_guard<std::mutex> guard(connectionsIdMapMutex);
-		if (mainLogger)
-		{
-			mainLogger->debug("on_close -  Acquired connectionsIdMapMutex, erasing connection");
-		}
 		connectionsIdMap.erase(shared_hdl); // Safely erase the handle from the map
-		if (mainLogger)
-		{
-			mainLogger->debug("on_close -  Connection erased, connectionsIdMap size now: {}, releasing connectionsIdMapMutex", connectionsIdMap.size());
-		}
-	}
-
-	if (mainLogger)
-	{
-		mainLogger->debug("on_close -  Finished handling connection close");
 	}
 }
 
 void WebSocketWrapper::on_message(connection_hdl hdl, websocketpp::server<websocketpp::config::asio>::message_ptr msg)
 {
 	std::string messagestring = msg->get_payload();
-	if (mainLogger)
-	{
-		mainLogger->debug("on_message, data received: {}", messagestring);
-	}
 
 	std::string id;
 	{
@@ -356,111 +300,49 @@ void WebSocketWrapper::SendStringData(websocketpp::connection_hdl &con_hndl, std
 						int nextTime = root["nextTime"].asInt();
 						std::string cameraId = root["cameraId"].asString();
 
-						if (mainLogger) {
-							mainLogger->info("SendStringData - [CameraID: {}] Playback finished, nextTime: {}", cameraId, nextTime);
-						}
-
 						// Find the FFmpegWrapper and its details
 						std::string keyValue;
 						std::string url_for_log;
 						{
-							if (mainLogger)
-							{
-								mainLogger->debug("SendStringData - [CameraID: {}] Acquiring connectionsIdMapMutex to find keyValue", cameraId);
-							}
 							std::lock_guard<std::mutex> connectionsGuard(connectionsIdMapMutex);
-							if (mainLogger)
-							{
-								mainLogger->debug("SendStringData - [CameraID: {}] Acquired connectionsIdMapMutex", cameraId);
-							}
 							auto it = connectionsIdMap.find(con_hndl.lock());
 							if (it != connectionsIdMap.end())
 							{
 								keyValue = it->second;
-								if (mainLogger)
-								{
-									mainLogger->debug("SendStringData - [CameraID: {}] Found keyValue: {}", cameraId, keyValue);
-								}
-							}
-							else
-							{
-								if (mainLogger)
-								{
-									mainLogger->warn("SendStringData - [CameraID: {}] Connection not found in connectionsIdMap", cameraId);
-								}
-							}
-							if (mainLogger)
-							{
-								mainLogger->debug("SendStringData - [CameraID: {}] Releasing connectionsIdMapMutex", cameraId);
 							}
 						}
 
 						if (!keyValue.empty() && !cameraId.empty())
 						{
-							if (mainLogger)
-							{
-								mainLogger->debug("SendStringData - [CameraID: {}] Processing next segment, keyValue: {}", cameraId, keyValue);
-							}
 
 							// Get mode from keyValue
 							std::vector<std::string> keyParts;
 							boost::algorithm::split_regex(keyParts, keyValue, boost::regex("~~"));
 							std::string mode = (keyParts.size() > 1) ? keyParts[1] : "PlayBack";
 
-							if (mainLogger)
-							{
-								mainLogger->debug("SendStringData - [CameraID: {}] Mode determined: {}", cameraId, mode);
-							}
-
 							if (mode == "PlayBack")
 								{
-									if (mainLogger)
-									{
-										mainLogger->debug("SendStringData - [CameraID: {}] Fetching next playback URL for nextTime: {}", cameraId, nextTime);
-									}
-
 									// Get next playback URL
 									int newSeekTime = 0;
 									float newDuration_Minutes = 0;
 									std::string nextUrl = Get_PlayBackUrl(con_hndl, cameraId, nextTime, &newSeekTime, &newDuration_Minutes);
 
-									if (mainLogger)
-									{
-										mainLogger->debug("SendStringData - [CameraID: {}] Got next URL: {}, seekTime: {}, duration: {}min",
-														cameraId, nextUrl, newSeekTime, newDuration_Minutes);
-									}
-
 									if (nextUrl.empty() || boost::starts_with(nextUrl, "Player_Server_Not_Connected") || boost::starts_with(nextUrl, "URL_Server_Not_Connected"))
 									{
-										if (mainLogger)
-										{
-											mainLogger->warn("SendStringData - [CameraID: {}] Next URL unavailable or error: {}", cameraId, nextUrl);
-										}
-
 										if (boost::starts_with(nextUrl, "Player_Server_Not_Connected")) {
-											if (mainLogger)
-											{
-												mainLogger->debug("SendStringData - [CameraID: {}] Player server not connected, closing connection", cameraId);
-											}
+											
 											websocket_server.send(con_hndl, "Player_Server_Not_Connected", 27, websocketpp::frame::opcode::TEXT);
 											websocket_server.pause_reading(con_hndl);
 											websocket_server.close(con_hndl, 0, "Player_Server_Not_Connected");
 										}
 										else if (boost::starts_with(nextUrl, "URL_Server_Not_Connected")) {
-											if (mainLogger)
-											{
-												mainLogger->debug("SendStringData - [CameraID: {}] URL server not connected, closing connection", cameraId);
-											}
+											
 											websocket_server.send(con_hndl, "URL_Server_Not_Connected", 24, websocketpp::frame::opcode::TEXT);
 											websocket_server.pause_reading(con_hndl);
 											websocket_server.close(con_hndl, 0, "URL_Server_Not_Connected");
 										}
 										else
 										{
-											if (mainLogger)
-											{
-												mainLogger->debug("SendStringData - [CameraID: {}] Next URL empty, closing connection", cameraId);
-											}
 											websocket_server.send(con_hndl, "NextVideoEmptyUrl", 17, websocketpp::frame::opcode::TEXT);
 											websocket_server.pause_reading(con_hndl);
 											websocket_server.close(con_hndl, 0, "NextVideoEmptyUrl");
@@ -472,83 +354,32 @@ void WebSocketWrapper::SendStringData(websocketpp::connection_hdl &con_hndl, std
 									    !boost::starts_with(nextUrl, "Player_Server_Not_Connected") &&
 									    !boost::starts_with(nextUrl, "URL_Server_Not_Connected"))
 									{
-										if (mainLogger) {
-											mainLogger->info("SendStringData - [CameraID: {}] Fetched next segment: url={}, seekTime={}, duration={}min",
-											                cameraId, nextUrl, newSeekTime, newDuration_Minutes);
-										}
 
 										// Stop old wrapper in a separate thread to avoid deadlock
 										// (we're being called FROM the FFmpegWrapper thread via callback,
 										// so we can't call stopThread()->join() here as it would deadlock)
 										std::shared_ptr<FFmpegWrapper> oldWrapper;
 										{
-											if (mainLogger)
-											{
-												mainLogger->debug("SendStringData - [CameraID: {}] Acquiring ffmpegListMutex to stop old wrapper", cameraId);
-											}
 											std::lock_guard<std::mutex> ffmpegGuard(ffmpegListMutex);
-											if (mainLogger)
-											{
-												mainLogger->debug("SendStringData - [CameraID: {}] Acquired ffmpegListMutex, looking for keyValue: {}", cameraId, keyValue);
-											}
+											
 											auto ffmpegIt = ffmpegList.find(keyValue);
 											if (ffmpegIt != ffmpegList.end())
 											{
-												if (mainLogger)
-												{
-													mainLogger->debug("SendStringData - [CameraID: {}] Found old wrapper, removing from ffmpegList", cameraId);
-												}
 												oldWrapper = ffmpegIt->second;
 												ffmpegList.erase(ffmpegIt);
-											}
-											else
-											{
-												if (mainLogger)
-												{
-													mainLogger->warn("SendStringData - [CameraID: {}] Old wrapper not found in ffmpegList", cameraId);
-												}
-											}
-											if (mainLogger)
-											{
-												mainLogger->debug("SendStringData - [CameraID: {}] Releasing ffmpegListMutex, ffmpegList size: {}", cameraId, ffmpegList.size());
 											}
 										}
 
 										// Launch cleanup in a detached thread
 										if (oldWrapper) {
-											if (mainLogger)
-											{
-												mainLogger->info("SendStringData - [CameraID: {}] before thread detach, cameraId: {}", cameraId, cameraId);
-											}
 											std::thread([oldWrapper, cameraId, this]() {
-												if (mainLogger)
-												{
-													mainLogger->debug("SendStringData - [CameraID: {}] Detached thread started, calling stopThread()", cameraId);
-												}
+												
 												oldWrapper->stopThread();
-												if (mainLogger)
-												{
-													mainLogger->debug("SendStringData - [CameraID: {}] Detached thread finished stopThread()", cameraId);
-												}
+												
 											}).detach();
-											if (mainLogger)
-											{
-												mainLogger->info("SendStringData - [CameraID: {}] after thread detach, cameraId: {}", cameraId, cameraId);
-											}
-										}
-
-										// Small delay for cleanup
-										if (mainLogger)
-										{
-											mainLogger->debug("SendStringData - [CameraID: {}] Sleeping 200ms for cleanup", cameraId);
 										}
 										std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
-										// Create new wrapper
-										if (mainLogger)
-										{
-											mainLogger->debug("SendStringData - [CameraID: {}] Creating new FFmpeg wrapper for next segment", cameraId);
-										}
 
 										auto bindSendData = std::bind(&WebSocketWrapper::SendData, this,
 										                              std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
@@ -563,19 +394,9 @@ void WebSocketWrapper::SendStringData(websocketpp::connection_hdl &con_hndl, std
 										int random = generateAndCheckRandomNumber();
 										std::string newKeyValue = std::to_string(random) + "~~" + mode;
 
-										if (mainLogger)
-										{
-											mainLogger->debug("SendStringData - [CameraID: {}] New keyValue: {}, nextUrl: {}, newSeekTime: {}",
-															cameraId, newKeyValue, nextUrl, newSeekTime);
-										}
-
 										// Convert duration from minutes to seconds
 										int newDuration_Seconds = static_cast<int>(round(newDuration_Minutes * 60));
 
-										if (mainLogger)
-										{
-											mainLogger->debug("SendStringData - [CameraID: {}] Creating FFmpegWrapper instance", cameraId);
-										}
 
 										auto ffmpeg = std::make_shared<FFmpegWrapper>(cameraId, nextUrl, mode, newSeekTime,
 										                                              sendDataFunc, sendStringDataFunc,
@@ -583,79 +404,25 @@ void WebSocketWrapper::SendStringData(websocketpp::connection_hdl &con_hndl, std
 										                                              mainLogger, playbackSpeed, nextTime, newDuration_Seconds);
 
 										{
-											if (mainLogger)
-											{
-												mainLogger->debug("SendStringData - [CameraID: {}] Acquiring ffmpegListMutex to add new wrapper", cameraId);
-											}
 											std::lock_guard<std::mutex> ffmpegGuard(ffmpegListMutex);
-											if (mainLogger)
-											{
-												mainLogger->debug("SendStringData - [CameraID: {}] Acquired ffmpegListMutex, adding new wrapper", cameraId);
-											}
 											ffmpegList[newKeyValue] = ffmpeg;
-											if (mainLogger)
-											{
-												mainLogger->debug("SendStringData - [CameraID: {}] Added new wrapper, ffmpegList size: {}, releasing ffmpegListMutex", cameraId, ffmpegList.size());
-											}
-										}
-
-										if (mainLogger)
-										{
-											mainLogger->debug("SendStringData - [CameraID: {}] Starting FFmpeg thread for new segment", cameraId);
 										}
 										ffmpeg->startThread();
 
-										if (mainLogger)
-										{
-											mainLogger->debug("SendStringData - [CameraID: {}] Adding connection to new FFmpeg instance", cameraId);
-										}
 										ffmpeg->addConnection(con_hndl);
 
 										{
-											if (mainLogger)
-											{
-												mainLogger->debug("SendStringData - [CameraID: {}] Acquiring connectionsIdMapMutex to update mapping", cameraId);
-											}
 											std::lock_guard<std::mutex> connectionsGuard(connectionsIdMapMutex);
-											if (mainLogger)
-											{
-												mainLogger->debug("SendStringData - [CameraID: {}] Acquired connectionsIdMapMutex, updating mapping", cameraId);
-											}
+											
 											connectionsIdMap[con_hndl.lock()] = newKeyValue;
-											if (mainLogger)
-											{
-												mainLogger->debug("SendStringData - [CameraID: {}] Updated mapping, connectionsIdMap size: {}, releasing connectionsIdMapMutex", cameraId, connectionsIdMap.size());
-											}
+											
 										}
 
-										if (mainLogger) {
-											mainLogger->info("SendStringData - [CameraID: {}] Successfully created new FFmpegWrapper for next segment", cameraId);
-										}
 
 										// Don't send the Playback_Finished message - continue seamlessly
 										return;
 									}
-								else
-								{
-									if (mainLogger) {
-										mainLogger->info("SendStringData - [CameraID: {}] No next segment available, ending playback", cameraId);
-									}
-								}
 							}
-						}
-						else
-						{
-							if (mainLogger)
-							{
-								mainLogger->warn("SendStringData - Playback_Finished but keyValue or cameraId is empty");
-							}
-						}
-					}
-					else
-					{
-						if (mainLogger)
-						{
-							mainLogger->error("SendStringData - Failed to parse Playback_Finished JSON");
 						}
 					}
 				}
@@ -663,11 +430,6 @@ void WebSocketWrapper::SendStringData(websocketpp::connection_hdl &con_hndl, std
 					if (mainLogger) {
 						mainLogger->error("SendStringData - Error handling Playback_Finished: {}", jsonEx.what());
 					}
-				}
-
-				if (mainLogger)
-				{
-					mainLogger->debug("SendStringData - Playback_Finished processing complete");
 				}
 			}
 			else
@@ -777,10 +539,6 @@ void WebSocketWrapper::process_request(connection_hdl hdl, std::string &query)
 	// cout << url << " ## " << seekTime_ofFile << endl;
 	// cout << endl;
 
-	if (mainLogger)
-	{
-		mainLogger->debug("on_open url returned is: {}", url);
-	}
 
 	if (url.empty() || boost::starts_with(url, "Player_Server_Not_Connected") || boost::starts_with(url, "URL_Server_Not_Connected"))
 	{
@@ -814,75 +572,28 @@ void WebSocketWrapper::process_request(connection_hdl hdl, std::string &query)
 	if (mode == "Live")
 	{
 		std::string keyValue = cameraId + "~~" + mode + "~~" + url;
-		if (mainLogger)
+		
 		{
-			mainLogger->debug("process_request - [CameraID: {}] Live mode, keyValue: {}", cameraId, keyValue);
-		}
-		{
-			if (mainLogger)
-			{
-				mainLogger->debug("process_request - [CameraID: {}] Acquiring ffmpegListMutex", cameraId);
-			}
 			std::lock_guard<std::mutex> ffmpegGuard(ffmpegListMutex);
-			if (mainLogger)
-			{
-				mainLogger->debug("process_request - [CameraID: {}] Acquired ffmpegListMutex, ffmpegList size: {}", cameraId, ffmpegList.size());
-			}
 
 			if (ffmpegList.find(keyValue) == ffmpegList.end())
 			{
-				if (mainLogger)
-				{
-					mainLogger->debug("process_request - [CameraID: {}] FFmpeg instance not found, creating new one", cameraId);
-				}
 				auto ffmpeg = std::make_shared<FFmpegWrapper>(cameraId, url, mode, seekTime_ofFile, sendDataFunc, sendStringDataFunc,
 															  connectionmode, playerServerIp, playerServerPort, mainLogger, playbackSpeed);
 				ffmpegList[keyValue] = ffmpeg;
-				if (mainLogger)
-				{
-					mainLogger->debug("process_request - [CameraID: {}] Starting FFmpeg thread", cameraId);
-				}
 				ffmpeg->startThread();
-			}
-			else
-			{
-				if (mainLogger)
-				{
-					mainLogger->debug("process_request - [CameraID: {}] FFmpeg instance already exists, reusing", cameraId);
-				}
 			}
 
 			auto ffmpeg = ffmpegList[keyValue];
 			if (ffmpeg != nullptr)
 			{
-				if (mainLogger)
-				{
-					mainLogger->debug("process_request - [CameraID: {}] Adding connection to FFmpeg instance", cameraId);
-				}
 				ffmpeg->addConnection(hdl);
-			}
-
-			if (mainLogger)
-			{
-				mainLogger->debug("process_request - [CameraID: {}] Releasing ffmpegListMutex", cameraId);
 			}
 		}
 
 		{
-			if (mainLogger)
-			{
-				mainLogger->debug("process_request - [CameraID: {}] Acquiring connectionsIdMapMutex to add connection mapping", cameraId);
-			}
 			std::lock_guard<std::mutex> connectionsGuard(connectionsIdMapMutex);
-			if (mainLogger)
-			{
-				mainLogger->debug("process_request - [CameraID: {}] Acquired connectionsIdMapMutex, adding mapping", cameraId);
-			}
 			connectionsIdMap[hdl.lock()] = keyValue;
-			if (mainLogger)
-			{
-				mainLogger->debug("process_request - [CameraID: {}] Added mapping, connectionsIdMap size: {}, releasing connectionsIdMapMutex", cameraId, connectionsIdMap.size());
-			}
 		}
 	}
 	else
@@ -890,77 +601,29 @@ void WebSocketWrapper::process_request(connection_hdl hdl, std::string &query)
 		int random = generateAndCheckRandomNumber();
 		std::string keyValue = std::to_string(random) + "~~" + mode;
 
-		if (mainLogger)
-		{
-			mainLogger->debug("process_request - [CameraID: {}] Playback mode, keyValue: {}, seekTime: {}", cameraId, keyValue, seekTime_ofFile);
-		}
-
 		// Convert duration from minutes to seconds
 		int duration_in_Seconds = static_cast<int>(round(duration_in_Minutes * 60));
-
-		if (mainLogger)
-		{
-			mainLogger->debug("process_request - [CameraID: {}] Creating FFmpeg instance for playback, duration: {} seconds", cameraId, duration_in_Seconds);
-		}
 
 		auto ffmpeg = std::make_shared<FFmpegWrapper>(cameraId, url, mode, seekTime_ofFile, sendDataFunc, sendStringDataFunc,
 													  connectionmode, playerServerIp, playerServerPort, mainLogger, playbackSpeed, start_time_ofplaybackfile, duration_in_Seconds);
 		{
-			if (mainLogger)
-			{
-				mainLogger->debug("process_request - [CameraID: {}] Acquiring ffmpegListMutex to add playback instance", cameraId);
-			}
 			std::lock_guard<std::mutex> ffmpegGuard(ffmpegListMutex);
-			if (mainLogger)
-			{
-				mainLogger->debug("process_request - [CameraID: {}] Acquired ffmpegListMutex, adding to ffmpegList", cameraId);
-			}
 
 			ffmpegList[keyValue] = ffmpeg;
 
-			if (mainLogger)
-			{
-				mainLogger->debug("process_request - [CameraID: {}] Added to ffmpegList, size now: {}, releasing ffmpegListMutex", cameraId, ffmpegList.size());
-			}
-		}
-
-		if (mainLogger)
-		{
-			mainLogger->debug("process_request - [CameraID: {}] Starting FFmpeg thread for playback", cameraId);
 		}
 		ffmpeg->startThread();
-
-		if (mainLogger)
-		{
-			mainLogger->debug("process_request - [CameraID: {}] Adding connection to FFmpeg instance", cameraId);
-		}
 		ffmpeg->addConnection(hdl);
 
 		{
-			if (mainLogger)
-			{
-				mainLogger->debug("process_request - [CameraID: {}] Acquiring connectionsIdMapMutex to add connection mapping", cameraId);
-			}
 			std::lock_guard<std::mutex> connectionsGuard(connectionsIdMapMutex);
-			if (mainLogger)
-			{
-				mainLogger->debug("process_request - [CameraID: {}] Acquired connectionsIdMapMutex, adding mapping", cameraId);
-			}
 			connectionsIdMap[hdl.lock()] = keyValue;
-			if (mainLogger)
-			{
-				mainLogger->debug("process_request - [CameraID: {}] Added mapping, connectionsIdMap size: {}, releasing connectionsIdMapMutex", cameraId, connectionsIdMap.size());
-			}
 		}
 	}
 }
 
 std::string WebSocketWrapper::Get_LiveUrl(connection_hdl hdl, const std::string &cameraId, int streamtype, const std::string &analyticType, const std::string &vaServerId, const std::string &vaServerPipeId)
 {
-	if (mainLogger)
-	{
-		mainLogger->debug("In Get_LiveUrl, cameraId: {}, streamtype: {}, analyticType: {}", cameraId, streamtype, analyticType);
-	}
 	string response;
 	string cameraId_instring = cameraId;
 	// check if any vaServerId and vaServerPipeId is provided, if it is change url, else use default url
@@ -982,10 +645,6 @@ std::string WebSocketWrapper::Get_LiveUrl(connection_hdl hdl, const std::string 
 		// playerServerIp = "192.168.1.36";
 		std::string url = "http://" + playerServerIp + ":" + to_string(playerServerPort) + endpoint;
 		auto res = cpr::Get(cpr::Url{url});
-		if (mainLogger)
-		{
-			mainLogger->debug("In Get_LiveUrl -> " + res.text);
-		}
 
 		if (res.status_code == 200)
 		{
@@ -1047,19 +706,11 @@ std::string WebSocketWrapper::Get_LiveUrl(connection_hdl hdl, const std::string 
 			std::cout << ex.what() << std::endl;
 		}
 	}
-	if (mainLogger)
-	{
-		mainLogger->debug("Get_LiveUrl, response: {}", response);
-	}
 	return response;
 }
 
 std::string WebSocketWrapper::Get_PlayBackUrl(connection_hdl hdl, const std::string &cameraId, int start_time_ofplaybackfile, int *seekTime_ofFile, float *duration_Minutes)
 {
-	if (mainLogger)
-	{
-		mainLogger->debug("Get_PlayBackUrl, cameraId: {}, start_time_ofplaybackfile: {}", cameraId, start_time_ofplaybackfile);
-	}
 	string response;
 	string cameraId_instring = cameraId;
 	string seekVideo = "";
@@ -1108,11 +759,6 @@ std::string WebSocketWrapper::Get_PlayBackUrl(connection_hdl hdl, const std::str
 				if (!resultValue3.isNull())
 				{
 					duration_in_Minutes_value = resultValue3.asFloat();
-					cout << "duration_in_Minutes_value is " << duration_in_Minutes_value << std::endl;
-					if (mainLogger)
-					{
-						mainLogger->debug("Get_PlayBackUrl, duration_in_Minutes from response: {}", duration_in_Minutes_value);
-					}
 				}
 
 				/**sessionid = stoi(resultValue2.asString());*/
@@ -1177,19 +823,11 @@ std::string WebSocketWrapper::Get_PlayBackUrl(connection_hdl hdl, const std::str
 			std::cout << ex.what() << std::endl;
 		}
 	}
-	if (mainLogger)
-	{
-		mainLogger->debug("Get_PlayBackUrl, response: {}", response);
-	}
 	return response;
 }
 
 std::string WebSocketWrapper::Get_PlayBackUrl(connection_hdl hdl, const std::string &cameraId, int start_time_ofplaybackfile, int end_time_ofplaybackfile)
 {
-	if (mainLogger)
-	{
-		mainLogger->debug("Get_PlayBackUrl, cameraId: {}, start_time_ofplaybackfile: {}, end_time_ofplaybackfile: {}", cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile);
-	}
 	// print the start and end time of playback file
 	// std::cout << "start_time_ofplaybackfile: " << start_time_ofplaybackfile << ", end_time_ofplaybackfile: " << end_time_ofplaybackfile << std::endl;
 	string response;
@@ -1282,20 +920,11 @@ std::string WebSocketWrapper::Get_PlayBackUrl(connection_hdl hdl, const std::str
 			std::cout << ex.what() << std::endl;
 		}
 	}
-	if (mainLogger)
-	{
-		mainLogger->debug("Get_PlayBackUrl, response: {}", response);
-	}
 	return response;
 }
 
 void WebSocketWrapper::checkConfigFileIp(connection_hdl hdl, std::string &currentServerIp)
 {
-	if (mainLogger)
-	{
-		mainLogger->debug("In check ConfigFileIp Method, previousServerIp: {}, currentServerIp: {}", playerServerIp, currentServerIp);
-	}
-
 	if (currentServerIp == "")
 		websocket_server.send(hdl, "Server_ip_not_provided", 22, websocketpp::frame::opcode::TEXT);
 	transform(currentServerIp.begin(), currentServerIp.end(), currentServerIp.begin(), ::tolower);
@@ -1323,11 +952,6 @@ void WebSocketWrapper::checkConfigFileIp(connection_hdl hdl, std::string &curren
 
 void WebSocketWrapper::checkConfigFilePort(int currentServerPort)
 {
-	if (mainLogger)
-	{
-		mainLogger->debug("In check ConfigFilePort Method, previousServerPort: {}, currentServerPort: {}", playerServerPort, currentServerPort);
-	}
-
 	if (playerServerPort != currentServerPort)
 	{
 		Options opt;
