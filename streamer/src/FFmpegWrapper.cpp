@@ -63,11 +63,7 @@ int FFmpegWrapper::run()
 				std::lock_guard<std::mutex> lock(connectionsMutex);
 				
 
-				for (webConnHdl connHdl : connections[rgba])
-				{
-					websocketSCallback(connHdl, "retrying");
-				}
-				for (webConnHdl connHdl : connections[mp4])
+				for (webConnHdl connHdl : connections)
 				{
 					websocketSCallback(connHdl, "retrying");
 				}
@@ -78,13 +74,9 @@ int FFmpegWrapper::run()
 	}
 
 	{
-		std::lock_guard<std::mutex> lock(connectionsMutex); // Protect access to the connections map
+		std::lock_guard<std::mutex> lock(connectionsMutex); // Protect access to the connections list
 
-		for (webConnHdl connHdl : connections[rgba])
-		{
-			websocketSCallback(connHdl, "Stopped");
-		}
-		for (webConnHdl connHdl : connections[mp4])
+		for (webConnHdl connHdl : connections)
 		{
 			websocketSCallback(connHdl, "Stopped");
 		}
@@ -175,7 +167,7 @@ void FFmpegWrapper::readInput()
 				}
 
 				// h264
-				if (!connections[mp4].empty())
+				if (outputType == mp4 && !connections.empty())
 				{
 					if (frameCount == 1)
 					{
@@ -255,7 +247,7 @@ void FFmpegWrapper::readInput()
 						{
 							std::lock_guard<std::mutex> lock(connectionsMutex);
 
-							for (webConnHdl hndl : connections[mp4])
+							for (webConnHdl hndl : connections)
 							{
 								if (position >= 0)
 								{
@@ -294,13 +286,9 @@ void FFmpegWrapper::readInput()
 			// Send next playback time to WebSocket handler
 			std::string finishMessage = "{\"event\":\"Playback_Finished\",\"cameraId\":\"" + cameraId + "\",\"nextTime\":" + std::to_string(nextPlaybackTime) + "}";
 
-			for (webConnHdl hndl : connections[mp4])
+			for (webConnHdl hndl : connections)
 			{
 				websocketSCallback(hndl, finishMessage);
-			}
-			for (webConnHdl hndl1 : connections[rgba])
-			{
-				websocketSCallback(hndl1, finishMessage);
 			}
 			mStop = true;
 		}
@@ -513,16 +501,18 @@ void FFmpegWrapper::addConnection(webConnHdl connHdl)
 
 		if (inputCodecID == AV_CODEC_ID_H264)
 		{
+			outputType = mp4;
 			websocketSCallback(connHdl, "mp4");
 			websocketSCallback(connHdl, "mp4 " + data);
 			if (isLiveMode())
 			{
 				SendVideoStartedEvent();
 			}
-			addConnToList(connHdl, mp4);
+			addConnToList(connHdl);
 		}
 		else
 		{
+			outputType = rgba;
 			// string data = "rgba " + to_string(pFrame->width) + "x" + to_string(pFrame->height) + "x" + to_string(inputFPS);
 			websocketSCallback(connHdl, "rgba");
 			// send only if pframe width is not 0, i.e this stream is getting played for first time
@@ -532,7 +522,7 @@ void FFmpegWrapper::addConnection(webConnHdl connHdl)
 			{
 				websocketSCallback(connHdl, "rgba " + data);
 			}
-			addConnToList(connHdl, rgba);
+			addConnToList(connHdl);
 		}
 	}
 }
@@ -552,54 +542,29 @@ bool FFmpegWrapper::removeConnection(webConnHdl connHdl)
 		tempConnections.erase(foundPair);
 	}
 
-	if (connections[mp4].empty() && connections[rgba].empty())
+	if (connections.empty())
 	{
 		return true;
 	}
 
-	bool isFound = false;
-	OutputType type;
-
-	// Helper to remove from connections
-	auto removeFromConnections = [&](OutputType type)
+	// Remove from connections list
+	auto it = std::find_if(connections.begin(), connections.end(),
+						   [&](const webConnHdl &conn)
+						   { return conn.lock() == connHdl.lock(); });
+	if (it != connections.end())
 	{
-		auto &connList = connections[type];
-		auto it = std::find_if(connList.begin(), connList.end(),
-							   [&](const webConnHdl &conn)
-							   { return conn.lock() == connHdl.lock(); });
-		if (it != connList.end())
-		{
-			connList.erase(it);
-			return true;
-		}
-		return false;
-	};
-
-	// Check both mp4 and rgba connections
-	if (removeFromConnections(mp4))
-	{
-		isFound = true;
-		type = mp4;
-	}
-	if (removeFromConnections(rgba))
-	{
-		isFound = true;
-		type = rgba;
-	}
-
-	if (isFound && connections[mp4].empty() && connections[rgba].empty())
-	{
-		return true;
+		connections.erase(it);
+		return connections.empty();
 	}
 
 	return false;
 }
 
-void FFmpegWrapper::addConnToList(webConnHdl connHdl, OutputType outType)
+void FFmpegWrapper::addConnToList(webConnHdl connHdl)
 {
 	std::lock_guard<std::mutex> lock(connectionsMutex);
 
-	connections[outType].insert(connHdl);
+	connections.insert(connHdl);
 }
 
 void FFmpegWrapper::SendVideoStartedEvent()
@@ -610,11 +575,7 @@ void FFmpegWrapper::SendVideoStartedEvent()
 	}
 	isVideoStartedEventsent = true;
 
-	for (webConnHdl connHdl : connections[rgba])
-	{
-		websocketSCallback(connHdl, "Video_Started");
-	}
-	for (webConnHdl connHdl : connections[mp4])
+	for (webConnHdl connHdl : connections)
 	{
 		websocketSCallback(connHdl, "Video_Started");
 	}

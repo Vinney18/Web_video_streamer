@@ -69,7 +69,8 @@ private:
 
 	bool fileseekingstarted = false;
 	bool playbackFileStared = false;
-	std::map<OutputType, con_list> connections; //keys mp4 and rgba
+	OutputType outputType; // The output type for this instance (mp4 or rgba)
+	con_list connections; // Single list of connections
 	std::mutex connectionsMutex; // Mutex to protect access to connections
 	std::vector<std::pair<websocketpp::connection_hdl, bool>> tempConnections;
 	//std::mutex connectionlock;
@@ -107,7 +108,7 @@ public:
 		websocketCallback = _websocketCallback;
 		websocketSCallback = _websocketSCallback;
 		connectionmode = _connectionmode;
-		connections = { {mp4, con_list()}, { rgba , con_list()} };
+		outputType = mp4; // Default, will be set based on codec
 		serverIp = _serverIp;
 		port = _port;
 		fastForwardFactor = playbackSpeed;
@@ -128,7 +129,7 @@ protected:
 	virtual int run() override;
 
 private:
-	void addConnToList(webConnHdl hdl, OutputType outType);
+	void addConnToList(webConnHdl hdl);
 
 	bool openInput();
 	
