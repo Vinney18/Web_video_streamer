@@ -246,13 +246,15 @@ void WebRTCWrapper::onWebSocketMessage(const std::string &wsId, const std::strin
         }
 
         // Handle message based on type
-        if (type == "offer")
+        if (type == "request")
+        {
+            std::string query = root.get("query", "").asString();
+            handleRequest(clientId, query);
+        }
+        else if (type == "answer")
         {
             std::string sdp = root["sdp"].asString();
-            std::string sdpType = root.get("sdpType", "offer").asString();
-            std::string query = root.get("query", "").asString();
-
-            handleOffer(clientId, sdp, sdpType, query);
+            handleAnswer(clientId, sdp);
         }
         else if (type == "candidate" || type == "ice")
         {
@@ -392,77 +394,69 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
             Json::StreamWriterBuilder writerBuilder;
             sendSignalingMessage(clientId, Json::writeString(writerBuilder, msg)); });
 
-        // Accept data channel created by the client (server is the answerer)
-        pc->onDataChannel([this, clientId](std::shared_ptr<rtc::DataChannel> dc)
-                          {
+        // Set up onLocalDescription BEFORE addTrack/createDataChannel
+        // because createDataChannel triggers auto-negotiation which generates the offer
+        pc->onLocalDescription([this, clientId](rtc::Description description) {
             if (mainLogger) {
-                mainLogger->info("Data channel received from client {}: {}", clientId, dc->label());
+                mainLogger->info("Sending SDP offer to client: {}", clientId);
             }
 
-            dc->onOpen([this, clientId]()
-                       {
-                if (mainLogger) {
-                    mainLogger->info("Data channel opened for client {}", clientId);
-                }
+            Json::Value offerMsg;
+            offerMsg["type"] = "offer";
+            offerMsg["sdp"] = std::string(description);
 
-                std::lock_guard<std::mutex> lock(connectionsMutex);
-                auto it = connections.find(clientId);
-                if (it != connections.end()) {
-                    it->second->isConnected = true;
-                } });
+            Json::StreamWriterBuilder writerBuilder;
+            sendSignalingMessage(clientId, Json::writeString(writerBuilder, offerMsg));
+        });
 
-            dc->onClosed([this, clientId]()
-                         {
-                if (mainLogger) {
-                    mainLogger->info("Data channel closed for client {}", clientId);
-                } });
+        // Add video track with H264 codec (server is offerer, sends video)
+        rtc::Description::Video media("video", rtc::Description::Direction::SendOnly);
+        media.addH264Codec(96);
+        media.addSSRC(1, "video-stream");
 
-            dc->onMessage([this, clientId](std::variant<rtc::binary, std::string> data)
-                          { handleDataChannelMessage(clientId, data); });
+        auto track = pc->addTrack(media);
 
-            // Store the data channel
-            {
-                std::lock_guard<std::mutex> lock(connectionsMutex);
-                auto it = connections.find(clientId);
-                if (it != connections.end()) {
-                    it->second->dataChannel = dc;
-                }
-            } });
+        // Set up H264 RTP packetizer for proper fragmentation and RTP encapsulation
+        auto rtpConfig = std::make_shared<rtc::RtpPacketizationConfig>(
+            1, "video-stream", 96, rtc::H264RtpPacketizer::defaultClockRate);
+        auto packetizer = std::make_shared<rtc::H264RtpPacketizer>(
+            rtc::H264RtpPacketizer::Separator::LongStartSequence, rtpConfig);
+        track->setMediaHandler(packetizer);
 
-        // Capture the video track from the offer's video m-line (server is answerer)
-        pc->onTrack([this, clientId](std::shared_ptr<rtc::Track> track)
-                     {
+        connInfo->videoTrack = track;
+        connInfo->rtpConfig = rtpConfig;
+
+        if (mainLogger) {
+            mainLogger->info("Video track added with H264 RTP packetizer for client {}", clientId);
+        }
+
+        // Create data channel (server creates it as offerer)
+        // NOTE: createDataChannel triggers auto-negotiation in libdatachannel,
+        // which will generate the offer and fire onLocalDescription
+        auto dc = pc->createDataChannel("control");
+
+        dc->onOpen([this, clientId]() {
             if (mainLogger) {
-                mainLogger->info("Track received from offer for client {}: mid={}", clientId, track->mid());
+                mainLogger->info("Data channel opened for client {}", clientId);
             }
-
-            // Set up H.264 RTP packetizer for proper WebRTC video delivery
-            // Use the H264 payload type from the SDP offer (stored in connection info)
-            int h264PT = 109; // H264 Constrained Baseline, packetization-mode=1
-            {
-                std::lock_guard<std::mutex> lock(connectionsMutex);
-                auto it = connections.find(clientId);
-                if (it != connections.end()) {
-                    h264PT = it->second->h264PayloadType;
-                }
-            }
-            uint32_t ssrc = 1;
-            auto rtpConfig = std::make_shared<rtc::RtpPacketizationConfig>(
-                ssrc, "video-send", h264PT, rtc::H264RtpPacketizer::defaultClockRate);
-            auto packetizer = std::make_shared<rtc::H264RtpPacketizer>(
-                rtc::H264RtpPacketizer::Separator::LongStartSequence, rtpConfig);
-            track->setMediaHandler(packetizer);
-
-            if (mainLogger) {
-                mainLogger->info("H264 RTP packetizer configured for client {}", clientId);
-            }
-
             std::lock_guard<std::mutex> lock(connectionsMutex);
             auto it = connections.find(clientId);
             if (it != connections.end()) {
-                it->second->videoTrack = track;
-                it->second->rtpConfig = rtpConfig;
-            } });
+                it->second->isConnected = true;
+            }
+        });
+
+        dc->onClosed([this, clientId]() {
+            if (mainLogger) {
+                mainLogger->info("Data channel closed for client {}", clientId);
+            }
+        });
+
+        dc->onMessage([this, clientId](std::variant<rtc::binary, std::string> data) {
+            handleDataChannelMessage(clientId, data);
+        });
+
+        connInfo->dataChannel = dc;
 
         // Store connection
         {
@@ -472,7 +466,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
 
         if (mainLogger)
         {
-            mainLogger->info("Peer connection created successfully for client: {}", clientId);
+            mainLogger->info("Peer connection created and offer sent for client: {}", clientId);
         }
     }
     catch (const std::exception &ex)
@@ -485,83 +479,27 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
     }
 }
 
-void WebRTCWrapper::handleOffer(const std::string &clientId, const std::string &sdp,
-                                const std::string &type, const std::string &query)
+void WebRTCWrapper::handleRequest(const std::string &clientId, const std::string &query)
 {
     try
     {
         if (mainLogger)
         {
-            mainLogger->info("Handling offer from client: {}", clientId);
+            mainLogger->info("Handling request from client: {}", clientId);
         }
 
-        // Create peer connection if it doesn't exist
-        {
-            bool needsCreation = false;
-            {
-                std::lock_guard<std::mutex> lock(connectionsMutex);
-                needsCreation = (connections.find(clientId) == connections.end());
-            }
-            if (needsCreation)
-            {
-                createPeerConnection(clientId, query);
-            }
-        }
-
-        std::shared_ptr<WebRTCConnectionInfo> connInfo;
-        {
-            std::lock_guard<std::mutex> lock(connectionsMutex);
-            connInfo = connections[clientId];
-        }
-
-        auto pc = connInfo->peerConnection;
-
-        // Set remote description (offer) — puts state into have-remote-offer
-        rtc::Description offer(sdp, type);
-        pc->setRemoteDescription(offer);
-
-        // Video track is captured via onTrack callback (set up in createPeerConnection)
-        // Do NOT call addTrack() here — it would create a new m-line and break m-line order
+        // Create peer connection (adds video track, data channel, generates and sends offer)
+        createPeerConnection(clientId, query);
 
         // Process request to create FFmpegWrapper
         std::string queryCopy = query;
         processRequest(clientId, queryCopy);
-
-        // Set up callback to send answer when local description is ready
-        // This is called asynchronously - no blocking wait needed!
-        pc->onLocalDescription([this, clientId](rtc::Description description)
-                               {
-            if (mainLogger) {
-                mainLogger->info("Sending SDP answer to client: {}", clientId);
-            }
-
-            // Fix SDP: answerer must use "active" or "passive", not "actpass"
-            std::string sdpStr = std::string(description);
-            std::string::size_type pos = 0;
-            while ((pos = sdpStr.find("a=setup:actpass", pos)) != std::string::npos) {
-                sdpStr.replace(pos, 15, "a=setup:active");
-                pos += 14;
-            }
-
-            Json::Value answerMsg;
-            answerMsg["type"] = "answer";
-            answerMsg["sdp"] = sdpStr;
-
-            Json::StreamWriterBuilder writerBuilder;
-            sendSignalingMessage(clientId, Json::writeString(writerBuilder, answerMsg)); });
-
-        // Generate answer - this triggers onLocalDescription callback
-        // ICE candidates will be sent via onLocalCandidate as they're discovered
-        std::cout << "Creating answer for client: " << clientId << std::endl;
-        pc->setLocalDescription();
-        std::cout << "Creating answer for client: " << clientId << std::endl;
-        // No waiting needed! Everything is async via callbacks
     }
     catch (const std::exception &ex)
     {
         if (mainLogger)
         {
-            mainLogger->error("Error handling offer from client {}: {}", clientId, ex.what());
+            mainLogger->error("Error handling request from client {}: {}", clientId, ex.what());
         }
 
         // Send error to client
@@ -571,6 +509,48 @@ void WebRTCWrapper::handleOffer(const std::string &clientId, const std::string &
 
         Json::StreamWriterBuilder writerBuilder;
         sendSignalingMessage(clientId, Json::writeString(writerBuilder, errorMsg));
+    }
+}
+
+void WebRTCWrapper::handleAnswer(const std::string &clientId, const std::string &sdp)
+{
+    try
+    {
+        if (mainLogger)
+        {
+            mainLogger->info("Handling answer from client: {}", clientId);
+        }
+
+        std::shared_ptr<WebRTCConnectionInfo> connInfo;
+        {
+            std::lock_guard<std::mutex> lock(connectionsMutex);
+            auto it = connections.find(clientId);
+            if (it == connections.end())
+            {
+                if (mainLogger)
+                {
+                    mainLogger->warn("Answer for unknown client: {}", clientId);
+                }
+                return;
+            }
+            connInfo = it->second;
+        }
+
+        auto pc = connInfo->peerConnection;
+        rtc::Description answer(sdp, "answer");
+        pc->setRemoteDescription(answer);
+
+        if (mainLogger)
+        {
+            mainLogger->info("Remote description (answer) set for client: {}", clientId);
+        }
+    }
+    catch (const std::exception &ex)
+    {
+        if (mainLogger)
+        {
+            mainLogger->error("Error handling answer from client {}: {}", clientId, ex.what());
+        }
     }
 }
 
@@ -837,15 +817,27 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
 
         auto track = it->second->videoTrack;
 
-        // Remove 8-byte timestamp prefix that FFmpegWrapper adds
+        // Extract H264 frame data from FFmpegWrapper's buffer.
+        // FFmpegWrapper prepends an 8-byte position prefix ONLY in playback mode (position >= 0).
+        // In live mode (position == -2), NO prefix is added — data is raw H264 Annex B.
+        // Detect by checking if data starts with H264 Annex B start code (00 00 00 01).
         std::vector<uint8_t> frameData;
-        if (data.size() > 8)
+        bool hasStartCode = (data.size() >= 4 &&
+                             data[0] == 0x00 && data[1] == 0x00 &&
+                             data[2] == 0x00 && data[3] == 0x01);
+        if (hasStartCode)
         {
+            // Raw H264 Annex B data (live mode) — use as-is
+            frameData = data;
+        }
+        else if (data.size() > 8)
+        {
+            // Has 8-byte position prefix (playback mode) — strip it
             frameData.assign(data.begin() + 8, data.end());
         }
         else
         {
-            frameData = data;
+            return; // Too small, skip
         }
 
         // Send H.264 frame — the H264RtpPacketizer (set on the track via setMediaHandler)
@@ -854,10 +846,16 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
         // splits into individual NAL units and packetizes into RTP.
         if (!frameData.empty())
         {
-            // Convert PTS (microseconds) to RTP timestamp (90kHz clock)
-            auto rtpTimestamp = static_cast<uint32_t>((timestamp * 90000) / 1000000);
+            // Generate RTP timestamp from wall clock (90kHz RTP clock).
+            // FFmpegWrapper's timestamp parameter is unreliable:
+            //   - Live mode: always -2
+            //   - Playback mode: bit-shifted to 0 inside FFmpegWrapper's loop
+            // Use elapsed time since connection creation for monotonically increasing timestamps.
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                now - it->second->createdAt).count();
+            auto rtpTimestamp = static_cast<uint32_t>((elapsed_us * 90) / 1000);
 
-            // Set the timestamp on the RTP config before sending
             if (it->second->rtpConfig) {
                 it->second->rtpConfig->timestamp = rtpTimestamp;
             }

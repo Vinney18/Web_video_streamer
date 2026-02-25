@@ -73,8 +73,8 @@ private:
 
     // WebRTC peer connection management
     void createPeerConnection(const std::string& clientId, const std::string& query);
-    void handleOffer(const std::string& clientId, const std::string& sdp,
-                    const std::string& type, const std::string& query);
+    void handleRequest(const std::string& clientId, const std::string& query);
+    void handleAnswer(const std::string& clientId, const std::string& sdp);
     void handleIceCandidate(const std::string& clientId, const std::string& candidate,
                            const std::string& sdpMid, int sdpMLineIndex);
     void removeConnection(const std::string& clientId);

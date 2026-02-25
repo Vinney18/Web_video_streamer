@@ -152,8 +152,8 @@ function handleSignalingMessage(message) {
     log(`Signaling received: ${message.type}`, 'info');
 
     switch (message.type) {
-        case 'answer':
-            handleAnswer(message);
+        case 'offer':
+            handleServerOffer(message);
             break;
         case 'candidate':
             handleRemoteCandidate(message);
@@ -167,27 +167,52 @@ function handleSignalingMessage(message) {
 }
 
 /**
- * Handle SDP answer from server
+ * Handle SDP offer from server (server-as-offerer pattern)
  */
-async function handleAnswer(message) {
+async function handleServerOffer(message) {
     try {
-        log('Setting remote description (answer)...', 'info');
-        console.log('=== SDP ANSWER ===\n' + message.sdp);
+        log('Received offer from server, creating peer connection...', 'info');
+        console.log('=== SDP OFFER FROM SERVER ===\n' + message.sdp);
+
+        // Create peer connection if not already created
+        if (!peerConnection) {
+            if (!await createPeerConnection()) {
+                updateStatus('Failed', 'disconnected');
+                return;
+            }
+        }
+
+        // Set remote description (server's offer)
+        log('Setting remote description (offer)...', 'info');
         await peerConnection.setRemoteDescription({
-            type: 'answer',
+            type: 'offer',
             sdp: message.sdp
         });
         remoteDescriptionSet = true;
         log('Remote description set successfully', 'success');
 
-        // Flush any ICE candidates that arrived before the answer
+        // Flush any ICE candidates that arrived before the offer
         for (const candidate of pendingCandidates) {
             await peerConnection.addIceCandidate(candidate);
             log('Added buffered ICE candidate', 'info');
         }
         pendingCandidates = [];
+
+        // Create answer
+        log('Creating answer...', 'info');
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+
+        // Send answer to server
+        log('Sending answer to server...', 'info');
+        sendSignalingMessage({
+            type: 'answer',
+            clientId: clientId,
+            sdp: answer.sdp,
+            sdpType: answer.type
+        });
     } catch (error) {
-        log(`Error setting remote description: ${error.message}`, 'error');
+        log(`Error handling server offer: ${error.message}`, 'error');
     }
 }
 
@@ -295,44 +320,23 @@ async function createPeerConnection() {
             }
         };
 
-        // Create data channel for control messages
-        dataChannel = peerConnection.createDataChannel('control', {
-            ordered: true
-        });
-
-        dataChannel.onopen = () => {
-            log('Data channel opened', 'success');
-            updateStats('DataChannelState', 'open');
-        };
-
-        dataChannel.onclose = () => {
-            log('Data channel closed', 'error');
-            updateStats('DataChannelState', 'closed');
-        };
-
-        dataChannel.onerror = (error) => {
-            log(`Data channel error: ${error}`, 'error');
-        };
-
-        dataChannel.onmessage = (event) => {
-            messagesReceived++;
-            updateStats('MessagesReceived', messagesReceived);
-
-            const message = event.data;
-            log(`Received: ${message}`, 'success');
-
-            // Handle server messages
-            handleServerMessage(message);
-        };
-
-        // Handle data channel from server (if server creates it)
+        // Handle data channel from server (server creates it as offerer)
         peerConnection.ondatachannel = (event) => {
-            log('Received data channel from server', 'info');
+            log('Received data channel from server: ' + event.channel.label, 'info');
             dataChannel = event.channel;
 
             dataChannel.onopen = () => {
-                log('Server data channel opened', 'success');
+                log('Data channel opened', 'success');
                 updateStats('DataChannelState', 'open');
+            };
+
+            dataChannel.onclose = () => {
+                log('Data channel closed', 'error');
+                updateStats('DataChannelState', 'closed');
+            };
+
+            dataChannel.onerror = (error) => {
+                log(`Data channel error: ${error}`, 'error');
             };
 
             dataChannel.onmessage = (event) => {
@@ -405,40 +409,22 @@ async function connect() {
         // Create WebSocket connection for signaling
         signalingWs = new WebSocket(wsUrl);
 
-        signalingWs.onopen = async () => {
+        signalingWs.onopen = () => {
             log('WebSocket signaling connected', 'success');
-
-            // Create peer connection
-            if (!await createPeerConnection()) {
-                updateStatus('Failed', 'disconnected');
-                return;
-            }
-
-            // Create offer
-            log('Creating offer...', 'info');
-            const offer = await peerConnection.createOffer({
-                offerToReceiveAudio: false,
-                offerToReceiveVideo: true
-            });
-
-            log('Setting local description...', 'info');
-            await peerConnection.setLocalDescription(offer);
 
             // Build query string
             const queryString = buildQueryString();
             log(`Query: ${queryString}`, 'info');
 
-            // Send offer immediately via WebSocket (don't wait for ICE gathering)
-            log('Sending offer to server via WebSocket...', 'info');
+            // Send request to server (server will create offer)
+            log('Sending request to server...', 'info');
             sendSignalingMessage({
-                type: 'offer',
+                type: 'request',
                 clientId: clientId,
-                sdp: offer.sdp,
-                sdpType: offer.type,
                 query: queryString
             });
 
-            // ICE candidates will be sent as they're discovered (Trickle ICE)
+            // Server will respond with an SDP offer, handled by handleServerOffer()
         };
 
         signalingWs.onmessage = (event) => {
@@ -558,7 +544,7 @@ document.getElementById('streamMode').addEventListener('change', (e) => {
  * Initialize on page load
  */
 window.addEventListener('load', () => {
-    log('WebRTC Video Streamer Client initialized (WebSocket + Trickle ICE)', 'success');
+    log('WebRTC Video Streamer Client initialized (Server-as-Offerer + Trickle ICE)', 'success');
     log('Configure connection settings and click Connect', 'info');
     updateUIState();
 });
