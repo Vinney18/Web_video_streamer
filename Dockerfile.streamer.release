@@ -1,4 +1,4 @@
-FROM streamer_build_base as compile
+FROM streamer_build_base AS compile
 
 RUN mkdir /app
 COPY . /app
@@ -6,12 +6,16 @@ COPY . /app
 RUN mkdir /app/build
 RUN cd /app/build && cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake && make -j 4
 
-FROM ubuntu:18.04 as release
+FROM ubuntu:20.04 AS release
 
-RUN apt-get update && apt-get install -y libavformat57 libavcodec57 libswresample2 libswscale4 libavutil55 libavdevice57 libavfilter6 libpostproc54 ffmpeg
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libavformat58 libavcodec58 libswresample3 libswscale5 libavutil56 libavdevice58 libavfilter7 libpostproc55 \
+    && rm -rf /var/lib/apt/lists/*
 RUN mkdir /home/app 
 COPY --from=compile /app/build/streamer/streamer /app/
 WORKDIR /app
 
 EXPOSE 8181
-CMD ./streamer -s 1
+CMD ["./streamer", "-s", "1"]

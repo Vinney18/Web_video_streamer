@@ -8,10 +8,6 @@
 #include <map>
 #include <set>
 #include <functional>
-#include <websocketpp/config/asio_no_tls.hpp>
-#include <websocketpp/common/connection_hdl.hpp>
-#include <websocketpp/server.hpp>
-#include <websocketpp/endpoint.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/lexical_cast.hpp>
 #include <cpr/cpr.h>
@@ -37,8 +33,14 @@ extern "C"
 #pragma once
 
 using namespace std;
-typedef websocketpp::connection_hdl webConnHdl;
-typedef std::set<webConnHdl, std::owner_less<websocketpp::connection_hdl>> con_list;
+
+// Forward declaration for WebRTC
+namespace rtc {
+	class PeerConnection;
+}
+
+typedef std::shared_ptr<rtc::PeerConnection> webConnHdl;
+typedef std::set<webConnHdl> con_list;
 typedef std::function<void(webConnHdl& con_hndl, vector<uint8_t>& data, int64_t timestamp)> WebsocketDataCallback;
 typedef std::function<void(webConnHdl& con_hndl, string sdata)> WebsocketSDataCallback;
 
@@ -72,7 +74,7 @@ private:
 	OutputType outputType; // The output type for this instance (mp4 or rgba)
 	con_list connections; // Single list of connections
 	std::mutex connectionsMutex; // Mutex to protect access to connections
-	std::vector<std::pair<websocketpp::connection_hdl, bool>> tempConnections;
+	std::vector<std::pair<webConnHdl, bool>> tempConnections;
 	//std::mutex connectionlock;
 	AVFormatContext* inputFormatCtx = NULL;
 	AVCodecContext* inputCodecCtx = NULL;

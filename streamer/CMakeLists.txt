@@ -5,7 +5,7 @@ set(EXE_NAME "${PROJECT_NAME}")
 
 message("--> Project: " ${PROJECT_NAME})
 
-find_package(websocketpp CONFIG REQUIRED)
+# find_package(websocketpp CONFIG REQUIRED)
 find_package(Poco CONFIG REQUIRED Foundation XML JSON Util Net)
 find_package(Boost REQUIRED regex filesystem)
 find_package(cpr CONFIG REQUIRED)
@@ -15,6 +15,7 @@ find_package(jsoncpp CONFIG REQUIRED)
 find_package(cryptopp CONFIG REQUIRED)
 find_package(fmt REQUIRED)
 find_package(spdlog REQUIRED)
+find_package(LibDataChannel CONFIG REQUIRED)
 
 if(NOT WIN32)
 find_package(PkgConfig REQUIRED)
@@ -54,6 +55,10 @@ endif()
 file(GLOB_RECURSE HEADER_FILES include/*.h include/*.hpp)
 file(GLOB_RECURSE SOURCES src/*.c src/*.cpp)
 
+# Exclude WebSocket files (replaced by WebRTC)
+list(FILTER HEADER_FILES EXCLUDE REGEX ".*WebSocketWrapper\\.h$")
+list(FILTER SOURCES EXCLUDE REGEX ".*WebSocketWrapper\\.cpp$")
+
 add_executable (${EXE_NAME} ${SOURCES} ${HEADER_FILES})
 
 set_target_properties(
@@ -74,29 +79,33 @@ if (WIN32)
 		Poco::Foundation
 		Poco::Util
 		${FFmpeg_Libraries}
-		websocketpp::websocketpp
+		# websocketpp::websocketpp
 		cpr::cpr
 		jsoncpp_lib
 		#jsoncpp_static
 		cryptopp::cryptopp
 		fmt::fmt
 		spdlog::spdlog
+		LibDataChannel::LibDataChannel
 	)
 else()
 	target_link_libraries(
 		${EXE_NAME}
-		${Boost_LIBRARIES}
+		Boost::boost
+		Boost::regex
+		Boost::filesystem
 		Poco::Net
 		Poco::Foundation
 		Poco::Util
 		${FFmpeg_Libraries}
-		websocketpp::websocketpp
+		# websocketpp::websocketpp
 		cpr::cpr
 		jsoncpp_static
 		cryptopp::cryptopp
 		fmt::fmt
 		fmt::fmt-header-only
 		spdlog::spdlog
+		LibDataChannel::LibDataChannel
 )
 endif()
 

@@ -6,11 +6,15 @@
 	"workspaceFolder": "/webwork",
 	
 	// Set *default* container specific settings.json values on container create.
-	"settings": { 
+	"settings": {
 		"terminal.integrated.shell.linux": "/bin/bash",
+		"cmake.sourceDirectory": "/webwork",
+		"cmake.buildDirectory": "/webwork/build",
 		"cmake.configureArgs": [
-			"-DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake"
-		],
+			"-DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake",
+			"-DVCPKG_MANIFEST_MODE=OFF",
+			"-DCMAKE_PREFIX_PATH=/vcpkg/installed/x64-linux"
+		]
 	},
 
 	// Add the IDs of extensions you want installed when the container is created.
@@ -22,7 +26,7 @@
 
 	// Use 'forwardPorts' to make a list of ports insidse the container available locally.
 	"forwardPorts": [
-		8181
+		8182
 	]
 
 	// Use 'postCreateCommand' to run commands after the container is created.

@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Video Streamer Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 1200px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 24px;
+        }
+
+        .connection-panel {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .button:active {
+            transform: translateY(0);
+        }
+
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .button.disconnect {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .video-container {
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        video {
+            width: 100%;
+            display: block;
+            min-height: 400px;
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            pointer-events: none;
+        }
+
+        .video-overlay.hidden {
+            display: none;
+        }
+
+        .controls {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .control-button {
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .control-button:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .control-button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .seek-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .seek-controls input {
+            flex: 1;
+        }
+
+        .stats {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .stats h3 {
+            margin-bottom: 16px;
+            color: #333;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .log {
+            background: #1e1e1e;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 16px;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            word-wrap: break-word;
+        }
+
+        .log-entry.error {
+            color: #ff4444;
+        }
+
+        .log-entry.success {
+            color: #00ff00;
+        }
+
+        .log-entry.info {
+            color: #44aaff;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-indicator.connected {
+            background: #4CAF50;
+            box-shadow: 0 0 8px #4CAF50;
+        }
+
+        .status-indicator.disconnected {
+            background: #f44336;
+        }
+
+        .status-indicator.connecting {
+            background: #ff9800;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>WebRTC Video Streamer</h1>
+            <p>Real-time video streaming with WebRTC</p>
+        </div>
+
+        <div class="content">
+            <!-- Connection Panel -->
+            <div class="connection-panel">
+                <div class="form-group">
+                    <label>
+                        <span class="status-indicator" id="statusIndicator"></span>
+                        Connection Status: <span id="connectionStatus">Disconnected</span>
+                    </label>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="serverUrl">Server URL (WebSocket)</label>
+                        <input type="text" id="serverUrl" value="ws://localhost:8181" placeholder="ws://localhost:8181">
+                    </div>
+                    <div class="form-group">
+                        <label for="cameraId">Camera ID</label>
+                        <input type="text" id="cameraId" value="cam1" placeholder="cam1">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="streamMode">Stream Mode</label>
+                        <select id="streamMode">
+                            <option value="Live">Live</option>
+                            <option value="PlayBack">Playback</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="streamType">Stream Type</label>
+                        <select id="streamType">
+                            <option value="0">Main Stream</option>
+                            <option value="1">Sub Stream</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" id="playbackTimeGroup" style="display: none;">
+                    <label for="startTime">Playback Start Time (Unix timestamp)</label>
+                    <input type="number" id="startTime" value="0" placeholder="Unix timestamp">
+                </div>
+
+                <div class="form-group">
+                    <button class="button" id="connectBtn" onclick="connect()">Connect</button>
+                </div>
+                <div class="form-group" style="display: none;" id="disconnectBtnGroup">
+                    <button class="button disconnect" id="disconnectBtn" onclick="disconnect()">Disconnect</button>
+                </div>
+            </div>
+
+            <!-- Video Player -->
+            <div class="video-container">
+                <video id="videoPlayer" autoplay playsinline controls></video>
+                <div class="video-overlay" id="videoOverlay">
+                    <div>Waiting for connection...</div>
+                </div>
+            </div>
+
+            <!-- Playback Controls -->
+            <div class="controls">
+                <h3 style="margin-bottom: 16px;">Playback Controls</h3>
+                <div class="controls-grid">
+                    <button class="control-button" onclick="pauseVideo()" id="pauseBtn" disabled>Pause</button>
+                    <button class="control-button" onclick="resumeVideo()" id="resumeBtn" disabled>Resume</button>
+                    <button class="control-button" onclick="setSpeed(0.5)" disabled>0.5x</button>
+                    <button class="control-button" onclick="setSpeed(1.0)" disabled>1.0x</button>
+                    <button class="control-button" onclick="setSpeed(2.0)" disabled>2.0x</button>
+                    <button class="control-button" onclick="setSpeed(4.0)" disabled>4.0x</button>
+                </div>
+
+                <div class="form-group" style="margin-top: 16px;">
+                    <label>Seek to Time (seconds)</label>
+                    <div class="seek-controls">
+                        <input type="number" id="seekTime" value="0" min="0" placeholder="Time in seconds">
+                        <button class="button" onclick="seekVideo()" id="seekBtn" disabled style="width: auto; padding: 12px 24px;">Seek</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics -->
+            <div class="stats">
+                <h3>Stream Statistics</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">Connection State</div>
+                        <div class="stat-value" id="statConnectionState">new</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">ICE Connection State</div>
+                        <div class="stat-value" id="statIceState">new</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Data Channel State</div>
+                        <div class="stat-value" id="statDataChannelState">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Video Format</div>
+                        <div class="stat-value" id="statVideoFormat">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Messages Sent</div>
+                        <div class="stat-value" id="statMessagesSent">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Messages Received</div>
+                        <div class="stat-value" id="statMessagesReceived">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Log Console -->
+            <div class="log" id="logConsole">
+                <div class="log-entry info">Console ready. Click Connect to start streaming.</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="webrtc-client.js"></script>
+</body>
+</html>

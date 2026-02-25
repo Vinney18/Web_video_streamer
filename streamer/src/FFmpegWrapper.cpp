@@ -535,7 +535,7 @@ bool FFmpegWrapper::removeConnection(webConnHdl connHdl)
 	// Remove from temporary connections
 	auto foundPair = std::find_if(tempConnections.begin(), tempConnections.end(),
 								  [&](const std::pair<webConnHdl, bool> &p)
-								  { return p.first.lock() == connHdl.lock(); });
+								  { return p.first.get() == connHdl.get(); });
 
 	if (foundPair != tempConnections.end())
 	{
@@ -550,7 +550,7 @@ bool FFmpegWrapper::removeConnection(webConnHdl connHdl)
 	// Remove from connections list
 	auto it = std::find_if(connections.begin(), connections.end(),
 						   [&](const webConnHdl &conn)
-						   { return conn.lock() == connHdl.lock(); });
+						   { return conn.get() == connHdl.get(); });
 	if (it != connections.end())
 	{
 		connections.erase(it);
@@ -635,6 +635,7 @@ void FFmpegWrapper::seek_video(int time_toSeek_insec)
 		catch (const exception &ex)
 		{
 			fileseekingstarted = false;
+			if (logger) { logger->error("Exception while seek video: {}", ex.what()); }
 			else
 			{
 				std::cout << "Exception while seek video: " << ex.what() << std::endl;

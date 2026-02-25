@@ -1,6 +1,9 @@
-FROM ubuntu:18.04 as base
+FROM ubuntu:20.04 AS base
 
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential ca-certificates curl unzip wget git pkg-config \
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential ca-certificates curl zip unzip tar wget git pkg-config gdb \
     libavformat-dev libavcodec-dev libswresample-dev libswscale-dev libavutil-dev libavdevice-dev libavfilter-dev libpostproc-dev \
     --fix-missing && rm -rf /var/lib/apt/lists/*
 
@@ -10,4 +13,4 @@ RUN wget https://github.com/Kitware/CMake/releases/download/v3.19.0-rc1/cmake-3.
     && rm cmake-3.19.0-rc1-Linux-x86_64.sh
 
 RUN git clone https://github.com/microsoft/vcpkg.git && cd vcpkg && ./bootstrap-vcpkg.sh 
-RUN cd vcpkg && ./vcpkg install boost-filesystem boost-regex boost-system boost-thread boost-dll poco websocketpp cpr jsoncpp cryptopp fmt spdlog zlib openssl
+RUN cd vcpkg && ./vcpkg install boost-algorithm boost-lexical-cast boost-filesystem boost-regex boost-system boost-thread boost-dll expat "poco[xml,json,util,net]" cpr jsoncpp cryptopp fmt spdlog zlib openssl libdatachannel[srtp] 

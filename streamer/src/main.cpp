@@ -2,9 +2,6 @@
 #include <boost/regex.hpp>
 #include <map>
 #include <set>
-#include <websocketpp/config/asio_no_tls.hpp>
-#include <websocketpp/server.hpp>
-#include <websocketpp/endpoint.hpp>
 #include "FFmpegWrapper.h"
 #include <cpr/cpr.h>
 #include <json/value.h>
@@ -19,14 +16,10 @@
 #include "Util.h"
 #include <spdlog/spdlog.h>
 #include <spdlog/async.h>
-#include "WebSocketWrapper.h" // Include your WebSocketWrapper header file
+#include "WebRTCWrapper.h" // Include WebRTCWrapper header file
 using namespace i2v;
-using websocketpp::connection_hdl;
 
 #pragma once
-
-///typedef
-typedef websocketpp::server<websocketpp::config::asio>::message_ptr message_ptr;
 
 ///Variables
 std::string mainConfigFile;
@@ -37,11 +30,6 @@ spdlog::level::level_enum log_level;
 std::shared_ptr<spdlog::logger> mainLogger;
 
 map<string, shared_ptr<FFmpegWrapper>> ffmpegList;
-map<boost::asio::detail::socket_ops::shared_cancel_token_type, string> connectionsIdMap;
-
-
-
-websocketpp::server<websocketpp::config::asio> websocket_server;
 
 // config File Related
 void setDefaultValues(Options& opt);
@@ -56,9 +44,10 @@ int main(int argc, char* argv[])
 {
 	CLI::App app{ "i2V streamer" };
 	av_register_all();
-
+	std::cout << "i2V Streamer starting..." << std::endl;
 	bool show_logs_on_console = false;
 	app.add_option("-s,--show_log", show_logs_on_console, "Show logs on console");
+	// show_logs_on_console = true; // Default to true, can be overridden by command line argument
 	CLI11_PARSE(app, argc, argv)
 		spdlog::init_thread_pool(8192, 1);
 
@@ -77,21 +66,20 @@ int main(int argc, char* argv[])
 	if (not mainLogger) { std::cout << "Unable to create logger !!!" << std::endl; }
 	else { mainLogger->info("Logger created Successfully"); }
 
-	// Create a server endpoint
+	// Create a WebRTC server endpoint
 	try {
-		if (mainLogger) { mainLogger->info("Starting websocket server on port: {}", websocket_server_port); }
+		rtc::InitLogger(rtc::LogLevel::Warning);
+		rtc::SetThreadPoolSize(2);
+
+		if (mainLogger) { mainLogger->info("Starting WebRTC signaling server on port: {}", websocket_server_port); }
 		if (mainLogger) { mainLogger->info("Player server IP is: {0} and port is: {1}", playerServerIp, playerServerPort); }
 
-		WebSocketWrapper ws_wrapper(websocket_server_port, playerServerIp, playerServerPort, mainLogger, isVMS, vmsStreamUserName, vmsStreamPassword);
-		ws_wrapper.run();
+		WebRTCWrapper rtc_wrapper(websocket_server_port, playerServerIp, playerServerPort, mainLogger, isVMS, vmsStreamUserName, vmsStreamPassword);
+		rtc_wrapper.run();
 
 	}
-	catch (const websocketpp::exception& e) {
-		if (mainLogger) { mainLogger->error("main Error in websocket server: {}", e.what()); }
-		else { std::cout << e.what() << std::endl; }
-	}
 	catch (const std::exception& ex) {
-		if (mainLogger) { mainLogger->error("main Error in websocket server: {}", ex.what()); }
+		if (mainLogger) { mainLogger->error("main Error in WebRTC server: {}", ex.what()); }
 		else { std::cout << ex.what() << std::endl; }
 	}
 }
@@ -132,6 +120,7 @@ void loadMainConfig() {
 
 		// log level
 		int level = configoptions.get<int>("logLevel", -1);
+		// level = 0; // Force log level to info for now, can be changed later if needed
 		if (level < 0 or level > 6) {
 			level = static_cast<int>(spdlog::level::level_enum::info);
 		}
@@ -143,3 +132,10 @@ void loadMainConfig() {
 		configoptions.writeFile(mainConfigFile, true);
 	}
 }
+
+// cd /webwork/build && make -j$(nproc)
+// cd /webwork && rm -rf build && cmake -B build -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_MANIFEST_MODE=OFF -DCMAKE_PREFIX_PATH=/vcpkg/installed/x64-linux && cmake --build build
+// docker build -f Dockerfile.streamer.base -t streamer_build_base:latest .
+
+// # Check if NO_MEDIA was defined during the build
+// find /vcpkg -path "*/libdatachannel/portfile.cmake" -exec cat {} \;

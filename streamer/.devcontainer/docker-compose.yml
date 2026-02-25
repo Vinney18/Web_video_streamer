@@ -2,11 +2,12 @@ version: '3'
 
 services:
   web_player_full_linux20_dev:
-    image : yashsisodia/wplayer_dev_20:1
+    image: streamer_build_base:latest
     
     ports:
-      - 8181:8181
+      - 8182:8182
       # - 8890:8890
+      - 10000-10100:10000-10100/udp  # WebRTC media ports
     volumes:      
       - ..:/webwork/
       - ~/.gitconfig:/root/.gitconfig

@@ -1,0 +1,27 @@
+{
+  "name": "streamer",
+  "version": "7.2.1",
+  "dependencies": [
+    "expat",
+    {
+      "name": "poco",
+      "features": ["xml", "json", "util", "net"]
+    },
+    "boost-algorithm",
+    "boost-lexical-cast",
+    "boost-regex",
+    "boost-filesystem",
+    "boost-dll",
+    "cpr",
+    "openssl",
+    "zlib",
+    "jsoncpp",
+    "cryptopp",
+    "fmt",
+    "spdlog",
+    {
+      "name": "libdatachannel",
+      "features": ["srtp"]
+    }
+  ]
+}
