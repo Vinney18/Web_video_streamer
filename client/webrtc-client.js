@@ -259,6 +259,25 @@ async function createPeerConnection() {
             if (state === 'connected') {
                 updateStatus('Connected', 'connected');
                 log('WebRTC connection established!', 'success');
+
+                // Log which ICE candidate pair was selected
+                peerConnection.getStats().then(stats => {
+                    stats.forEach(report => {
+                        if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                            console.log('Active candidate pair:', report);
+                            stats.forEach(r => {
+                                if (r.id === report.localCandidateId) {
+                                    console.log('Local candidate:', r);
+                                    log(`Local ICE: ${r.candidateType} ${r.address}:${r.port} ${r.protocol}`, 'info');
+                                }
+                                if (r.id === report.remoteCandidateId) {
+                                    console.log('Remote candidate:', r);
+                                    log(`Remote ICE: ${r.candidateType} ${r.address}:${r.port} ${r.protocol}`, 'info');
+                                }
+                            });
+                        }
+                    });
+                });
             } else if (state === 'disconnected' || state === 'failed' || state === 'closed') {
                 updateStatus('Disconnected', 'disconnected');
                 log('WebRTC connection lost', 'error');
@@ -308,15 +327,15 @@ async function createPeerConnection() {
                 log('Video stream connected to player', 'success');
 
                 // Poll WebRTC stats to check if bytes are arriving
-                const statsInterval = setInterval(async () => {
-                    if (!peerConnection) { clearInterval(statsInterval); return; }
-                    const stats = await peerConnection.getStats();
-                    stats.forEach(report => {
-                        if (report.type === 'inbound-rtp' && report.kind === 'video') {
-                            console.log(`[VIDEO STATS] bytesReceived=${report.bytesReceived} packetsReceived=${report.packetsReceived} framesDecoded=${report.framesDecoded} framesDropped=${report.framesDropped}`);
-                        }
-                    });
-                }, 2000);
+                // const statsInterval = setInterval(async () => {
+                //     if (!peerConnection) { clearInterval(statsInterval); return; }
+                //     const stats = await peerConnection.getStats();
+                //     stats.forEach(report => {
+                //         if (report.type === 'inbound-rtp' && report.kind === 'video') {
+                //             console.log(`[VIDEO STATS] bytesReceived=${report.bytesReceived} packetsReceived=${report.packetsReceived} framesDecoded=${report.framesDecoded} framesDropped=${report.framesDropped}`);
+                //         }
+                //     });
+                // }, 2000);
             }
         };
 
