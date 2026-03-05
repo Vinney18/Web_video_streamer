@@ -3,25 +3,16 @@ version: '3'
 services:
   web_player_full_linux20_dev:
     image: streamer_build_base:latest
-    
-    ports:
-      - 8182:8182
-      # - 8890:8890
-      - 10000-10100:10000-10100/udp  # WebRTC media ports
-    volumes:      
+
+    network_mode: host  # Use host networking for WebRTC UDP connectivity
+
+    volumes:
       - ..:/webwork/
       - ~/.gitconfig:/root/.gitconfig
-      - /tmp/.X11-unix:/tmp/.X11-unix     
-    environment:      
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
       DISPLAY:
       XAUTHORITY:
 
-    networks:
-      - wplayer_network    
     container_name: wplayer_linux20
     command: sleep infinity
-    
-  
-networks:
-  wplayer_network:
-    driver: bridge

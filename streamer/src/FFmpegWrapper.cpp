@@ -6,16 +6,12 @@
 			  << AV_VERSION_MICRO(lib##_version()) << "\n";
 int FFmpegWrapper::run()
 {
-	
 
 	while (!mStop)
 	{
-		
 
 		params.isRunning = false;
 		auto opened = openInput();
-
-	
 
 		if (opened)
 		{
@@ -25,7 +21,6 @@ int FFmpegWrapper::run()
 
 			if (!tempConnections.empty())
 			{
-				
 
 				for (auto &el : tempConnections)
 				{
@@ -43,15 +38,15 @@ int FFmpegWrapper::run()
 			}
 			if (inputCodecID == AV_CODEC_ID_NONE)
 			{
-				
+
 				mStop = true;
 				closeInput();
 			}
 			else
 			{
-				
+
 				readInput();
-				
+
 				freeRgbaOutMemory();
 				closeInput();
 			}
@@ -61,15 +56,13 @@ int FFmpegWrapper::run()
 		{
 			{
 				std::lock_guard<std::mutex> lock(connectionsMutex);
-				
 
 				for (webConnHdl connHdl : connections)
 				{
 					websocketSCallback(connHdl, "retrying");
 				}
-
 			}
-			this_thread::sleep_for(std::chrono::seconds(1));
+			this_thread::sleep_for(std::chrono::seconds(2));
 		}
 	}
 
@@ -80,7 +73,6 @@ int FFmpegWrapper::run()
 		{
 			websocketSCallback(connHdl, "Stopped");
 		}
-
 	}
 
 	return 0;
@@ -146,7 +138,8 @@ void FFmpegWrapper::readInput()
 		auto startTime = std::chrono::steady_clock::now();
 		int64_t frameCount = 0;
 		double playbackStartPTS = -1.0; // Track the first PTS for playback sync
-		while (av_read_frame(this->inputFormatCtx, &packet) >= 0 && !mStop)
+		int readResult;
+		while ((readResult = av_read_frame(this->inputFormatCtx, &packet)) >= 0 && !mStop)
 		{
 
 			std::unique_lock<std::mutex> lck(mThreadMutex);
@@ -243,26 +236,27 @@ void FFmpegWrapper::readInput()
 					}
 					if (sendData)
 					{
-						vector<uint8_t> mp4Data(packet.data, packet.data + packet.buf->size);
-						{
-							std::lock_guard<std::mutex> lock(connectionsMutex);
+						vector<uint8_t> mp4Data(packet.data, packet.data + packet.size);
+						int64_t savedPosition = position;
 
-							for (webConnHdl hndl : connections)
+						if (savedPosition >= 0)
+						{
+							mp4Data.insert(mp4Data.begin(), sizeof(savedPosition), 0);
+							int64_t tempPos = savedPosition;
+							for (size_t i = 0; i < sizeof(tempPos); ++i)
 							{
-								if (position >= 0)
-								{
-									mp4Data.insert(mp4Data.begin(), sizeof(position), 0);
-									for (size_t i = 0; i < sizeof(position); ++i)
-									{
-										mp4Data[i] = position & 0xFF;
-										position >>= 8;
-									}
-								}
-								// std::cout<<"sending event "<<frameNumber<<std::endl;
-								websocketCallback(hndl, mp4Data, position);
+								mp4Data[i] = tempPos & 0xFF;
+								tempPos >>= 8;
 							}
 						}
-						// this_thread::sleep_for(std::chrono::milliseconds(10));
+
+						{
+							std::lock_guard<std::mutex> lock(connectionsMutex);
+							for (webConnHdl hndl : connections)
+							{
+								websocketCallback(hndl, mp4Data, savedPosition);
+							}
+						}
 					}
 				}
 			}
@@ -271,9 +265,23 @@ void FFmpegWrapper::readInput()
 			av_free_packet(&packet);
 		}
 
+		// Log why we exited the read loop
+		if (mStop)
+		{
+			std::cout << "[" << cameraId << "] Read loop exited: mStop was set (frameCount=" << frameCount << ")" << std::endl;
+		}
+		else
+		{
+			char errbuf[AV_ERROR_MAX_STRING_SIZE];
+			av_strerror(readResult, errbuf, sizeof(errbuf));
+			std::cout << "[" << cameraId << "] Read loop exited: av_read_frame returned " << readResult
+					  << " (" << errbuf << "), frameCount=" << frameCount << std::endl;
+		}
+
 		// Check if we're stopping - don't send finish message if stopped
-		if (mStop) {
-			
+		if (mStop)
+		{
+
 			return;
 		}
 
@@ -281,7 +289,6 @@ void FFmpegWrapper::readInput()
 		{
 			// Calculate next playback time and send as JSON
 			int nextPlaybackTime = getNextPlaybackTime();
-
 
 			// Send next playback time to WebSocket handler
 			std::string finishMessage = "{\"event\":\"Playback_Finished\",\"cameraId\":\"" + cameraId + "\",\"nextTime\":" + std::to_string(nextPlaybackTime) + "}";
@@ -292,7 +299,6 @@ void FFmpegWrapper::readInput()
 			}
 			mStop = true;
 		}
-		mStop = true;
 	}
 	catch (const exception &ex)
 	{
@@ -408,7 +414,8 @@ bool FFmpegWrapper::GetInputCodecInfo()
 		this->inputFPS = r_frame_rate_fps;
 	}
 
-	std::cout << "-------------Input FPS: " << this->inputFPS << " url " << url <<"  camera id  "<<cameraId<< std::endl;
+	std::cout << "-------------Input FPS: " << this->inputFPS << " url " << url << "  camera id  " << cameraId << std::endl;
+
 	return true;
 }
 
@@ -465,7 +472,6 @@ void FFmpegWrapper::freeRgbaOutMemory()
 
 	// Close the codecs
 	avcodec_close(decoderCodecContext);
-
 }
 
 void FFmpegWrapper::closeInput()
@@ -635,7 +641,10 @@ void FFmpegWrapper::seek_video(int time_toSeek_insec)
 		catch (const exception &ex)
 		{
 			fileseekingstarted = false;
-			if (logger) { logger->error("Exception while seek video: {}", ex.what()); }
+			if (logger)
+			{
+				logger->error("Exception while seek video: {}", ex.what());
+			}
 			else
 			{
 				std::cout << "Exception while seek video: " << ex.what() << std::endl;
@@ -675,9 +684,9 @@ int FFmpegWrapper::getNextPlaybackTime()
 		nextTime = originalRequestTime + static_cast<int>(segmentDuration - initial_seek_time) + 1;
 
 		std::cout << "Calculated next playback time: original=" << originalRequestTime
-		          << ", segmentDuration=" << segmentDuration
-		          << ", seekTime=" << initial_seek_time
-		          << ", next=" << nextTime << std::endl;
+				  << ", segmentDuration=" << segmentDuration
+				  << ", seekTime=" << initial_seek_time
+				  << ", next=" << nextTime << std::endl;
 	}
 	else if (inputFormatCtx && videoStream >= 0)
 	{
@@ -688,7 +697,7 @@ int FFmpegWrapper::getNextPlaybackTime()
 		if (inputFormatCtx->streams[videoStream]->duration != AV_NOPTS_VALUE)
 		{
 			segmentDuration = inputFormatCtx->streams[videoStream]->duration *
-			                  av_q2d(inputFormatCtx->streams[videoStream]->time_base);
+							  av_q2d(inputFormatCtx->streams[videoStream]->time_base);
 		}
 
 		std::cout << "--------- Using stream metadata duration: " << segmentDuration << " seconds" << std::endl;
@@ -698,9 +707,9 @@ int FFmpegWrapper::getNextPlaybackTime()
 		nextTime = originalRequestTime + static_cast<int>(segmentDuration - initial_seek_time) + 1;
 
 		std::cout << "Calculated next playback time: original=" << originalRequestTime
-		          << ", segmentDuration=" << segmentDuration
-		          << ", seekTime=" << initial_seek_time
-		          << ", next=" << nextTime << std::endl;
+				  << ", segmentDuration=" << segmentDuration
+				  << ", seekTime=" << initial_seek_time
+				  << ", next=" << nextTime << std::endl;
 	}
 	else
 	{

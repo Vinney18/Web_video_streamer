@@ -324,7 +324,7 @@ void WebRTCWrapper::sendSignalingJson(const std::string &clientId, const std::st
     sendSignalingMessage(clientId, message);
 }
 
-void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std::string &query)
+void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std::string &query, const std::string &url)
 {
     try
     {
@@ -416,11 +416,21 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
 
         auto track = pc->addTrack(media);
 
-        // Set up H264 RTP packetizer for proper fragmentation and RTP encapsulation
+         // Pick RTP packetizer separator based on source format:
+        // MP4/MKV/MOV containers use AVCC format (4-byte length prefix per NAL)
+        // RTSP/TS use Annex B format (00 00 00 01 start codes)
+        bool isAvccFormat = boost::ends_with(url, ".mp4") || boost::ends_with(url, ".mkv")
+                         || boost::ends_with(url, ".mov");
+        auto separator = rtc::H264RtpPacketizer::Separator::LongStartSequence;
+
+        if (mainLogger) {
+            mainLogger->info("Client {} using {} separator for URL: {}",
+                clientId, isAvccFormat ? "AVCC/Length" : "AnnexB/StartSequence", url);
+        }
+
         auto rtpConfig = std::make_shared<rtc::RtpPacketizationConfig>(
             1, "video-stream", 96, rtc::H264RtpPacketizer::defaultClockRate);
-        auto packetizer = std::make_shared<rtc::H264RtpPacketizer>(
-            rtc::H264RtpPacketizer::Separator::LongStartSequence, rtpConfig);
+        auto packetizer = std::make_shared<rtc::H264RtpPacketizer>(separator, rtpConfig);
         track->setMediaHandler(packetizer);
 
         connInfo->videoTrack = track;
@@ -479,6 +489,71 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
     }
 }
 
+std::string WebRTCWrapper::resolveStreamUrl(const std::string &query)
+{
+    std::string cameraId;
+    std::string mode = "Live";
+    int streamtype = 0;
+    int start_time_ofplaybackfile = 0;
+    int end_time_ofplaybackfile = 0;
+    std::string analyticType = "";
+    std::string vaServerId = "";
+    std::string vaServerPipeId = "";
+
+    // Parse query parameters
+    std::vector<std::string> props;
+    boost::algorithm::split_regex(props, query, boost::regex("&&"));
+
+    for (auto const &prop : props)
+    {
+        std::vector<std::string> keyValue;
+        boost::algorithm::split_regex(keyValue, prop, boost::regex("~~"));
+        if (keyValue.size() < 2)
+            continue;
+
+        auto &key = keyValue[0];
+        auto &value = keyValue[1];
+
+        if (key == "cameraId")
+            cameraId = value;
+        else if (key == "mode")
+            mode = value;
+        else if (key == "streamType" || key == "streamtype")
+            streamtype = std::stoi(value);
+        else if (key == "startTime")
+            start_time_ofplaybackfile = std::stoi(value);
+        else if (key == "endTime")
+            end_time_ofplaybackfile = std::stoi(value);
+        else if (key == "analyticType")
+            analyticType = value;
+        else if (key == "vaServerId" && !value.empty())
+            vaServerId = value;
+        else if (key == "vaServerPipeId" && !value.empty())
+            vaServerPipeId = value;
+    }
+
+    // Get URL based on mode
+    // if (mode == "Live")
+    // {
+    //     return Get_LiveUrl(cameraId, streamtype, analyticType, vaServerId, vaServerPipeId);
+    // }
+    // else
+    // {
+    //     int seekTime = 0;
+    //     float duration = 0;
+    //     if (end_time_ofplaybackfile == 0)
+    //     {
+    //         return Get_PlayBackUrl(cameraId, start_time_ofplaybackfile, &seekTime, &duration);
+    //     }
+    //     else
+    //     {
+    //         return Get_PlayBackUrl(cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile);
+    //     }
+    // }
+    // return "/webwork/cial.ts"; // For testing only, remove this line in production
+    return "rtsp://192.168.29.227:554/demo"; // For testing only, remove this line in production
+}
+
 void WebRTCWrapper::handleRequest(const std::string &clientId, const std::string &query)
 {
     try
@@ -488,12 +563,32 @@ void WebRTCWrapper::handleRequest(const std::string &clientId, const std::string
             mainLogger->info("Handling request from client: {}", clientId);
         }
 
-        // Create peer connection (adds video track, data channel, generates and sends offer)
-        createPeerConnection(clientId, query);
+        // 1. Resolve URL first (need it to pick correct RTP packetizer separator)
+        std::string url = resolveStreamUrl(query);
 
-        // Process request to create FFmpegWrapper
+        if (url.empty() || boost::starts_with(url, "Player_Server_Not_Connected") ||
+            boost::starts_with(url, "URL_Server_Not_Connected"))
+        {
+            if (mainLogger)
+            {
+                mainLogger->error("Failed to get URL for client {}: {}", clientId, url);
+            }
+
+            Json::Value errorMsg;
+            errorMsg["type"] = "error";
+            errorMsg["message"] = url.empty() ? "Failed to resolve stream URL" : url;
+
+            Json::StreamWriterBuilder writerBuilder;
+            sendSignalingMessage(clientId, Json::writeString(writerBuilder, errorMsg));
+            return;
+        }
+
+        // 2. Create peer connection with correct separator based on URL format
+        createPeerConnection(clientId, query, url);
+
+        // 3. Create FFmpegWrapper and start streaming
         std::string queryCopy = query;
-        processRequest(clientId, queryCopy);
+        processRequest(clientId, queryCopy, url);
     }
     catch (const std::exception &ex)
     {
@@ -502,7 +597,6 @@ void WebRTCWrapper::handleRequest(const std::string &clientId, const std::string
             mainLogger->error("Error handling request from client {}: {}", clientId, ex.what());
         }
 
-        // Send error to client
         Json::Value errorMsg;
         errorMsg["type"] = "error";
         errorMsg["message"] = ex.what();
@@ -818,22 +912,25 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
         auto track = it->second->videoTrack;
 
         // Extract H264 frame data from FFmpegWrapper's buffer.
-        // FFmpegWrapper prepends an 8-byte position prefix ONLY in playback mode (position >= 0).
-        // In live mode (position == -2), NO prefix is added — data is raw H264 Annex B.
-        // Detect by checking if data starts with H264 Annex B start code (00 00 00 01).
-        std::vector<uint8_t> frameData;
-        bool hasStartCode = (data.size() >= 4 &&
-                             data[0] == 0x00 && data[1] == 0x00 &&
-                             data[2] == 0x00 && data[3] == 0x01);
-        if (hasStartCode)
+        // FFmpegWrapper prepends an 8-byte position prefix ONLY in playback mode.
+        // In live mode, timestamp == -2 (no prefix). In playback mode, timestamp >= 0
+        // (shifted to 0 after encoding the prefix bytes).
+        // The H264RtpPacketizer handles the actual NAL format (AVCC or Annex B)
+        // based on the Separator set during createPeerConnection.
+        const uint8_t *frameStart;
+        size_t frameSize;
+
+        if (timestamp < 0)
         {
-            // Raw H264 Annex B data (live mode) — use as-is
-            frameData = data;
+            // Live mode — no prefix, raw H264 data (AVCC or Annex B depending on source)
+            frameStart = data.data();
+            frameSize = data.size();
         }
         else if (data.size() > 8)
         {
-            // Has 8-byte position prefix (playback mode) — strip it
-            frameData.assign(data.begin() + 8, data.end());
+            // Playback mode — strip 8-byte position prefix
+            frameStart = data.data() + 8;
+            frameSize = data.size() - 8;
         }
         else
         {
@@ -842,15 +939,9 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
 
         // Send H.264 frame — the H264RtpPacketizer (set on the track via setMediaHandler)
         // automatically handles: RTP headers, timestamps, FU-A fragmentation for large NALs.
-        // FFmpeg provides Annex B format (00 00 00 01 start codes), which the packetizer
-        // splits into individual NAL units and packetizes into RTP.
-        if (!frameData.empty())
+        if (frameSize > 0)
         {
             // Generate RTP timestamp from wall clock (90kHz RTP clock).
-            // FFmpegWrapper's timestamp parameter is unreliable:
-            //   - Live mode: always -2
-            //   - Playback mode: bit-shifted to 0 inside FFmpegWrapper's loop
-            // Use elapsed time since connection creation for monotonically increasing timestamps.
             auto now = std::chrono::steady_clock::now();
             auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(
                 now - it->second->createdAt).count();
@@ -860,9 +951,11 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
                 it->second->rtpConfig->timestamp = rtpTimestamp;
             }
 
-            rtc::binary rtpPayload(reinterpret_cast<const std::byte *>(frameData.data()),
-                                   reinterpret_cast<const std::byte *>(frameData.data() + frameData.size()));
+            rtc::binary rtpPayload(reinterpret_cast<const std::byte *>(frameStart),
+                                   reinterpret_cast<const std::byte *>(frameStart + frameSize));
             track->send(rtpPayload);
+            std::cout << "Sent frame of size " << frameSize << " bytes with RTP timestamp " << rtpTimestamp
+                      << " for client " << it->first << std::endl;
         }
     }
     catch (const std::exception &ex)
@@ -1055,22 +1148,15 @@ void WebRTCWrapper::handlePlaybackFinished(const std::string &clientId, const st
     }
 }
 
-void WebRTCWrapper::processRequest(const std::string &clientId, std::string &query)
+void WebRTCWrapper::processRequest(const std::string &clientId, std::string &query, const std::string &url)
 {
     try
     {
         std::string cameraId;
         std::string mode = "Live";
-        int streamtype = 0;
-        int start_time_ofplaybackfile = 0;
-        int end_time_ofplaybackfile = 0;
-        std::string analyticType = "";
         std::string connectionmode = "tcp";
         float playbackSpeed = 1.0;
-        std::string vaServerId = "";
-        std::string vaServerPipeId = "";
-
-        std::string url;
+        int start_time_ofplaybackfile = 0;
         int seekTime_ofFile = 0;
         float duration_in_Minutes = 0;
 
@@ -1092,14 +1178,8 @@ void WebRTCWrapper::processRequest(const std::string &clientId, std::string &que
                 cameraId = value;
             else if (key == "mode")
                 mode = value;
-            else if (key == "streamType" || key == "streamtype")
-                streamtype = std::stoi(value);
             else if (key == "startTime")
                 start_time_ofplaybackfile = std::stoi(value);
-            else if (key == "endTime")
-                end_time_ofplaybackfile = std::stoi(value);
-            else if (key == "analyticType")
-                analyticType = value;
             else if (key == "connectionMode")
                 connectionmode = value;
             else if (key == "playbackSpeed" && !value.empty())
@@ -1107,38 +1187,6 @@ void WebRTCWrapper::processRequest(const std::string &clientId, std::string &que
                 playbackSpeed = std::stof(value);
                 playbackSpeed = std::clamp(playbackSpeed, 0.5f, 5.0f);
             }
-            else if (key == "vaServerId" && !value.empty())
-                vaServerId = value;
-            else if (key == "vaServerPipeId" && !value.empty())
-                vaServerPipeId = value;
-        }
-
-        // Get URL based on mode
-        // if (mode == "Live")
-        // {
-        //     url = Get_LiveUrl(cameraId, streamtype, analyticType, vaServerId, vaServerPipeId);
-        // }
-        // else
-        // {
-        //     if (end_time_ofplaybackfile == 0)
-        //     {
-        //         url = Get_PlayBackUrl(cameraId, start_time_ofplaybackfile, &seekTime_ofFile, &duration_in_Minutes);
-        //     }
-        //     else
-        //     {
-        //         url = Get_PlayBackUrl(cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile);
-        //     }
-        // }
-        url = "rtsp://192.168.29.227:554/output.mp4"; // For testing only, remove this line in production
-
-        if (url.empty() || boost::starts_with(url, "Player_Server_Not_Connected") ||
-            boost::starts_with(url, "URL_Server_Not_Connected"))
-        {
-            if (mainLogger)
-            {
-                mainLogger->error("Failed to get URL for client {}: {}", clientId, url);
-            }
-            return;
         }
 
         // Create FFmpeg wrapper

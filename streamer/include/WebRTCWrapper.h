@@ -72,7 +72,7 @@ private:
                           const std::map<std::string, std::string>& data);
 
     // WebRTC peer connection management
-    void createPeerConnection(const std::string& clientId, const std::string& query);
+    void createPeerConnection(const std::string& clientId, const std::string& query, const std::string& url);
     void handleRequest(const std::string& clientId, const std::string& query);
     void handleAnswer(const std::string& clientId, const std::string& sdp);
     void handleIceCandidate(const std::string& clientId, const std::string& candidate,
@@ -81,7 +81,8 @@ private:
     void handleDataChannelMessage(const std::string& clientId, std::variant<rtc::binary, std::string> data);
 
     // Query processing (adapted from WebSocketWrapper)
-    void processRequest(const std::string& clientId, std::string& query);
+    std::string resolveStreamUrl(const std::string& query);
+    void processRequest(const std::string& clientId, std::string& query, const std::string& url);
     std::string Get_LiveUrl(const std::string& cameraId, int streamtype,
                            const std::string& analyticType, const std::string& vaServerId,
                            const std::string& vaServerPipeId);

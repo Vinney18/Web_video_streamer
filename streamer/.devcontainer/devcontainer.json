@@ -24,10 +24,8 @@
 		"twxs.cmake",
 	],
 
-	// Use 'forwardPorts' to make a list of ports insidse the container available locally.
-	"forwardPorts": [
-		8182
-	]
+	// forwardPorts not needed with host networking - container shares host network directly
+	// "forwardPorts": [8181]
 
 	// Use 'postCreateCommand' to run commands after the container is created.
 	// "postCreateCommand": "gcc -v",
