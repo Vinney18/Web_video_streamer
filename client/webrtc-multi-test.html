@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Multi-Stream Stress Test</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+        }
+        .setup-panel {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 600px;
+            margin: 0 auto 20px;
+            text-align: center;
+        }
+        .setup-panel h1 { margin-bottom: 8px; font-size: 24px; }
+        .setup-panel p { color: #aaa; font-size: 14px; margin-bottom: 20px; }
+        .setup-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .setup-row label { font-weight: 600; }
+        .setup-row input, .setup-row select {
+            padding: 10px 14px;
+            border: 2px solid #334;
+            border-radius: 8px;
+            background: #0f3460;
+            color: #eee;
+            font-size: 14px;
+            width: 80px;
+            text-align: center;
+        }
+        .setup-row input.url-input { width: 220px; text-align: left; }
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .btn:hover { transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-start { background: #4CAF50; color: white; }
+        .btn-stop { background: #f44336; color: white; }
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .video-card {
+            background: #16213e;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #334;
+        }
+        .video-card.connected { border-color: #4CAF50; }
+        .video-card.connecting { border-color: #ff9800; }
+        .video-card.failed { border-color: #f44336; }
+        .video-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: #0f3460;
+            font-size: 13px;
+        }
+        .video-header .dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: #666;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        .video-header .dot.connected { background: #4CAF50; box-shadow: 0 0 6px #4CAF50; }
+        .video-header .dot.connecting { background: #ff9800; animation: pulse 1s infinite; }
+        .video-header .dot.failed { background: #f44336; }
+        .video-stats {
+            padding: 4px 12px;
+            background: #0a1930;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+            color: #aaa;
+        }
+        .video-stats .dropped { color: #f44; font-weight: 600; }
+        .video-card video {
+            width: 100%;
+            display: block;
+            min-height: 220px;
+            background: #000;
+        }
+        .log {
+            background: #0a0a1a;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            padding: 12px;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .log .error { color: #f44; }
+        .log .success { color: #0f0; }
+        .log .info { color: #4af; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    </style>
+</head>
+<body>
+    <div class="setup-panel">
+        <h1>WebRTC Multi-Stream Stress Test</h1>
+        <p>Open multiple playback streams in a single tab to test performance</p>
+        <div class="setup-row" style="margin-bottom: 12px;">
+            <label for="serverUrl">Server:</label>
+            <input type="text" id="serverUrl" class="url-input" value="ws://localhost:8181">
+        </div>
+        <div class="setup-row">
+            <label for="streamCount">Streams:</label>
+            <input type="number" id="streamCount" value="8" min="1" max="20">
+            <button class="btn btn-start" id="startBtn" onclick="startTest()">Start</button>
+            <button class="btn btn-stop" id="stopBtn" onclick="stopAll()" disabled>Stop All</button>
+        </div>
+    </div>
+
+    <div class="video-grid" id="videoGrid"></div>
+    <div class="log" id="logConsole"></div>
+
+    <script>
+    const rtcConfig = {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+        ],
+        iceCandidatePoolSize: 10
+    };
+
+    // Each stream's state
+    const streams = [];
+
+    function log(msg, type = 'info') {
+        const el = document.getElementById('logConsole');
+        const ts = new Date().toLocaleTimeString();
+        const div = document.createElement('div');
+        div.className = type;
+        div.textContent = `[${ts}] ${msg}`;
+        el.appendChild(div);
+        el.scrollTop = el.scrollHeight;
+        console.log(`[${type.toUpperCase()}] ${msg}`);
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    function generateClientId() {
+        return 'test_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    async function startTest() {
+        const count = Math.min(20, Math.max(1, parseInt(document.getElementById('streamCount').value) || 1));
+        const serverUrl = document.getElementById('serverUrl').value.trim();
+
+        document.getElementById('startBtn').disabled = true;
+        document.getElementById('stopBtn').disabled = false;
+        document.getElementById('streamCount').disabled = true;
+
+        const grid = document.getElementById('videoGrid');
+        grid.innerHTML = '';
+
+        log(`Starting ${count} streams to ${serverUrl}...`, 'info');
+
+        for (let i = 0; i < count; i++) {
+            // Create video card
+            const card = document.createElement('div');
+            card.className = 'video-card connecting';
+            card.id = `card-${i}`;
+            card.innerHTML = `
+                <div class="video-header">
+                    <span><span class="dot connecting" id="dot-${i}"></span>Stream #${i + 1}</span>
+                    <span id="state-${i}">Connecting...</span>
+                </div>
+                <div class="video-stats" id="stats-${i}">Frames: waiting...</div>
+                <video id="video-${i}" autoplay playsinline muted></video>
+            `;
+            grid.appendChild(card);
+
+            // Create stream
+            const stream = {
+                index: i,
+                clientId: generateClientId(),
+                ws: null,
+                pc: null,
+                dc: null,
+                remoteDescSet: false,
+                pendingCandidates: []
+            };
+            streams.push(stream);
+
+            connectStream(stream, serverUrl);
+
+            // Wait 2 seconds before next connection (except after the last one)
+            if (i < count - 1) {
+                log(`Waiting 2s before stream #${i + 2}...`, 'info');
+                await sleep(2000);
+            }
+        }
+
+        log(`All ${count} connection attempts initiated`, 'success');
+    }
+
+    function updateStreamState(s, state) {
+        const dot = document.getElementById(`dot-${s.index}`);
+        const label = document.getElementById(`state-${s.index}`);
+        const card = document.getElementById(`card-${s.index}`);
+        if (!dot) return;
+
+        dot.className = 'dot ' + state;
+        card.className = 'video-card ' + state;
+        label.textContent = state.charAt(0).toUpperCase() + state.slice(1);
+    }
+
+    function connectStream(s, serverUrl) {
+        let wsUrl = serverUrl.replace(/^http/, 'ws');
+        if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
+            wsUrl = 'ws://' + wsUrl;
+        }
+
+        log(`[#${s.index + 1}] Connecting WS to ${wsUrl}`, 'info');
+        s.ws = new WebSocket(wsUrl);
+
+        s.ws.onopen = () => {
+            log(`[#${s.index + 1}] WebSocket connected, sending request`, 'success');
+            const query = `cameraId~~cam1&&mode~~PlayBack&&streamType~~0&&startTime~~0`;
+            s.ws.send(JSON.stringify({
+                type: 'request',
+                clientId: s.clientId,
+                query: query
+            }));
+        };
+
+        s.ws.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                handleSignaling(s, msg);
+            } catch (e) {
+                log(`[#${s.index + 1}] Parse error: ${e.message}`, 'error');
+            }
+        };
+
+        s.ws.onerror = () => {
+            log(`[#${s.index + 1}] WebSocket error`, 'error');
+            updateStreamState(s, 'failed');
+        };
+
+        s.ws.onclose = () => {
+            log(`[#${s.index + 1}] WebSocket closed`, 'info');
+        };
+    }
+
+    function handleSignaling(s, msg) {
+        switch (msg.type) {
+            case 'offer': handleOffer(s, msg); break;
+            case 'candidate': handleCandidate(s, msg); break;
+            case 'error': log(`[#${s.index + 1}] Server error: ${msg.message}`, 'error'); break;
+        }
+    }
+
+    async function handleOffer(s, msg) {
+        try {
+            log(`[#${s.index + 1}] Received offer, creating PC`, 'info');
+
+            s.pc = new RTCPeerConnection(rtcConfig);
+
+            s.pc.onconnectionstatechange = () => {
+                const state = s.pc.connectionState;
+                log(`[#${s.index + 1}] Connection: ${state}`, state === 'connected' ? 'success' : 'info');
+                if (state === 'connected') updateStreamState(s, 'connected');
+                else if (state === 'failed' || state === 'closed') updateStreamState(s, 'failed');
+            };
+
+            s.pc.oniceconnectionstatechange = () => {
+                log(`[#${s.index + 1}] ICE: ${s.pc.iceConnectionState}`, 'info');
+            };
+
+            s.pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    s.ws.send(JSON.stringify({
+                        type: 'candidate',
+                        clientId: s.clientId,
+                        candidate: event.candidate.candidate,
+                        sdpMid: event.candidate.sdpMid,
+                        sdpMLineIndex: event.candidate.sdpMLineIndex
+                    }));
+                }
+            };
+
+            s.pc.ontrack = (event) => {
+                log(`[#${s.index + 1}] Got ${event.track.kind} track`, 'success');
+                if (event.track.kind === 'video') {
+                    const video = document.getElementById(`video-${s.index}`);
+                    if (event.streams && event.streams[0]) {
+                        video.srcObject = event.streams[0];
+                    } else {
+                        video.srcObject = new MediaStream([event.track]);
+                    }
+                    // Poll frame stats every 2s
+                    s.statsInterval = setInterval(async () => {
+                        if (!s.pc) { clearInterval(s.statsInterval); return; }
+                        const stats = await s.pc.getStats();
+                        stats.forEach(report => {
+                            if (report.type === 'inbound-rtp' && report.kind === 'video') {
+                                const el = document.getElementById(`stats-${s.index}`);
+                                if (el) {
+                                    const dropped = report.framesDropped || 0;
+                                    const decoded = report.framesDecoded || 0;
+                                    const received = report.framesReceived || 0;
+                                    const bytes = report.bytesReceived || 0;
+                                    el.innerHTML = `Decoded: ${decoded} | Received: ${received} | <span class="dropped">Dropped: ${dropped}</span> | Bytes: ${bytes}`;
+                                }
+                            }
+                        });
+                    }, 2000);
+                }
+            };
+
+            s.pc.ondatachannel = (event) => {
+                s.dc = event.channel;
+                s.dc.onopen = () => log(`[#${s.index + 1}] Data channel open`, 'success');
+                s.dc.onmessage = (e) => log(`[#${s.index + 1}] DC msg: ${e.data}`, 'info');
+            };
+
+            await s.pc.setRemoteDescription({ type: 'offer', sdp: msg.sdp });
+            s.remoteDescSet = true;
+
+            for (const c of s.pendingCandidates) {
+                await s.pc.addIceCandidate(c);
+            }
+            s.pendingCandidates = [];
+
+            const answer = await s.pc.createAnswer();
+            await s.pc.setLocalDescription(answer);
+
+            s.ws.send(JSON.stringify({
+                type: 'answer',
+                clientId: s.clientId,
+                sdp: answer.sdp,
+                sdpType: answer.type
+            }));
+
+            log(`[#${s.index + 1}] Answer sent`, 'info');
+        } catch (e) {
+            log(`[#${s.index + 1}] Offer error: ${e.message}`, 'error');
+            updateStreamState(s, 'failed');
+        }
+    }
+
+    async function handleCandidate(s, msg) {
+        try {
+            if (!s.pc || !msg.candidate) return;
+            const candidate = new RTCIceCandidate({
+                candidate: msg.candidate,
+                sdpMid: msg.sdpMid || '0',
+                sdpMLineIndex: msg.sdpMLineIndex || 0
+            });
+            if (s.remoteDescSet) {
+                await s.pc.addIceCandidate(candidate);
+            } else {
+                s.pendingCandidates.push(candidate);
+            }
+        } catch (e) {
+            log(`[#${s.index + 1}] ICE candidate error: ${e.message}`, 'error');
+        }
+    }
+
+    function stopAll() {
+        log('Stopping all streams...', 'info');
+        for (const s of streams) {
+            if (s.statsInterval) { clearInterval(s.statsInterval); s.statsInterval = null; }
+            if (s.dc) { s.dc.close(); s.dc = null; }
+            if (s.pc) { s.pc.close(); s.pc = null; }
+            if (s.ws) { s.ws.close(); s.ws = null; }
+            updateStreamState(s, 'failed');
+        }
+        streams.length = 0;
+
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+        document.getElementById('streamCount').disabled = false;
+        log('All streams stopped', 'success');
+    }
+
+    window.addEventListener('beforeunload', stopAll);
+    </script>
+</body>
+</html>

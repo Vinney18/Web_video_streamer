@@ -327,15 +327,15 @@ async function createPeerConnection() {
                 log('Video stream connected to player', 'success');
 
                 // Poll WebRTC stats to check if bytes are arriving
-                // const statsInterval = setInterval(async () => {
-                //     if (!peerConnection) { clearInterval(statsInterval); return; }
-                //     const stats = await peerConnection.getStats();
-                //     stats.forEach(report => {
-                //         if (report.type === 'inbound-rtp' && report.kind === 'video') {
-                //             console.log(`[VIDEO STATS] bytesReceived=${report.bytesReceived} packetsReceived=${report.packetsReceived} framesDecoded=${report.framesDecoded} framesDropped=${report.framesDropped}`);
-                //         }
-                //     });
-                // }, 2000);
+                const statsInterval = setInterval(async () => {
+                    if (!peerConnection) { clearInterval(statsInterval); return; }
+                    const stats = await peerConnection.getStats();
+                    stats.forEach(report => {
+                        if (report.type === 'inbound-rtp' && report.kind === 'video') {
+                            console.log(`[VIDEO STATS] bytesReceived=${report.bytesReceived} packetsReceived=${report.packetsReceived} framesDecoded=${report.framesDecoded} framesDropped=${report.framesDropped}`);
+                        }
+                    });
+                }, 2000);
             }
         };
 

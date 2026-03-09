@@ -159,6 +159,12 @@ void FFmpegWrapper::readInput()
 					position = round((this->inputFormatCtx->streams[videoStream]->cur_dts - firstDts) * this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den);
 				}
 
+				// h265
+				if (outputType == rgba && !connections.empty())
+				{
+					
+					
+				}
 				// h264
 				if (outputType == mp4 && !connections.empty())
 				{
@@ -505,7 +511,7 @@ void FFmpegWrapper::addConnection(webConnHdl connHdl)
 		}
 		string data = to_string(pFrame->width) + "x" + to_string(pFrame->height) + "x" + to_string(inputFPS);
 
-		if (inputCodecID == AV_CODEC_ID_H264)
+		if (inputCodecID == AV_CODEC_ID_H264 || inputCodecID == AV_CODEC_ID_H265)
 		{
 			outputType = mp4;
 			websocketSCallback(connHdl, "mp4");
