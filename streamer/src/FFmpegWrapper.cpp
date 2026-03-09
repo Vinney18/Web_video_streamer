@@ -159,12 +159,6 @@ void FFmpegWrapper::readInput()
 					position = round((this->inputFormatCtx->streams[videoStream]->cur_dts - firstDts) * this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den);
 				}
 
-				// h265
-				if (outputType == rgba && !connections.empty())
-				{
-					
-					
-				}
 				// h264
 				if (outputType == mp4 && !connections.empty())
 				{
