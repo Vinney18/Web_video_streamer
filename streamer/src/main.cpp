@@ -132,7 +132,7 @@ void loadMainConfig() {
 		configoptions.writeFile(mainConfigFile, true);
 	}
 }
-
+// cd /webwork/build && cmake .. && make -j$(nproc)
 // cd /webwork/build && make -j$(nproc)
 // cd /webwork && rm -rf build && cmake -B build -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_MANIFEST_MODE=OFF -DCMAKE_PREFIX_PATH=/vcpkg/installed/x64-linux && cmake --build build
 // docker build -f Dockerfile.streamer.base -t streamer_build_base:latest .

@@ -3,6 +3,7 @@
 #include "json/json.h"
 #include <json/value.h>
 #include "Options.h"
+#include "PlayerServerClient.h"
 
 #include <boost/algorithm/string_regex.hpp>
 #include <boost/regex.hpp>
@@ -22,9 +23,6 @@
 
 using namespace std;
 
-// Utility function to add credentials to URL
-std::string addCredentialsToUrl(const std::string &url, const std::string &username, const std::string &password);
-
 WebRTCWrapper::WebRTCWrapper(int wsPort, const std::string &playerIp, int playerPort,
                              std::shared_ptr<spdlog::logger> logger, bool isVMS,
                              const std::string &vmsUser, const std::string &vmsPassword)
@@ -32,11 +30,10 @@ WebRTCWrapper::WebRTCWrapper(int wsPort, const std::string &playerIp, int player
       playerServerIp(playerIp),
       playerServerPort(playerPort),
       mainLogger(logger),
-      isVMS(isVMS),
-      vmsStreamUserName(vmsUser),
-      vmsStreamPassword(vmsPassword),
       running(false)
 {
+    PlayerServerClient::init(playerIp, playerPort, logger, isVMS, vmsUser, vmsPassword);
+
     if (mainLogger)
     {
         mainLogger->info("WebRTCWrapper initialized on port: {}", ws_signaling_port);
@@ -477,72 +474,6 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
     }
 }
 
-std::string WebRTCWrapper::resolveStreamUrl(const std::string &query)
-{
-    std::string cameraId;
-    std::string mode = "Live";
-    int streamtype = 0;
-    int start_time_ofplaybackfile = 0;
-    int end_time_ofplaybackfile = 0;
-    std::string analyticType = "";
-    std::string vaServerId = "";
-    std::string vaServerPipeId = "";
-
-    // Parse query parameters
-    std::vector<std::string> props;
-    boost::algorithm::split_regex(props, query, boost::regex("&&"));
-
-    for (auto const &prop : props)
-    {
-        std::vector<std::string> keyValue;
-        boost::algorithm::split_regex(keyValue, prop, boost::regex("~~"));
-        if (keyValue.size() < 2)
-            continue;
-
-        auto &key = keyValue[0];
-        auto &value = keyValue[1];
-
-        if (key == "cameraId")
-            cameraId = value;
-        else if (key == "mode")
-            mode = value;
-        else if (key == "streamType" || key == "streamtype")
-            streamtype = std::stoi(value);
-        else if (key == "startTime")
-            start_time_ofplaybackfile = std::stoi(value);
-        else if (key == "endTime")
-            end_time_ofplaybackfile = std::stoi(value);
-        else if (key == "analyticType")
-            analyticType = value;
-        else if (key == "vaServerId" && !value.empty())
-            vaServerId = value;
-        else if (key == "vaServerPipeId" && !value.empty())
-            vaServerPipeId = value;
-    }
-
-    // Get URL based on mode
-    // if (mode == "Live")
-    // {
-    //     return Get_LiveUrl(cameraId, streamtype, analyticType, vaServerId, vaServerPipeId);
-    // }
-    // else
-    // {
-    //     int seekTime = 0;
-    //     float duration = 0;
-    //     if (end_time_ofplaybackfile == 0)
-    //     {
-    //         return Get_PlayBackUrl(cameraId, start_time_ofplaybackfile, &seekTime, &duration);
-    //     }
-    //     else
-    //     {
-    //         return Get_PlayBackUrl(cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile);
-    //     }
-    // }
-    return "/webwork/12-12-31.ts"; // For testing only, remove this line in production
-
-    // return "rtsp://admin:Admin@123@192.168.7.242:554/enr/live/1/1"; // For testing only, remove this line in production
-}
-
 void WebRTCWrapper::handleRequest(const std::string &clientId, const std::string &query)
 {
     try
@@ -553,7 +484,7 @@ void WebRTCWrapper::handleRequest(const std::string &clientId, const std::string
         }
 
         // 1. Resolve URL first (need it to pick correct RTP packetizer separator)
-        std::string url = resolveStreamUrl(query);
+        std::string url = PlayerServerClient::resolveStreamUrl(query);
 
         if (url.empty() || boost::starts_with(url, "Player_Server_Not_Connected") ||
             boost::starts_with(url, "URL_Server_Not_Connected"))
@@ -1089,7 +1020,7 @@ void WebRTCWrapper::handlePlaybackFinished(const std::string &clientId, const st
             // Get next playback URL
             int newSeekTime = 0;
             float newDuration_Minutes = 0;
-            std::string nextUrl = Get_PlayBackUrl(cameraId, nextTime, &newSeekTime, &newDuration_Minutes);
+            std::string nextUrl = PlayerServerClient::GetPlayBackUrl(cameraId, nextTime, &newSeekTime, &newDuration_Minutes);
 
             if (nextUrl.empty() || boost::starts_with(nextUrl, "Player_Server_Not_Connected") ||
                 boost::starts_with(nextUrl, "URL_Server_Not_Connected"))
@@ -1301,210 +1232,6 @@ void WebRTCWrapper::processRequest(const std::string &clientId, std::string &que
     }
 }
 
-std::string WebRTCWrapper::Get_LiveUrl(const std::string &cameraId, int streamtype,
-                                       const std::string &analyticType, const std::string &vaServerId,
-                                       const std::string &vaServerPipeId)
-{
-    string response;
-    string cameraId_instring = cameraId;
-    std::string endpoint = "";
-
-    if (vaServerId != "" || vaServerPipeId != "")
-    {
-        endpoint = "/url/GetLiveVaUrl?cameraId=" + cameraId_instring + "&streamType=" + std::to_string(streamtype) +
-                   "&analyticType=" + analyticType + "&vaServerId=" + vaServerId + "&vaServerPipeId=" + vaServerPipeId;
-    }
-    else
-    {
-        endpoint = "/url/GetLiveUrl?cameraId=" + cameraId_instring + "&streamType=" + std::to_string(streamtype) +
-                   "&analyticType=" + analyticType;
-    }
-
-    if (cameraId == "")
-    {
-        return response;
-    }
-
-    try
-    {
-        std::string url = "http://" + playerServerIp + ":" + std::to_string(playerServerPort) + endpoint;
-        auto res = cpr::Get(cpr::Url{url});
-
-        if (res.status_code == 200)
-        {
-            string command = res.text;
-            command.erase(std::remove(command.begin(), command.end(), '\"'), command.end());
-            command.erase(std::remove(command.begin(), command.end(), '\\'), command.end());
-            if (isVMS)
-            {
-                command = addCredentialsToUrl(command, vmsStreamUserName, vmsStreamPassword);
-            }
-            response = command;
-        }
-        else if (res.status_code == 403)
-        {
-            if (mainLogger)
-            {
-                mainLogger->error("Get_LiveUrl Server License Expired");
-            }
-        }
-        else if (res.status_code == 400)
-        {
-            if (mainLogger)
-            {
-                mainLogger->error("Get_LiveUrl Some Error occurred status code: {}", res.status_code);
-            }
-        }
-        else
-        {
-            if (mainLogger)
-            {
-                mainLogger->error("Get_LiveUrl Some Error occurred status code: {}", res.status_code);
-            }
-            response = "Player_Server_Not_Connected";
-        }
-    }
-    catch (const std::exception &ex)
-    {
-        if (mainLogger)
-        {
-            mainLogger->error("Error in Get_LiveUrl: {}", ex.what());
-        }
-    }
-    return response;
-}
-
-std::string WebRTCWrapper::Get_PlayBackUrl(const std::string &cameraId, int start_time,
-                                           int *seekTime, float *duration)
-{
-    string response;
-    string cameraId_instring = cameraId;
-
-    std::string endpoint = "/url/GetPlaybackUrl?cameraId=" + cameraId_instring + "&time=" + std::to_string(start_time);
-    if (cameraId == "")
-    {
-        return response;
-    }
-
-    try
-    {
-        std::string url = "http://" + playerServerIp + ":" + std::to_string(playerServerPort) + endpoint;
-        auto res = cpr::Get(cpr::Url{url});
-
-        if (res.status_code == 200)
-        {
-            if (res.text == "URL_Server_Not_Connected")
-            {
-                return "URL_Server_Not_Connected";
-            }
-
-            string json = res.text;
-            Json::Reader reader;
-            Json::Value root;
-            bool parseSuccess = reader.parse(json, root, false);
-
-            if (parseSuccess)
-            {
-                Json::Value resultValue = root["GetEventPlaybackUrlResult"];
-                if (resultValue.asString() == "")
-                {
-                    resultValue = root["getEventPlaybackUrlResult"];
-                }
-
-                Json::Value resultValue1 = root["Seek_Time_InSeconds"];
-                if (resultValue1.asString() == "")
-                {
-                    resultValue1 = root["seek_Time_InSeconds"];
-                }
-
-                Json::Value resultValue3 = root["duration_in_Minutes"];
-                float duration_in_Minutes_value = 0;
-                if (!resultValue3.isNull())
-                {
-                    duration_in_Minutes_value = resultValue3.asFloat();
-                }
-
-                *seekTime = std::stoi(resultValue1.asString());
-
-                if (duration != nullptr)
-                {
-                    *duration = duration_in_Minutes_value;
-                }
-
-                response = resultValue.asString();
-                response.erase(std::remove(response.begin(), response.end(), '\"'), response.end());
-                response.erase(std::remove(response.begin(), response.end(), '\\'), response.end());
-            }
-        }
-        else
-        {
-            response = "Player_Server_Not_Connected";
-        }
-    }
-    catch (const std::exception &ex)
-    {
-        if (mainLogger)
-        {
-            mainLogger->error("Error in Get_PlayBackUrl: {}", ex.what());
-        }
-        response = "";
-    }
-    return response;
-}
-
-std::string WebRTCWrapper::Get_PlayBackUrl(const std::string &cameraId, int start_time, int end_time)
-{
-    string response;
-    string cameraId_instring = cameraId;
-
-    std::string endpoint = "/url/GetExportUrl?cameraId=" + cameraId_instring + "&startTime=" +
-                           std::to_string(start_time) + "&endTime=" + std::to_string(end_time);
-    if (cameraId == "")
-    {
-        return response;
-    }
-
-    try
-    {
-        std::string url = "http://" + playerServerIp + ":" + std::to_string(playerServerPort) + endpoint;
-        auto res = cpr::Get(cpr::Url{url});
-
-        if (res.status_code == 200)
-        {
-            if (res.text == "URL_Server_Not_Connected")
-            {
-                return "URL_Server_Not_Connected";
-            }
-
-            string json = res.text;
-            Json::Reader reader;
-            Json::Value root;
-            bool parseSuccess = reader.parse(json, root, false);
-
-            if (parseSuccess)
-            {
-                Json::Value resultValue = root["ExportedVideoUrl"];
-                response = resultValue.asString();
-                response.erase(std::remove(response.begin(), response.end(), '\"'), response.end());
-                response.erase(std::remove(response.begin(), response.end(), '\\'), response.end());
-            }
-        }
-        else
-        {
-            response = "Player_Server_Not_Connected";
-        }
-    }
-    catch (const std::exception &ex)
-    {
-        if (mainLogger)
-        {
-            mainLogger->error("Error in Get_PlayBackUrl: {}", ex.what());
-        }
-        response = "";
-    }
-    return response;
-}
-
 int WebRTCWrapper::generateAndCheckRandomNumber()
 {
     bool randomValExist = false;
@@ -1538,30 +1265,5 @@ int WebRTCWrapper::generateAndCheckRandomNumber()
     else
     {
         return random;
-    }
-}
-
-// Utility function to add credentials to URL
-std::string addCredentialsToUrl(const std::string &url, const std::string &username, const std::string &password)
-{
-    std::regex credentialsRegex(R"([^:]+:[^@]+@)");
-
-    if (std::regex_search(url, credentialsRegex))
-    {
-        return url;
-    }
-    else
-    {
-        size_t prefixPos = url.find("://");
-        if (prefixPos != std::string::npos)
-        {
-            std::string credentials = username + ":" + password + "@";
-            std::string newUrl = url.substr(0, prefixPos + 3) + credentials + url.substr(prefixPos + 3);
-            return newUrl;
-        }
-        else
-        {
-            throw std::invalid_argument("Invalid/Unexpected URL: " + url);
-        }
     }
 }

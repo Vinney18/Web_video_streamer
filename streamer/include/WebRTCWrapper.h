@@ -9,6 +9,7 @@
 #include <variant>
 #include <spdlog/spdlog.h>
 #include "FFmpegWrapper.h"
+#include "PlayerServerClient.h"
 #include "common.h"
 
 // Forward declarations
@@ -81,14 +82,7 @@ private:
     void handleDataChannelMessage(const std::string& clientId, std::variant<rtc::binary, std::string> data);
 
     // Query processing (adapted from WebSocketWrapper)
-    std::string resolveStreamUrl(const std::string& query);
     void processRequest(const std::string& clientId, std::string& query, const std::string& url);
-    std::string Get_LiveUrl(const std::string& cameraId, int streamtype,
-                           const std::string& analyticType, const std::string& vaServerId,
-                           const std::string& vaServerPipeId);
-    std::string Get_PlayBackUrl(const std::string& cameraId, int start_time,
-                               int* seekTime, float* duration = nullptr);
-    std::string Get_PlayBackUrl(const std::string& cameraId, int start_time, int end_time);
 
     // Utility methods
     int generateAndCheckRandomNumber();
@@ -118,10 +112,6 @@ private:
     // Client ID to FFmpeg key mapping
     std::map<std::string, std::string> clientToFfmpegMap;
     std::mutex clientMapMutex;
-
-    bool isVMS;
-    std::string vmsStreamUserName;
-    std::string vmsStreamPassword;
 
     std::atomic<bool> running;
 };
