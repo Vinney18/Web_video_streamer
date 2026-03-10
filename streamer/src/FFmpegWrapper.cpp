@@ -62,7 +62,7 @@ int FFmpegWrapper::run()
 					websocketSCallback(connHdl, "retrying");
 				}
 			}
-			this_thread::sleep_for(std::chrono::seconds(2));
+			this_thread::sleep_for(std::chrono::seconds(1));
 		}
 	}
 

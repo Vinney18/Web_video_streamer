@@ -170,13 +170,10 @@ public:
 		}
 		auto tickCount = GetTickCount();
 
-		//timeout after 20 seconds of no activity
-		if (thisObj->params.isRunning && (tickCount - thisObj->params.lastStopped > 20000.0))
+		//timeout after 2 seconds of no activity
+		if (thisObj->params.isRunning && (tickCount - thisObj->params.lastStopped > 2000.0))
 			return 1;
 
-		//timeout after 7 seconds of no activity
-		if (!thisObj->params.isRunning && (tickCount - thisObj->params.lastStopped > 7000.0))
-			return 1;
 
 		return 0;
 	}

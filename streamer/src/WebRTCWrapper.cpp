@@ -16,8 +16,8 @@
 #include <cpr/cpr.h>
 
 // RTP packetization for H.264 over WebRTC
-#include <rtc/h264rtppacketizer.hpp>
-#include <rtc/h264rtppacketizer.hpp>
+#include <rtc/h265rtppacketizer.hpp>
+#include <rtc/h265rtppacketizer.hpp>
 #include <rtc/rtppacketizationconfig.hpp>
 
 using namespace std;
@@ -137,7 +137,7 @@ void WebRTCWrapper::onWebSocketOpen(std::shared_ptr<rtc::WebSocket> ws)
         mainLogger->info("New WebSocket connection: {}", tempId);
     }
 
-    std::cout<<"New WebSocket connection: " << tempId << std::endl;
+    std::cout << "New WebSocket connection: " << tempId << std::endl;
     auto wsInfo = std::make_shared<WebSocketConnectionInfo>();
     wsInfo->clientId = tempId;
     wsInfo->webSocket = ws;
@@ -335,11 +335,19 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
         // Set up state change callbacks
         pc->onStateChange([this, clientId](rtc::PeerConnection::State state)
                           {
+            std::cout << "Client " << clientId << " peer connection state: " << (int)state << std::endl;                
             if (mainLogger) {
                 mainLogger->info("Client {} peer connection state: {}", clientId, (int)state);
             }
 
-            if (state == rtc::PeerConnection::State::Disconnected ||
+            if (state == rtc::PeerConnection::State::Connected) {
+                std::lock_guard<std::mutex> lock(connectionsMutex);
+                auto it = connections.find(clientId);
+                if (it != connections.end()) {
+                    it->second->isConnected = true;
+                }
+            }
+            else if (state == rtc::PeerConnection::State::Disconnected ||
                 state == rtc::PeerConnection::State::Failed ||
                 state == rtc::PeerConnection::State::Closed) {
                 if (mainLogger) {
@@ -348,8 +356,17 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
                 removeConnection(clientId);
             } });
 
+        pc->onIceStateChange([this, clientId](rtc::PeerConnection::IceState state)
+                             {
+            std::cout << "Client " << clientId << " ICE connection state: " << (int)state << std::endl;
+            if (mainLogger) {
+                mainLogger->info("Client {} ICE connection state: {}", clientId, (int)state);
+            } });
+
         pc->onGatheringStateChange([this, clientId](rtc::PeerConnection::GatheringState state)
+
                                    {
+            std::cout << "Client " << clientId << " ICE gathering state: " << (int)state << std::endl;
             if (mainLogger) {
                 mainLogger->debug("Client {} ICE gathering state: {}", clientId, (int)state);
             } });
@@ -387,7 +404,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
         // Add video track with H264 codec (server is offerer, sends video)
         rtc::Description::Video media("video", rtc::Description::Direction::SendOnly);
 
-        media.addH264Codec(96);
+        media.addH265Codec(96);
         media.addSSRC(1, "video-stream");
 
         auto track = pc->addTrack(media);
@@ -396,7 +413,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
         // MP4/MKV/MOV containers use AVCC format (4-byte length prefix per NAL)
         // RTSP/TS use Annex B format (00 00 00 01 start codes)
         bool isAvccFormat = boost::ends_with(url, ".mp4") || boost::ends_with(url, ".mkv") || boost::ends_with(url, ".mov");
-        auto separator = rtc::H264RtpPacketizer::Separator::StartSequence;
+        auto separator = rtc::H265RtpPacketizer::Separator::StartSequence;
 
         if (mainLogger)
         {
@@ -405,8 +422,8 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
         }
 
         auto rtpConfig = std::make_shared<rtc::RtpPacketizationConfig>(
-            1, "video-stream", 96, rtc::H264RtpPacketizer::defaultClockRate);
-        auto packetizer = std::make_shared<rtc::H264RtpPacketizer>(separator, rtpConfig);
+            1, "video-stream", 96, rtc::H265RtpPacketizer::defaultClockRate);
+        auto packetizer = std::make_shared<rtc::H265RtpPacketizer>(separator, rtpConfig);
         track->setMediaHandler(packetizer);
 
         connInfo->videoTrack = track;
@@ -426,11 +443,6 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
                    {
             if (mainLogger) {
                 mainLogger->info("Data channel opened for client {}", clientId);
-            }
-            std::lock_guard<std::mutex> lock(connectionsMutex);
-            auto it = connections.find(clientId);
-            if (it != connections.end()) {
-                it->second->isConnected = true;
             } });
 
         dc->onClosed([this, clientId]()
@@ -526,9 +538,9 @@ std::string WebRTCWrapper::resolveStreamUrl(const std::string &query)
     //         return Get_PlayBackUrl(cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile);
     //     }
     // }
-    return "/webwork/cial.ts"; // For testing only, remove this line in production
+    return "/webwork/12-12-31.ts"; // For testing only, remove this line in production
 
-    // return "rtsp://192.168.29.227:554/12-12-31.ts"; // For testing only, remove this line in production
+    // return "rtsp://admin:Admin@123@192.168.7.242:554/enr/live/1/1"; // For testing only, remove this line in production
 }
 
 void WebRTCWrapper::handleRequest(const std::string &clientId, const std::string &query)
@@ -882,7 +894,7 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
             static bool loggedOnce2 = false;
             if (!loggedOnce2)
             {
-                std::cout << "SendData: isConnected=false, data channel not open yet" << std::endl;
+                std::cout << "SendData: isConnected=false, peer connection not connected yet" << std::endl;
                 loggedOnce2 = true;
             }
             return;
@@ -894,7 +906,7 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
         // FFmpegWrapper prepends an 8-byte position prefix ONLY in playback mode.
         // In live mode, timestamp == -2 (no prefix). In playback mode, timestamp >= 0
         // (shifted to 0 after encoding the prefix bytes).
-        // The H264RtpPacketizer handles the actual NAL format (AVCC or Annex B)
+        // The H265RtpPacketizer handles the actual NAL format (AVCC or Annex B)
         // based on the Separator set during createPeerConnection.
         const uint8_t *frameStart;
         size_t frameSize;
@@ -916,7 +928,7 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
             return; // Too small, skip
         }
 
-        // Send H.264 frame — the H264RtpPacketizer (set on the track via setMediaHandler)
+        // Send H.264 frame — the H265RtpPacketizer (set on the track via setMediaHandler)
         // automatically handles: RTP headers, timestamps, FU-A fragmentation for large NALs.
         if (frameSize > 0)
         {
