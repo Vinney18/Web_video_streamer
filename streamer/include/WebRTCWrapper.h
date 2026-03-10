@@ -78,6 +78,11 @@ private:
     // Connection lifecycle
     void tryCloseSignaling(const std::string& clientId);  // call with connectionsMutex held
 
+    // Video track setup (codec-specific packetizer selection)
+    void setupVideoTrack(std::shared_ptr<rtc::PeerConnection> pc,
+                         std::shared_ptr<WebRTCConnectionInfo> connInfo,
+                         const std::string& url, AVCodecID codecId);
+
     // Utility methods
     int generateAndCheckRandomNumber();
     void handlePlaybackFinished(const std::string& clientId, const std::string& jsonData);
