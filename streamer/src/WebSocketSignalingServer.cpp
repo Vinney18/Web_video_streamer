@@ -1,26 +1,26 @@
-#include "SignalingServer.h"
+#include "WebSocketSignalingServer.h"
 #include "json/json.h"
 #include <iostream>
 #include <chrono>
 #include <thread>
 #include <sstream>
 
-SignalingServer::SignalingServer(int port, std::shared_ptr<spdlog::logger> logger)
+WebSocketSignalingServer::WebSocketSignalingServer(int port, std::shared_ptr<spdlog::logger> logger)
     : port_(port), logger_(logger)
 {
 }
 
-SignalingServer::~SignalingServer()
+WebSocketSignalingServer::~WebSocketSignalingServer()
 {
     stop();
 }
 
-void SignalingServer::setHandler(SignalingHandler handler)
+void WebSocketSignalingServer::setHandler(SignalingHandler handler)
 {
     handler_ = std::move(handler);
 }
 
-void SignalingServer::run()
+void WebSocketSignalingServer::run()
 {
     try
     {
@@ -66,7 +66,7 @@ void SignalingServer::run()
     }
 }
 
-void SignalingServer::stop()
+void WebSocketSignalingServer::stop()
 {
     running_ = false;
 
@@ -88,7 +88,7 @@ void SignalingServer::stop()
     }
 }
 
-void SignalingServer::sendMessage(const std::string &clientId, const std::string &message)
+void WebSocketSignalingServer::sendMessage(const std::string &clientId, const std::string &message)
 {
     try
     {
@@ -116,7 +116,7 @@ void SignalingServer::sendMessage(const std::string &clientId, const std::string
     }
 }
 
-void SignalingServer::closeConnection(const std::string &clientId)
+void WebSocketSignalingServer::closeConnection(const std::string &clientId)
 {
     std::lock_guard<std::mutex> lock(connectionsMutex_);
     auto it = connections_.find(clientId);
@@ -131,7 +131,7 @@ void SignalingServer::closeConnection(const std::string &clientId)
     }
 }
 
-void SignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
+void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
 {
     std::string clientId = "ws_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
 
@@ -166,7 +166,7 @@ void SignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
         } });
 }
 
-void SignalingServer::onMessage(const std::string &clientId, const std::string &message)
+void WebSocketSignalingServer::onMessage(const std::string &clientId, const std::string &message)
 {
     try
     {
@@ -229,7 +229,7 @@ void SignalingServer::onMessage(const std::string &clientId, const std::string &
     }
 }
 
-void SignalingServer::onClosed(const std::string &clientId)
+void WebSocketSignalingServer::onClosed(const std::string &clientId)
 {
     std::cout << "WebSocket closed for client: " << clientId << std::endl;
     if (logger_)
@@ -244,7 +244,7 @@ void SignalingServer::onClosed(const std::string &clientId)
     // Peer connection cleanup is handled by WebRTC onStateChange (Disconnected/Failed/Closed)
 }
 
-void SignalingServer::onError(const std::string &clientId, const std::string &error)
+void WebSocketSignalingServer::onError(const std::string &clientId, const std::string &error)
 {
     if (logger_)
     {

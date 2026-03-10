@@ -4,6 +4,7 @@
 #include <json/value.h>
 #include "Options.h"
 #include "PlayerServerClient.h"
+#include "WebSocketSignalingServer.h"
 
 #include <boost/algorithm/string_regex.hpp>
 #include <boost/regex.hpp>
@@ -32,7 +33,7 @@ WebRTCWrapper::WebRTCWrapper(int wsPort, const std::string &playerIp, int player
 {
     PlayerServerClient::init(playerIp, playerPort, logger, isVMS, vmsUser, vmsPassword);
 
-    signalingServer_ = std::make_unique<SignalingServer>(wsPort, logger);
+    signalingServer_ = std::make_unique<WebSocketSignalingServer>(wsPort, logger);
     signalingServer_->setHandler({
         .onRequest = [this](const std::string &id, const std::string &q) { handleRequest(id, q); },
         .onAnswer = [this](const std::string &id, const std::string &sdp) { handleAnswer(id, sdp); },

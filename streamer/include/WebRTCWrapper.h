@@ -10,7 +10,7 @@
 #include <spdlog/spdlog.h>
 #include "FFmpegWrapper.h"
 #include "PlayerServerClient.h"
-#include "SignalingServer.h"
+#include "ISignalingServer.h"
 #include "common.h"
 
 // Forward declarations
@@ -78,7 +78,7 @@ private:
     std::shared_ptr<spdlog::logger> mainLogger;
 
     // Signaling server
-    std::unique_ptr<SignalingServer> signalingServer_;
+    std::unique_ptr<ISignalingServer> signalingServer_;
 
     // WebRTC connection storage
     std::map<std::string, std::shared_ptr<WebRTCConnectionInfo>> connections;
