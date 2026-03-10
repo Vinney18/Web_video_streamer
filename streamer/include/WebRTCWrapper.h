@@ -38,13 +38,13 @@ struct WebRTCConnectionInfo {
     std::shared_ptr<rtc::DataChannel> dataChannel;
     std::shared_ptr<rtc::Track> videoTrack;
     std::shared_ptr<rtc::RtpPacketizationConfig> rtpConfig;  // RTP config for timestamp control
-    std::weak_ptr<rtc::WebSocket> signalingWs;  // WebSocket for signaling
     std::string query;
-    int h264PayloadType = 109;  // H264 payload type from SDP offer (42e01f, packetization-mode=1)
-    bool isConnected;
+    bool isConnected = false;
+    bool iceConnected = false;
+    bool gatheringComplete = false;
     std::chrono::steady_clock::time_point createdAt;
 
-    WebRTCConnectionInfo() : isConnected(false), createdAt(std::chrono::steady_clock::now()) {}
+    WebRTCConnectionInfo() : createdAt(std::chrono::steady_clock::now()) {}
 };
 
 class WebRTCWrapper {
@@ -83,6 +83,10 @@ private:
 
     // Query processing (adapted from WebSocketWrapper)
     void processRequest(const std::string& clientId, std::string& query, const std::string& url);
+
+    // WebSocket lifecycle
+    void closeWebSocket(const std::string& clientId);
+    void tryCloseWebSocket(const std::string& clientId);  // call with connectionsMutex held
 
     // Utility methods
     int generateAndCheckRandomNumber();

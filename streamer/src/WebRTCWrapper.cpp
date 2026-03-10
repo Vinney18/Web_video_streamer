@@ -73,6 +73,39 @@ WebRTCWrapper::~WebRTCWrapper()
     }
 }
 
+void WebRTCWrapper::closeWebSocket(const std::string &clientId)
+{
+    std::lock_guard<std::mutex> lock(wsConnectionsMutex);
+    auto it = wsConnections.find(clientId);
+    if (it != wsConnections.end())
+    {
+        if (it->second->webSocket)
+        {
+            std::cout<<"Closing WebSocket for client: " << clientId << std::endl;
+            it->second->webSocket->close();
+            std::cout<<"Closed WebSocket for client: " << clientId << std::endl;
+        }
+    }
+}
+
+void WebRTCWrapper::tryCloseWebSocket(const std::string &clientId)
+{
+    // Must be called with connectionsMutex already held
+    auto it = connections.find(clientId);
+    if (it == connections.end())
+        return;
+
+    auto &info = it->second;
+    if (info->isConnected && info->iceConnected && info->gatheringComplete)
+    {
+        if (mainLogger)
+        {
+            mainLogger->info("Client {} fully connected - closing WebSocket", clientId);
+        }
+        closeWebSocket(clientId);
+    }
+}
+
 void WebRTCWrapper::run()
 {
     try
@@ -169,6 +202,7 @@ void WebRTCWrapper::onWebSocketOpen(std::shared_ptr<rtc::WebSocket> ws)
 
 void WebRTCWrapper::onWebSocketClosed(const std::string &clientId)
 {
+    std::cout<<"removing websocket from dict client: " << clientId << std::endl;
     if (mainLogger)
     {
         mainLogger->info("WebSocket closed for client: {}", clientId);
@@ -176,11 +210,10 @@ void WebRTCWrapper::onWebSocketClosed(const std::string &clientId)
 
     {
         std::lock_guard<std::mutex> lock(wsConnectionsMutex);
+        std::cout<<"removed websocket from dict client: " << clientId << std::endl;
         wsConnections.erase(clientId);
     }
-
-    // Remove WebRTC connection
-    removeConnection(clientId);
+    // Peer connection cleanup is handled by onStateChange (Disconnected/Failed/Closed)
 }
 
 void WebRTCWrapper::onWebSocketError(const std::string &clientId, const std::string &error)
@@ -319,20 +352,10 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
         connInfo->query = query;
         connInfo->isConnected = false;
 
-        // Store WebSocket reference for signaling
-        {
-            std::lock_guard<std::mutex> lock(wsConnectionsMutex);
-            auto wsIt = wsConnections.find(clientId);
-            if (wsIt != wsConnections.end())
-            {
-                connInfo->signalingWs = wsIt->second->webSocket;
-            }
-        }
-
         // Set up state change callbacks
         pc->onStateChange([this, clientId](rtc::PeerConnection::State state)
                           {
-            std::cout << "Client " << clientId << " peer connection state: " << (int)state << std::endl;                
+            // std::cout << "Client " << clientId << " peer connection state: " << (int)state << std::endl;                
             if (mainLogger) {
                 mainLogger->info("Client {} peer connection state: {}", clientId, (int)state);
             }
@@ -342,6 +365,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
                 auto it = connections.find(clientId);
                 if (it != connections.end()) {
                     it->second->isConnected = true;
+                    tryCloseWebSocket(clientId);
                 }
             }
             else if (state == rtc::PeerConnection::State::Disconnected ||
@@ -355,17 +379,34 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
 
         pc->onIceStateChange([this, clientId](rtc::PeerConnection::IceState state)
                              {
-            std::cout << "Client " << clientId << " ICE connection state: " << (int)state << std::endl;
+            // std::cout << "Client " << clientId << " ICE connection state: " << (int)state << std::endl;
             if (mainLogger) {
                 mainLogger->info("Client {} ICE connection state: {}", clientId, (int)state);
+            }
+
+            if (state == rtc::PeerConnection::IceState::Completed) {
+                std::lock_guard<std::mutex> lock(connectionsMutex);
+                auto it = connections.find(clientId);
+                if (it != connections.end()) {
+                    it->second->iceConnected = true;
+                    tryCloseWebSocket(clientId);
+                }
             } });
 
         pc->onGatheringStateChange([this, clientId](rtc::PeerConnection::GatheringState state)
-
                                    {
-            std::cout << "Client " << clientId << " ICE gathering state: " << (int)state << std::endl;
+            // std::cout << "Client " << clientId << " ICE gathering state: " << (int)state << std::endl;
             if (mainLogger) {
                 mainLogger->debug("Client {} ICE gathering state: {}", clientId, (int)state);
+            }
+
+            if (state == rtc::PeerConnection::GatheringState::Complete) {
+                std::lock_guard<std::mutex> lock(connectionsMutex);
+                auto it = connections.find(clientId);
+                if (it != connections.end()) {
+                    it->second->gatheringComplete = true;
+                    tryCloseWebSocket(clientId);
+                }
             } });
 
         // Trickle ICE: Send candidates as they are discovered (no waiting!)
