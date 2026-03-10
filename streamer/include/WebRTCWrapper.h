@@ -67,7 +67,8 @@ public:
 
 private:
     // WebRTC peer connection management
-    void createPeerConnection(const std::string& clientId, const std::string& query, const std::string& url);
+    void createPeerConnection(const std::string& clientId, const std::string& query,
+                              const std::string& url, AVCodecID codecId);
     void removeConnection(const std::string& clientId);
     void handleDataChannelMessage(const std::string& clientId, std::variant<rtc::binary, std::string> data);
 

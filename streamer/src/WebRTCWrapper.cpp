@@ -16,7 +16,8 @@
 #include <regex>
 #include <cpr/cpr.h>
 
-// RTP packetization for H.265 over WebRTC
+// RTP packetization over WebRTC
+#include <rtc/h264rtppacketizer.hpp>
 #include <rtc/h265rtppacketizer.hpp>
 #include <rtc/rtppacketizationconfig.hpp>
 
@@ -72,7 +73,8 @@ void WebRTCWrapper::tryCloseSignaling(const std::string &clientId)
     }
 }
 
-void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std::string &query, const std::string &url)
+void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std::string &query,
+                                          const std::string &url, AVCodecID codecId)
 {
     try
     {
@@ -177,35 +179,57 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
             Json::StreamWriterBuilder writerBuilder;
             signalingTransport_.sendMessage(clientId, Json::writeString(writerBuilder, offerMsg)); });
 
-        // Add video track with H265 codec (server is offerer, sends video)
+        // Add video track with codec based on probed result
         rtc::Description::Video media("video", rtc::Description::Direction::SendOnly);
+        bool useH264 = (codecId == AV_CODEC_ID_H264);
 
-        media.addH265Codec(96);
+        if (useH264)
+            media.addH264Codec(96);
+        else
+            media.addH265Codec(96);
+
         media.addSSRC(1, "video-stream");
-
         auto track = pc->addTrack(media);
 
         // Pick RTP packetizer separator based on source format
         bool isAvccFormat = boost::ends_with(url, ".mp4") || boost::ends_with(url, ".mkv") || boost::ends_with(url, ".mov");
-        auto separator = rtc::H265RtpPacketizer::Separator::StartSequence;
 
         if (mainLogger)
         {
-            mainLogger->info("Client {} using {} separator for URL: {}",
-                             clientId, isAvccFormat ? "AVCC/Length" : "AnnexB/StartSequence", url);
+            mainLogger->info("Client {} using {} codec, {} separator for URL: {}",
+                             clientId, useH264 ? "H264" : "H265",
+                             isAvccFormat ? "AVCC/Length" : "AnnexB/StartSequence", url);
         }
 
-        auto rtpConfig = std::make_shared<rtc::RtpPacketizationConfig>(
-            1, "video-stream", 96, rtc::H265RtpPacketizer::defaultClockRate);
-        auto packetizer = std::make_shared<rtc::H265RtpPacketizer>(separator, rtpConfig);
-        track->setMediaHandler(packetizer);
+        std::shared_ptr<rtc::RtpPacketizationConfig> rtpConfig;
+        if (useH264)
+        {
+            rtpConfig = std::make_shared<rtc::RtpPacketizationConfig>(
+                1, "video-stream", 96, rtc::H264RtpPacketizer::defaultClockRate);
+            auto separator = isAvccFormat
+                ? rtc::H264RtpPacketizer::Separator::LongStartSequence
+                : rtc::H264RtpPacketizer::Separator::StartSequence;
+            auto packetizer = std::make_shared<rtc::H264RtpPacketizer>(separator, rtpConfig);
+            track->setMediaHandler(packetizer);
+        }
+        else
+        {
+            rtpConfig = std::make_shared<rtc::RtpPacketizationConfig>(
+                1, "video-stream", 96, rtc::H265RtpPacketizer::defaultClockRate);
+            auto separator = isAvccFormat
+                ? rtc::H265RtpPacketizer::Separator::LongStartSequence
+                : rtc::H265RtpPacketizer::Separator::StartSequence;
+            auto packetizer = std::make_shared<rtc::H265RtpPacketizer>(separator, rtpConfig);
+            track->setMediaHandler(packetizer);
+        }
 
         connInfo->videoTrack = track;
         connInfo->rtpConfig = rtpConfig;
 
         if (mainLogger)
         {
-            mainLogger->info("Video track added with H265 RTP packetizer for client {}", clientId);
+            mainLogger->info("Video track added with {} RTP packetizer for client {}",
+                             useH264 ? "H264" : "H265", clientId);
         }
 
         // Create data channel (server creates it as offerer)
@@ -278,10 +302,19 @@ void WebRTCWrapper::handleRequest(const std::string &clientId, const std::string
             return;
         }
 
-        // 2. Create peer connection with correct separator based on URL format
-        createPeerConnection(clientId, query, url);
 
-        // 3. Create FFmpegWrapper and start streaming
+        // 3. Probe actual codec from stream before creating peer connection
+        AVCodecID codecId = FFmpegWrapper::probeCodec(url);
+        if (mainLogger)
+        {
+            mainLogger->info("Probed codec for client {}: {} ({})", clientId,
+                             avcodec_get_name(codecId), (int)codecId);
+        }
+
+        // 4. Create peer connection with correct packetizer based on actual codec
+        createPeerConnection(clientId, query, url, codecId);
+
+        // 5. Create FFmpegWrapper and start streaming
         std::string queryCopy = query;
         processRequest(clientId, queryCopy, url);
     }

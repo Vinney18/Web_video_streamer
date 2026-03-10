@@ -732,3 +732,42 @@ bool FFmpegWrapper::isLiveMode()
 		livemode = false;
 	return livemode;
 }
+
+AVCodecID FFmpegWrapper::probeCodec(const std::string& url)
+{
+	AVFormatContext* fmtCtx = avformat_alloc_context();
+	if (!fmtCtx)
+		return AV_CODEC_ID_NONE;
+
+	AVDictionary* options = nullptr;
+		av_dict_set(&options, "rtsp_transport", "tcp", 0);
+
+	av_dict_set(&options, "max_delay", "500000000", 0);
+	av_dict_set(&options, "stimeout", "1500000000", 0);
+	av_dict_set(&options, "analyzeduration", "1000000000", 0);
+	av_dict_set(&options, "probesize", "1000000000", 0);
+
+	if (avformat_open_input(&fmtCtx, url.c_str(), NULL, &options) != 0)
+	{
+		return AV_CODEC_ID_NONE;
+	}
+
+	if (avformat_find_stream_info(fmtCtx, NULL) < 0)
+	{
+		avformat_close_input(&fmtCtx);
+		return AV_CODEC_ID_NONE;
+	}
+
+	AVCodecID codecId = AV_CODEC_ID_NONE;
+	for (unsigned int i = 0; i < fmtCtx->nb_streams; i++)
+	{
+		if (fmtCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
+		{
+			codecId = fmtCtx->streams[i]->codecpar->codec_id;
+			break;
+		}
+	}
+
+	avformat_close_input(&fmtCtx);
+	return codecId;
+}

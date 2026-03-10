@@ -126,6 +126,9 @@ public:
 	void FastForward_video(float factor);
 	int getNextPlaybackTime();  // Returns the next playback time in seconds when segment finishes
 
+	// Lightweight probe: opens stream, detects video codec, closes. Returns AV_CODEC_ID_NONE on failure.
+	static AVCodecID probeCodec(const std::string& url);
+
 
 protected:
 	virtual int run() override;
