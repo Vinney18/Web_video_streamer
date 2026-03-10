@@ -26,41 +26,29 @@ using namespace std;
 WebRTCWrapper::WebRTCWrapper(int wsPort, const std::string &playerIp, int playerPort,
                              std::shared_ptr<spdlog::logger> logger, bool isVMS,
                              const std::string &vmsUser, const std::string &vmsPassword)
-    : ws_signaling_port(wsPort),
-      playerServerIp(playerIp),
+    : playerServerIp(playerIp),
       playerServerPort(playerPort),
-      mainLogger(logger),
-      running(false)
+      mainLogger(logger)
 {
     PlayerServerClient::init(playerIp, playerPort, logger, isVMS, vmsUser, vmsPassword);
 
+    signalingServer_ = std::make_unique<SignalingServer>(wsPort, logger);
+    signalingServer_->setHandler({
+        .onRequest = [this](const std::string &id, const std::string &q) { handleRequest(id, q); },
+        .onAnswer = [this](const std::string &id, const std::string &sdp) { handleAnswer(id, sdp); },
+        .onIceCandidate = [this](const std::string &id, const std::string &c, const std::string &m, int i) { handleIceCandidate(id, c, m, i); }});
+
     if (mainLogger)
     {
-        mainLogger->info("WebRTCWrapper initialized on port: {}", ws_signaling_port);
+        mainLogger->info("WebRTCWrapper initialized on port: {}", wsPort);
     }
 }
 
 WebRTCWrapper::~WebRTCWrapper()
 {
-    running = false;
-
-    // Close all WebSocket connections
+    if (signalingServer_)
     {
-        std::lock_guard<std::mutex> lock(wsConnectionsMutex);
-        for (auto &pair : wsConnections)
-        {
-            if (pair.second->webSocket)
-            {
-                pair.second->webSocket->close();
-            }
-        }
-        wsConnections.clear();
-    }
-
-    // Stop WebSocket server
-    if (wsServer)
-    {
-        wsServer->stop();
+        signalingServer_->stop();
     }
 
     // Clean up all WebRTC connections
@@ -70,21 +58,6 @@ WebRTCWrapper::~WebRTCWrapper()
     if (mainLogger)
     {
         mainLogger->info("WebRTCWrapper destroyed");
-    }
-}
-
-void WebRTCWrapper::closeWebSocket(const std::string &clientId)
-{
-    std::lock_guard<std::mutex> lock(wsConnectionsMutex);
-    auto it = wsConnections.find(clientId);
-    if (it != wsConnections.end())
-    {
-        if (it->second->webSocket)
-        {
-            std::cout<<"Closing WebSocket for client: " << clientId << std::endl;
-            it->second->webSocket->close();
-            std::cout<<"Closed WebSocket for client: " << clientId << std::endl;
-        }
     }
 }
 
@@ -102,231 +75,17 @@ void WebRTCWrapper::tryCloseWebSocket(const std::string &clientId)
         {
             mainLogger->info("Client {} fully connected - closing WebSocket", clientId);
         }
-        closeWebSocket(clientId);
+        signalingServer_->closeConnection(clientId);
     }
 }
 
 void WebRTCWrapper::run()
 {
-    try
-    {
-        std::cout << "Starting WebRTC WebSocket signaling server on port: " << ws_signaling_port << std::endl;
-        std::cout << "Starting WebRTC WebSocket signaling server on port: " << ws_signaling_port << std::endl;
-        // rtc::WebSocket
-        if (mainLogger)
-        {
-            mainLogger->info("Starting WebRTC WebSocket signaling server on port: {}", ws_signaling_port);
-            mainLogger->info("Player server IP is: {} and port is: {}", playerServerIp, playerServerPort);
-        }
-
-        running = true;
-
-        // Create WebSocket server using libdatachannel
-        rtc::WebSocketServer::Configuration config;
-        config.port = static_cast<uint16_t>(ws_signaling_port);
-        config.enableTls = false; // Use ws:// not wss://
-
-        wsServer = std::make_shared<rtc::WebSocketServer>(config);
-
-        wsServer->onClient([this](std::shared_ptr<rtc::WebSocket> ws)
-                           { onWebSocketOpen(ws); });
-
-        if (mainLogger)
-        {
-            mainLogger->info("WebRTC WebSocket signaling server started successfully on port {}", ws_signaling_port);
-        }
-
-        // Keep running
-        while (running)
-        {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-        }
-
-        wsServer->stop();
-    }
-    catch (const std::exception &ex)
-    {
-        if (mainLogger)
-        {
-            mainLogger->error("Error in WebRTC server: {}", ex.what());
-        }
-        else
-        {
-            std::cout << "Error in WebRTC server: " << ex.what() << std::endl;
-        }
-    }
-}
-
-void WebRTCWrapper::onWebSocketOpen(std::shared_ptr<rtc::WebSocket> ws)
-{
-    // Generate a temporary client ID (will be replaced when client sends its ID)
-    std::string tempId = "ws_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
-
     if (mainLogger)
     {
-        mainLogger->info("New WebSocket connection: {}", tempId);
+        mainLogger->info("Player server IP is: {} and port is: {}", playerServerIp, playerServerPort);
     }
-
-    std::cout << "New WebSocket connection: " << tempId << std::endl;
-    auto wsInfo = std::make_shared<WebSocketConnectionInfo>();
-    wsInfo->clientId = tempId;
-    wsInfo->webSocket = ws;
-
-    {
-        std::lock_guard<std::mutex> lock(wsConnectionsMutex);
-        wsConnections[tempId] = wsInfo;
-    }
-
-    // Capture shared_ptr to prevent premature destruction
-    std::weak_ptr<WebSocketConnectionInfo> weakWsInfo = wsInfo;
-
-    ws->onOpen([this, weakWsInfo]()
-               {
-        auto wsInfo = weakWsInfo.lock();
-        if (wsInfo && mainLogger) {
-            mainLogger->info("WebSocket fully opened for: {}", wsInfo->clientId);
-        } });
-
-    ws->onClosed([this, tempId]()
-                 { onWebSocketClosed(tempId); });
-
-    ws->onError([this, tempId](std::string error)
-                { onWebSocketError(tempId, error); });
-
-    ws->onMessage([this, tempId](std::variant<rtc::binary, std::string> data)
-                  {
-        if (std::holds_alternative<std::string>(data)) {
-            onWebSocketMessage(tempId, std::get<std::string>(data));
-        } });
-}
-
-void WebRTCWrapper::onWebSocketClosed(const std::string &clientId)
-{
-    std::cout<<"removing websocket from dict client: " << clientId << std::endl;
-    if (mainLogger)
-    {
-        mainLogger->info("WebSocket closed for client: {}", clientId);
-    }
-
-    {
-        std::lock_guard<std::mutex> lock(wsConnectionsMutex);
-        std::cout<<"removed websocket from dict client: " << clientId << std::endl;
-        wsConnections.erase(clientId);
-    }
-    // Peer connection cleanup is handled by onStateChange (Disconnected/Failed/Closed)
-}
-
-void WebRTCWrapper::onWebSocketError(const std::string &clientId, const std::string &error)
-{
-    if (mainLogger)
-    {
-        mainLogger->error("WebSocket error for client {}: {}", clientId, error);
-    }
-}
-
-void WebRTCWrapper::onWebSocketMessage(const std::string &wsId, const std::string &message)
-{
-    try
-    {
-        if (mainLogger)
-        {
-            mainLogger->debug("Received WebSocket message from {}: {}", wsId, message);
-        }
-
-        // Parse JSON message
-        Json::Value root;
-        Json::CharReaderBuilder builder;
-        std::string errs;
-        std::istringstream sstream(message);
-
-        if (!Json::parseFromStream(builder, sstream, &root, &errs))
-        {
-            if (mainLogger)
-            {
-                mainLogger->error("Invalid JSON from client {}: {}", wsId, errs);
-            }
-            return;
-        }
-
-        std::string type = root["type"].asString();
-
-        // Handle message based on type
-        if (type == "request")
-        {
-            std::string query = root.get("query", "").asString();
-            handleRequest(wsId, query);
-        }
-        else if (type == "answer")
-        {
-            std::string sdp = root["sdp"].asString();
-            handleAnswer(wsId, sdp);
-        }
-        else if (type == "candidate" || type == "ice")
-        {
-            std::string candidate = root["candidate"].asString();
-            std::string sdpMid = root.get("sdpMid", "").asString();
-            int sdpMLineIndex = root.get("sdpMLineIndex", 0).asInt();
-
-            handleIceCandidate(wsId, candidate, sdpMid, sdpMLineIndex);
-        }
-        else
-        {
-            if (mainLogger)
-            {
-                mainLogger->warn("Unknown message type from client {}: {}", wsId, type);
-            }
-        }
-    }
-    catch (const std::exception &ex)
-    {
-        if (mainLogger)
-        {
-            mainLogger->error("Error processing WebSocket message from {}: {}", wsId, ex.what());
-        }
-    }
-}
-
-void WebRTCWrapper::sendSignalingMessage(const std::string &clientId, const std::string &message)
-{
-    try
-    {
-        std::shared_ptr<rtc::WebSocket> ws;
-        {
-            std::lock_guard<std::mutex> lock(wsConnectionsMutex);
-            auto it = wsConnections.find(clientId);
-            if (it != wsConnections.end() && it->second->webSocket)
-            {
-                ws = it->second->webSocket;
-            }
-        }
-
-        if (ws && ws->isOpen())
-        {
-            ws->send(message);
-        }
-    }
-    catch (const std::exception &ex)
-    {
-        if (mainLogger)
-        {
-            mainLogger->error("Error sending signaling message to {}: {}", clientId, ex.what());
-        }
-    }
-}
-
-void WebRTCWrapper::sendSignalingJson(const std::string &clientId, const std::string &type,
-                                      const std::map<std::string, std::string> &data)
-{
-    Json::Value root;
-    root["type"] = type;
-    for (const auto &pair : data)
-    {
-        root[pair.first] = pair.second;
-    }
-
-    Json::StreamWriterBuilder writerBuilder;
-    std::string message = Json::writeString(writerBuilder, root);
-    sendSignalingMessage(clientId, message);
+    signalingServer_->run();
 }
 
 void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std::string &query, const std::string &url)
@@ -422,7 +181,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
             msg["sdpMid"] = candidate.mid();
 
             Json::StreamWriterBuilder writerBuilder;
-            sendSignalingMessage(clientId, Json::writeString(writerBuilder, msg)); });
+            signalingServer_->sendMessage(clientId, Json::writeString(writerBuilder, msg)); });
 
         // Set up onLocalDescription BEFORE addTrack/createDataChannel
         // because createDataChannel triggers auto-negotiation which generates the offer
@@ -437,7 +196,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
             offerMsg["sdp"] = std::string(description);
 
             Json::StreamWriterBuilder writerBuilder;
-            sendSignalingMessage(clientId, Json::writeString(writerBuilder, offerMsg)); });
+            signalingServer_->sendMessage(clientId, Json::writeString(writerBuilder, offerMsg)); });
 
         // Add video track with H264 codec (server is offerer, sends video)
         rtc::Description::Video media("video", rtc::Description::Direction::SendOnly);
@@ -540,7 +299,7 @@ void WebRTCWrapper::handleRequest(const std::string &clientId, const std::string
             errorMsg["message"] = url.empty() ? "Failed to resolve stream URL" : url;
 
             Json::StreamWriterBuilder writerBuilder;
-            sendSignalingMessage(clientId, Json::writeString(writerBuilder, errorMsg));
+            signalingServer_->sendMessage(clientId, Json::writeString(writerBuilder, errorMsg));
             return;
         }
 
@@ -563,7 +322,7 @@ void WebRTCWrapper::handleRequest(const std::string &clientId, const std::string
         errorMsg["message"] = ex.what();
 
         Json::StreamWriterBuilder writerBuilder;
-        sendSignalingMessage(clientId, Json::writeString(writerBuilder, errorMsg));
+        signalingServer_->sendMessage(clientId, Json::writeString(writerBuilder, errorMsg));
     }
 }
 

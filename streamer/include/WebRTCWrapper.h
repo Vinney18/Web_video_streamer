@@ -10,6 +10,7 @@
 #include <spdlog/spdlog.h>
 #include "FFmpegWrapper.h"
 #include "PlayerServerClient.h"
+#include "SignalingServer.h"
 #include "common.h"
 
 // Forward declarations
@@ -17,19 +18,10 @@ namespace rtc {
     class PeerConnection;
     class DataChannel;
     class Track;
-    class WebSocket;
-    class WebSocketServer;
 }
 
 // Connection handle type for WebRTC
 using rtcConnHdl = std::shared_ptr<rtc::PeerConnection>;
-
-// WebSocket connection info for signaling
-struct WebSocketConnectionInfo {
-    std::string clientId;
-    std::shared_ptr<rtc::WebSocket> webSocket;
-    std::weak_ptr<rtc::PeerConnection> peerConnection;
-};
 
 // WebRTC connection information
 struct WebRTCConnectionInfo {
@@ -54,24 +46,13 @@ public:
                   const std::string& vmsUser, const std::string& vmsPassword);
     ~WebRTCWrapper();
 
-    void run();  // Start WebSocket signaling server
+    void run();  // Start signaling server
 
     // Callbacks for FFmpegWrapper
     void SendData(rtcConnHdl& conn, std::vector<uint8_t>& data, int64_t timestamp);
     void SendStringData(rtcConnHdl& conn, std::string sdata);
 
 private:
-    // WebSocket signaling handlers
-    void onWebSocketOpen(std::shared_ptr<rtc::WebSocket> ws);
-    void onWebSocketClosed(const std::string& clientId);
-    void onWebSocketMessage(const std::string& clientId, const std::string& message);
-    void onWebSocketError(const std::string& clientId, const std::string& error);
-
-    // Send message via WebSocket
-    void sendSignalingMessage(const std::string& clientId, const std::string& message);
-    void sendSignalingJson(const std::string& clientId, const std::string& type,
-                          const std::map<std::string, std::string>& data);
-
     // WebRTC peer connection management
     void createPeerConnection(const std::string& clientId, const std::string& query, const std::string& url);
     void handleRequest(const std::string& clientId, const std::string& query);
@@ -81,11 +62,10 @@ private:
     void removeConnection(const std::string& clientId);
     void handleDataChannelMessage(const std::string& clientId, std::variant<rtc::binary, std::string> data);
 
-    // Query processing (adapted from WebSocketWrapper)
+    // Query processing
     void processRequest(const std::string& clientId, std::string& query, const std::string& url);
 
     // WebSocket lifecycle
-    void closeWebSocket(const std::string& clientId);
     void tryCloseWebSocket(const std::string& clientId);  // call with connectionsMutex held
 
     // Utility methods
@@ -93,17 +73,12 @@ private:
     void handlePlaybackFinished(const std::string& clientId, const std::string& jsonData);
 
     // Member variables
-    int ws_signaling_port;
     std::string playerServerIp;
     int playerServerPort;
     std::shared_ptr<spdlog::logger> mainLogger;
 
-    // WebSocket server for signaling
-    std::shared_ptr<rtc::WebSocketServer> wsServer;
-
-    // WebSocket connections (clientId -> WebSocket)
-    std::map<std::string, std::shared_ptr<WebSocketConnectionInfo>> wsConnections;
-    std::mutex wsConnectionsMutex;
+    // Signaling server
+    std::unique_ptr<SignalingServer> signalingServer_;
 
     // WebRTC connection storage
     std::map<std::string, std::shared_ptr<WebRTCConnectionInfo>> connections;
@@ -116,6 +91,4 @@ private:
     // Client ID to FFmpeg key mapping
     std::map<std::string, std::string> clientToFfmpegMap;
     std::mutex clientMapMutex;
-
-    std::atomic<bool> running;
 };
