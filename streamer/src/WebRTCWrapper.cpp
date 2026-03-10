@@ -4,7 +4,6 @@
 #include <json/value.h>
 #include "Options.h"
 #include "PlayerServerClient.h"
-#include "WebSocketSignalingServer.h"
 
 #include <boost/algorithm/string_regex.hpp>
 #include <boost/regex.hpp>
@@ -17,14 +16,13 @@
 #include <regex>
 #include <cpr/cpr.h>
 
-// RTP packetization for H.264 over WebRTC
-#include <rtc/h265rtppacketizer.hpp>
+// RTP packetization for H.265 over WebRTC
 #include <rtc/h265rtppacketizer.hpp>
 #include <rtc/rtppacketizationconfig.hpp>
 
 using namespace std;
 
-WebRTCWrapper::WebRTCWrapper(int wsPort, const std::string &playerIp, int playerPort,
+WebRTCWrapper::WebRTCWrapper(const std::string &playerIp, int playerPort,
                              std::shared_ptr<spdlog::logger> logger, bool isVMS,
                              const std::string &vmsUser, const std::string &vmsPassword)
     : playerServerIp(playerIp),
@@ -33,25 +31,14 @@ WebRTCWrapper::WebRTCWrapper(int wsPort, const std::string &playerIp, int player
 {
     PlayerServerClient::init(playerIp, playerPort, logger, isVMS, vmsUser, vmsPassword);
 
-    signalingServer_ = std::make_unique<WebSocketSignalingServer>(wsPort, logger);
-    signalingServer_->setHandler({
-        .onRequest = [this](const std::string &id, const std::string &q) { handleRequest(id, q); },
-        .onAnswer = [this](const std::string &id, const std::string &sdp) { handleAnswer(id, sdp); },
-        .onIceCandidate = [this](const std::string &id, const std::string &c, const std::string &m, int i) { handleIceCandidate(id, c, m, i); }});
-
     if (mainLogger)
     {
-        mainLogger->info("WebRTCWrapper initialized on port: {}", wsPort);
+        mainLogger->info("WebRTCWrapper initialized");
     }
 }
 
 WebRTCWrapper::~WebRTCWrapper()
 {
-    if (signalingServer_)
-    {
-        signalingServer_->stop();
-    }
-
     // Clean up all WebRTC connections
     std::lock_guard<std::mutex> lock(connectionsMutex);
     connections.clear();
@@ -62,7 +49,12 @@ WebRTCWrapper::~WebRTCWrapper()
     }
 }
 
-void WebRTCWrapper::tryCloseWebSocket(const std::string &clientId)
+void WebRTCWrapper::setSignalingTransport(SignalingTransport transport)
+{
+    signalingTransport_ = std::move(transport);
+}
+
+void WebRTCWrapper::tryCloseSignaling(const std::string &clientId)
 {
     // Must be called with connectionsMutex already held
     auto it = connections.find(clientId);
@@ -76,17 +68,8 @@ void WebRTCWrapper::tryCloseWebSocket(const std::string &clientId)
         {
             mainLogger->info("Client {} fully connected - closing WebSocket", clientId);
         }
-        signalingServer_->closeConnection(clientId);
+        signalingTransport_.closeConnection(clientId);
     }
-}
-
-void WebRTCWrapper::run()
-{
-    if (mainLogger)
-    {
-        mainLogger->info("Player server IP is: {} and port is: {}", playerServerIp, playerServerPort);
-    }
-    signalingServer_->run();
 }
 
 void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std::string &query, const std::string &url)
@@ -110,12 +93,10 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
         connInfo->clientId = clientId;
         connInfo->peerConnection = pc;
         connInfo->query = query;
-        connInfo->isConnected = false;
 
         // Set up state change callbacks
         pc->onStateChange([this, clientId](rtc::PeerConnection::State state)
                           {
-            // std::cout << "Client " << clientId << " peer connection state: " << (int)state << std::endl;                
             if (mainLogger) {
                 mainLogger->info("Client {} peer connection state: {}", clientId, (int)state);
             }
@@ -125,7 +106,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
                 auto it = connections.find(clientId);
                 if (it != connections.end()) {
                     it->second->isConnected = true;
-                    tryCloseWebSocket(clientId);
+                    tryCloseSignaling(clientId);
                 }
             }
             else if (state == rtc::PeerConnection::State::Disconnected ||
@@ -139,7 +120,6 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
 
         pc->onIceStateChange([this, clientId](rtc::PeerConnection::IceState state)
                              {
-            // std::cout << "Client " << clientId << " ICE connection state: " << (int)state << std::endl;
             if (mainLogger) {
                 mainLogger->info("Client {} ICE connection state: {}", clientId, (int)state);
             }
@@ -149,13 +129,12 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
                 auto it = connections.find(clientId);
                 if (it != connections.end()) {
                     it->second->iceConnected = true;
-                    tryCloseWebSocket(clientId);
+                    tryCloseSignaling(clientId);
                 }
             } });
 
         pc->onGatheringStateChange([this, clientId](rtc::PeerConnection::GatheringState state)
                                    {
-            // std::cout << "Client " << clientId << " ICE gathering state: " << (int)state << std::endl;
             if (mainLogger) {
                 mainLogger->debug("Client {} ICE gathering state: {}", clientId, (int)state);
             }
@@ -165,11 +144,11 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
                 auto it = connections.find(clientId);
                 if (it != connections.end()) {
                     it->second->gatheringComplete = true;
-                    tryCloseWebSocket(clientId);
+                    tryCloseSignaling(clientId);
                 }
             } });
 
-        // Trickle ICE: Send candidates as they are discovered (no waiting!)
+        // Trickle ICE: Send candidates as they are discovered
         pc->onLocalCandidate([this, clientId](rtc::Candidate candidate)
                              {
             if (mainLogger) {
@@ -182,10 +161,9 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
             msg["sdpMid"] = candidate.mid();
 
             Json::StreamWriterBuilder writerBuilder;
-            signalingServer_->sendMessage(clientId, Json::writeString(writerBuilder, msg)); });
+            signalingTransport_.sendMessage(clientId, Json::writeString(writerBuilder, msg)); });
 
         // Set up onLocalDescription BEFORE addTrack/createDataChannel
-        // because createDataChannel triggers auto-negotiation which generates the offer
         pc->onLocalDescription([this, clientId](rtc::Description description)
                                {
             if (mainLogger) {
@@ -197,9 +175,9 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
             offerMsg["sdp"] = std::string(description);
 
             Json::StreamWriterBuilder writerBuilder;
-            signalingServer_->sendMessage(clientId, Json::writeString(writerBuilder, offerMsg)); });
+            signalingTransport_.sendMessage(clientId, Json::writeString(writerBuilder, offerMsg)); });
 
-        // Add video track with H264 codec (server is offerer, sends video)
+        // Add video track with H265 codec (server is offerer, sends video)
         rtc::Description::Video media("video", rtc::Description::Direction::SendOnly);
 
         media.addH265Codec(96);
@@ -207,9 +185,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
 
         auto track = pc->addTrack(media);
 
-        // Pick RTP packetizer separator based on source format:
-        // MP4/MKV/MOV containers use AVCC format (4-byte length prefix per NAL)
-        // RTSP/TS use Annex B format (00 00 00 01 start codes)
+        // Pick RTP packetizer separator based on source format
         bool isAvccFormat = boost::ends_with(url, ".mp4") || boost::ends_with(url, ".mkv") || boost::ends_with(url, ".mov");
         auto separator = rtc::H265RtpPacketizer::Separator::StartSequence;
 
@@ -229,12 +205,10 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
 
         if (mainLogger)
         {
-            mainLogger->info("Video track added with H264 RTP packetizer for client {}", clientId);
+            mainLogger->info("Video track added with H265 RTP packetizer for client {}", clientId);
         }
 
         // Create data channel (server creates it as offerer)
-        // NOTE: createDataChannel triggers auto-negotiation in libdatachannel,
-        // which will generate the offer and fire onLocalDescription
         auto dc = pc->createDataChannel("control");
 
         dc->onOpen([this, clientId]()
@@ -300,7 +274,7 @@ void WebRTCWrapper::handleRequest(const std::string &clientId, const std::string
             errorMsg["message"] = url.empty() ? "Failed to resolve stream URL" : url;
 
             Json::StreamWriterBuilder writerBuilder;
-            signalingServer_->sendMessage(clientId, Json::writeString(writerBuilder, errorMsg));
+            signalingTransport_.sendMessage(clientId, Json::writeString(writerBuilder, errorMsg));
             return;
         }
 
@@ -323,7 +297,7 @@ void WebRTCWrapper::handleRequest(const std::string &clientId, const std::string
         errorMsg["message"] = ex.what();
 
         Json::StreamWriterBuilder writerBuilder;
-        signalingServer_->sendMessage(clientId, Json::writeString(writerBuilder, errorMsg));
+        signalingTransport_.sendMessage(clientId, Json::writeString(writerBuilder, errorMsg));
     }
 }
 
@@ -634,18 +608,12 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
 
         auto track = it->second->videoTrack;
 
-        // Extract H264 frame data from FFmpegWrapper's buffer.
-        // FFmpegWrapper prepends an 8-byte position prefix ONLY in playback mode.
-        // In live mode, timestamp == -2 (no prefix). In playback mode, timestamp >= 0
-        // (shifted to 0 after encoding the prefix bytes).
-        // The H265RtpPacketizer handles the actual NAL format (AVCC or Annex B)
-        // based on the Separator set during createPeerConnection.
         const uint8_t *frameStart;
         size_t frameSize;
 
         if (timestamp < 0)
         {
-            // Live mode — no prefix, raw H264 data (AVCC or Annex B depending on source)
+            // Live mode — no prefix, raw H264 data
             frameStart = data.data();
             frameSize = data.size();
         }
@@ -660,11 +628,9 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
             return; // Too small, skip
         }
 
-        // Send H.264 frame — the H265RtpPacketizer (set on the track via setMediaHandler)
-        // automatically handles: RTP headers, timestamps, FU-A fragmentation for large NALs.
         if (frameSize > 0)
         {
-            // Generate RTP timestamp from wall clock (90kHz RTP clock).
+            // Generate RTP timestamp from wall clock (90kHz RTP clock)
             auto now = std::chrono::steady_clock::now();
             auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(
                                   now - it->second->createdAt)
@@ -676,38 +642,9 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
                 it->second->rtpConfig->timestamp = rtpTimestamp;
             }
 
-            // Log H.265 NAL unit types for debugging
-            // if (frameSize > 5)
-            // {
-            //     const uint8_t *p = frameStart;
-            //     size_t remaining = frameSize;
-            //     while (remaining > 4)
-            //     {
-            //         // Find Annex B start code
-            //         int offset = 0;
-            //         if (p[0] == 0 && p[1] == 0 && p[2] == 0 && p[3] == 1)
-            //             offset = 4;
-            //         else if (p[0] == 0 && p[1] == 0 && p[2] == 1)
-            //             offset = 3;
-            //         if (offset > 0 && remaining > (size_t)offset)
-            //         {
-            //             uint8_t nalType = (p[offset] >> 1) & 0x3F;
-            //             std::cout << "  H265 NAL type=" << (int)nalType
-            //                       << " first_bytes=" << std::hex
-            //                       << (int)p[0] << " " << (int)p[1] << " "
-            //                       << (int)p[2] << " " << (int)p[3] << " "
-            //                       << (int)p[offset] << " " << (int)p[offset + 1]
-            //                       << std::dec << std::endl;
-            //         }
-            //         break; // Just log the first NAL unit per frame
-            //     }
-            // }
-
             rtc::binary rtpPayload(reinterpret_cast<const std::byte *>(frameStart),
                                    reinterpret_cast<const std::byte *>(frameStart + frameSize));
             track->send(rtpPayload);
-            // std::cout << "Sent frame size=" << frameSize << " RTP_ts=" << rtpTimestamp
-            //           << " client=" << it->first << std::endl;
         }
     }
     catch (const std::exception &ex)
@@ -747,7 +684,7 @@ void WebRTCWrapper::SendStringData(rtcConnHdl &conn, std::string sdata)
             // Unlock before calling handlePlaybackFinished to avoid deadlock
             lock.~lock_guard();
             handlePlaybackFinished(clientId, sdata);
-            return; // Don't send to client, seamless continuation
+            return;
         }
 
         // Send string message via data channel

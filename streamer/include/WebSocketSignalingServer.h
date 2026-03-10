@@ -9,12 +9,15 @@
 #include <atomic>
 #include <spdlog/spdlog.h>
 
+class WebRTCWrapper;
+
 class WebSocketSignalingServer : public ISignalingServer {
 public:
-    WebSocketSignalingServer(int port, std::shared_ptr<spdlog::logger> logger);
+    WebSocketSignalingServer(int port, const std::string& playerIp, int playerPort,
+                             std::shared_ptr<spdlog::logger> logger, bool isVMS,
+                             const std::string& vmsUser, const std::string& vmsPassword);
     ~WebSocketSignalingServer() override;
 
-    void setHandler(SignalingHandler handler) override;
     void run() override;
     void stop() override;
 
@@ -32,6 +35,7 @@ private:
     std::shared_ptr<rtc::WebSocketServer> server_;
     std::map<std::string, std::shared_ptr<rtc::WebSocket>> connections_;
     std::mutex connectionsMutex_;
-    SignalingHandler handler_;
     std::atomic<bool> running_{false};
+
+    std::unique_ptr<WebRTCWrapper> rtcWrapper_;
 };

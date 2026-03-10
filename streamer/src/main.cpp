@@ -1,22 +1,14 @@
-#include <boost/algorithm/string_regex.hpp>
-#include <boost/regex.hpp>
-#include <map>
-#include <set>
-#include "FFmpegWrapper.h"
-#include <cpr/cpr.h>
-#include <json/value.h>
-#include <fstream>
-#include "fmt/ostream.h"
-#include "fmt/format.h"
 #include <boost/filesystem.hpp>
 #include "Options.h"
-#include <ctime>
-#include "json/json.h"
 #include "CLI11.hpp"
 #include "Util.h"
 #include <spdlog/spdlog.h>
 #include <spdlog/async.h>
-#include "WebRTCWrapper.h" // Include WebRTCWrapper header file
+#include "WebSocketSignalingServer.h"
+
+extern "C" {
+#include <libavformat/avformat.h>
+}
 using namespace i2v;
 
 #pragma once
@@ -28,8 +20,6 @@ int playerServerPort, websocket_server_port;
 spdlog::level::level_enum log_level;
 
 std::shared_ptr<spdlog::logger> mainLogger;
-
-map<string, shared_ptr<FFmpegWrapper>> ffmpegList;
 
 // config File Related
 void setDefaultValues(Options& opt);
@@ -51,7 +41,7 @@ int main(int argc, char* argv[])
 	CLI11_PARSE(app, argc, argv)
 		spdlog::init_thread_pool(8192, 1);
 
-	string config_dir_path = i2v::Util::getConfigFolderPath();
+	std::string config_dir_path = i2v::Util::getConfigFolderPath();
 	i2v::Util::createDirectories(config_dir_path); // config directory
 
 	mainConfigFile = config_dir_path + "/mainConf.json";
@@ -71,11 +61,12 @@ int main(int argc, char* argv[])
 		rtc::InitLogger(rtc::LogLevel::Warning);
 		rtc::SetThreadPoolSize(2);
 
-		if (mainLogger) { mainLogger->info("Starting WebRTC signaling server on port: {}", websocket_server_port); }
+		if (mainLogger) { mainLogger->info("Starting signaling server on port: {}", websocket_server_port); }
 		if (mainLogger) { mainLogger->info("Player server IP is: {0} and port is: {1}", playerServerIp, playerServerPort); }
 
-		WebRTCWrapper rtc_wrapper(websocket_server_port, playerServerIp, playerServerPort, mainLogger, isVMS, vmsStreamUserName, vmsStreamPassword);
-		rtc_wrapper.run();
+		WebSocketSignalingServer server(websocket_server_port, playerServerIp, playerServerPort,
+		                                mainLogger, isVMS, vmsStreamUserName, vmsStreamPassword);
+		server.run();
 
 	}
 	catch (const std::exception& ex) {

@@ -7,10 +7,10 @@
 #include <memory>
 #include <chrono>
 #include <variant>
+#include <functional>
 #include <spdlog/spdlog.h>
 #include "FFmpegWrapper.h"
 #include "PlayerServerClient.h"
-#include "ISignalingServer.h"
 #include "common.h"
 
 // Forward declarations
@@ -22,6 +22,12 @@ namespace rtc {
 
 // Connection handle type for WebRTC
 using rtcConnHdl = std::shared_ptr<rtc::PeerConnection>;
+
+// Transport callbacks provided by signaling to WebRTC
+struct SignalingTransport {
+    std::function<void(const std::string& clientId, const std::string& message)> sendMessage;
+    std::function<void(const std::string& clientId)> closeConnection;
+};
 
 // WebRTC connection information
 struct WebRTCConnectionInfo {
@@ -41,12 +47,19 @@ struct WebRTCConnectionInfo {
 
 class WebRTCWrapper {
 public:
-    WebRTCWrapper(int wsPort, const std::string& playerIp, int playerPort,
+    WebRTCWrapper(const std::string& playerIp, int playerPort,
                   std::shared_ptr<spdlog::logger> logger, bool isVMS,
                   const std::string& vmsUser, const std::string& vmsPassword);
     ~WebRTCWrapper();
 
-    void run();  // Start signaling server
+    // Signaling provides its transport capabilities
+    void setSignalingTransport(SignalingTransport transport);
+
+    // Called by signaling when messages arrive from clients
+    void handleRequest(const std::string& clientId, const std::string& query);
+    void handleAnswer(const std::string& clientId, const std::string& sdp);
+    void handleIceCandidate(const std::string& clientId, const std::string& candidate,
+                           const std::string& sdpMid, int sdpMLineIndex);
 
     // Callbacks for FFmpegWrapper
     void SendData(rtcConnHdl& conn, std::vector<uint8_t>& data, int64_t timestamp);
@@ -55,18 +68,14 @@ public:
 private:
     // WebRTC peer connection management
     void createPeerConnection(const std::string& clientId, const std::string& query, const std::string& url);
-    void handleRequest(const std::string& clientId, const std::string& query);
-    void handleAnswer(const std::string& clientId, const std::string& sdp);
-    void handleIceCandidate(const std::string& clientId, const std::string& candidate,
-                           const std::string& sdpMid, int sdpMLineIndex);
     void removeConnection(const std::string& clientId);
     void handleDataChannelMessage(const std::string& clientId, std::variant<rtc::binary, std::string> data);
 
     // Query processing
     void processRequest(const std::string& clientId, std::string& query, const std::string& url);
 
-    // WebSocket lifecycle
-    void tryCloseWebSocket(const std::string& clientId);  // call with connectionsMutex held
+    // Connection lifecycle
+    void tryCloseSignaling(const std::string& clientId);  // call with connectionsMutex held
 
     // Utility methods
     int generateAndCheckRandomNumber();
@@ -77,8 +86,8 @@ private:
     int playerServerPort;
     std::shared_ptr<spdlog::logger> mainLogger;
 
-    // Signaling server
-    std::unique_ptr<ISignalingServer> signalingServer_;
+    // Signaling transport callbacks
+    SignalingTransport signalingTransport_;
 
     // WebRTC connection storage
     std::map<std::string, std::shared_ptr<WebRTCConnectionInfo>> connections;

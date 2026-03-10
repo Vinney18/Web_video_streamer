@@ -1,23 +1,26 @@
 #include "WebSocketSignalingServer.h"
+#include "WebRTCWrapper.h"
 #include "json/json.h"
 #include <iostream>
 #include <chrono>
 #include <thread>
 #include <sstream>
 
-WebSocketSignalingServer::WebSocketSignalingServer(int port, std::shared_ptr<spdlog::logger> logger)
+WebSocketSignalingServer::WebSocketSignalingServer(int port, const std::string& playerIp, int playerPort,
+                                                   std::shared_ptr<spdlog::logger> logger, bool isVMS,
+                                                   const std::string& vmsUser, const std::string& vmsPassword)
     : port_(port), logger_(logger)
 {
+    rtcWrapper_ = std::make_unique<WebRTCWrapper>(playerIp, playerPort, logger, isVMS, vmsUser, vmsPassword);
+    rtcWrapper_->setSignalingTransport({
+        .sendMessage = [this](const std::string& id, const std::string& msg) { sendMessage(id, msg); },
+        .closeConnection = [this](const std::string& id) { closeConnection(id); }
+    });
 }
 
 WebSocketSignalingServer::~WebSocketSignalingServer()
 {
     stop();
-}
-
-void WebSocketSignalingServer::setHandler(SignalingHandler handler)
-{
-    handler_ = std::move(handler);
 }
 
 void WebSocketSignalingServer::run()
@@ -194,23 +197,19 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
         if (type == "request")
         {
             std::string query = root.get("query", "").asString();
-            if (handler_.onRequest)
-                handler_.onRequest(clientId, query);
+            rtcWrapper_->handleRequest(clientId, query);
         }
         else if (type == "answer")
         {
             std::string sdp = root["sdp"].asString();
-            if (handler_.onAnswer)
-                handler_.onAnswer(clientId, sdp);
+            rtcWrapper_->handleAnswer(clientId, sdp);
         }
         else if (type == "candidate" || type == "ice")
         {
             std::string candidate = root["candidate"].asString();
             std::string sdpMid = root.get("sdpMid", "").asString();
             int sdpMLineIndex = root.get("sdpMLineIndex", 0).asInt();
-
-            if (handler_.onIceCandidate)
-                handler_.onIceCandidate(clientId, candidate, sdpMid, sdpMLineIndex);
+            rtcWrapper_->handleIceCandidate(clientId, candidate, sdpMid, sdpMLineIndex);
         }
         else
         {
@@ -241,7 +240,6 @@ void WebSocketSignalingServer::onClosed(const std::string &clientId)
         std::lock_guard<std::mutex> lock(connectionsMutex_);
         connections_.erase(clientId);
     }
-    // Peer connection cleanup is handled by WebRTC onStateChange (Disconnected/Failed/Closed)
 }
 
 void WebSocketSignalingServer::onError(const std::string &clientId, const std::string &error)
