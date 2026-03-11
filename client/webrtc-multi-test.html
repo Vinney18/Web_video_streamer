@@ -219,7 +219,7 @@
             // Wait 2 seconds before next connection (except after the last one)
             if (i < count - 1) {
                 log(`Waiting 2s before stream #${i + 2}...`, 'info');
-                await sleep(2000);
+                await sleep(2);
             }
         }
 
