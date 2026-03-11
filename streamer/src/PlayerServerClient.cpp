@@ -16,14 +16,15 @@ std::string PlayerServerClient::serverIp_;
 int PlayerServerClient::serverPort_ = 0;
 std::shared_ptr<spdlog::logger> PlayerServerClient::logger_;
 bool PlayerServerClient::isVMS_ = false;
+int PlayerServerClient::count = 0;
 std::string PlayerServerClient::vmsUser_;
 std::string PlayerServerClient::vmsPassword_;
 
-void PlayerServerClient::init(const std::string& serverIp, int serverPort,
+void PlayerServerClient::init(const std::string &serverIp, int serverPort,
                               std::shared_ptr<spdlog::logger> logger,
                               bool isVMS,
-                              const std::string& vmsUser,
-                              const std::string& vmsPassword)
+                              const std::string &vmsUser,
+                              const std::string &vmsPassword)
 {
     serverIp_ = serverIp;
     serverPort_ = serverPort;
@@ -33,8 +34,9 @@ void PlayerServerClient::init(const std::string& serverIp, int serverPort,
     vmsPassword_ = vmsPassword;
 }
 
-std::string PlayerServerClient::resolveStreamUrl(const std::string& query)
+std::string PlayerServerClient::resolveStreamUrl(const std::string &query)
 {
+    count++;
     std::string cameraId;
     std::string mode = "Live";
     int streamtype = 0;
@@ -48,20 +50,29 @@ std::string PlayerServerClient::resolveStreamUrl(const std::string& query)
     std::vector<std::string> props;
     boost::algorithm::split_regex(props, query, boost::regex("&&"));
 
-    for (auto const& prop : props)
+    for (auto const &prop : props)
     {
         std::vector<std::string> keyValue;
         boost::algorithm::split_regex(keyValue, prop, boost::regex("~~"));
         if (keyValue.size() < 2)
             continue;
 
-        auto& key = keyValue[0];
-        auto& value = keyValue[1];
+        auto &key = keyValue[0];
+        auto &value = keyValue[1];
 
         if (key == "cameraId")
             cameraId = value;
         else if (key == "mode")
-            mode = value;
+        {
+            if (count % 2 == 0)
+            {
+                mode = value;
+            }
+            else
+            {
+                mode = "Live";
+            }
+        }
         else if (key == "streamType" || key == "streamtype")
             streamtype = std::stoi(value);
         else if (key == "startTime")
@@ -94,14 +105,20 @@ std::string PlayerServerClient::resolveStreamUrl(const std::string& query)
     //         return GetPlayBackUrl(cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile);
     //     }
     // }
-    return "/webwork/cial.ts"; // For testing only, remove this line in production
 
-    // return "rtsp://admin:Admin@123@192.168.7.242:554/enr/live/1/1"; // For testing only, remove this line in production
+    if (count % 2 == 0)
+    {
+        return "/webwork/cial.ts"; // For testing only, remove this line in production
+    }
+    else
+    {
+        return "rtsp://192.168.29.227:554/12-12-31.ts"; // For testing only, remove this line in production
+    }
 }
 
-std::string PlayerServerClient::GetLiveUrl(const std::string& cameraId, int streamtype,
-                                           const std::string& analyticType, const std::string& vaServerId,
-                                           const std::string& vaServerPipeId)
+std::string PlayerServerClient::GetLiveUrl(const std::string &cameraId, int streamtype,
+                                           const std::string &analyticType, const std::string &vaServerId,
+                                           const std::string &vaServerPipeId)
 {
     string response;
     string cameraId_instring = cameraId;
@@ -162,7 +179,7 @@ std::string PlayerServerClient::GetLiveUrl(const std::string& cameraId, int stre
             response = "Player_Server_Not_Connected";
         }
     }
-    catch (const std::exception& ex)
+    catch (const std::exception &ex)
     {
         if (logger_)
         {
@@ -172,8 +189,8 @@ std::string PlayerServerClient::GetLiveUrl(const std::string& cameraId, int stre
     return response;
 }
 
-std::string PlayerServerClient::GetPlayBackUrl(const std::string& cameraId, int startTime,
-                                               int* seekTime, float* duration)
+std::string PlayerServerClient::GetPlayBackUrl(const std::string &cameraId, int startTime,
+                                               int *seekTime, float *duration)
 {
     string response;
     string cameraId_instring = cameraId;
@@ -239,7 +256,7 @@ std::string PlayerServerClient::GetPlayBackUrl(const std::string& cameraId, int 
             response = "Player_Server_Not_Connected";
         }
     }
-    catch (const std::exception& ex)
+    catch (const std::exception &ex)
     {
         if (logger_)
         {
@@ -250,7 +267,7 @@ std::string PlayerServerClient::GetPlayBackUrl(const std::string& cameraId, int 
     return response;
 }
 
-std::string PlayerServerClient::GetPlayBackUrl(const std::string& cameraId, int startTime, int endTime)
+std::string PlayerServerClient::GetPlayBackUrl(const std::string &cameraId, int startTime, int endTime)
 {
     string response;
     string cameraId_instring = cameraId;
@@ -292,7 +309,7 @@ std::string PlayerServerClient::GetPlayBackUrl(const std::string& cameraId, int 
             response = "Player_Server_Not_Connected";
         }
     }
-    catch (const std::exception& ex)
+    catch (const std::exception &ex)
     {
         if (logger_)
         {
@@ -303,7 +320,7 @@ std::string PlayerServerClient::GetPlayBackUrl(const std::string& cameraId, int 
     return response;
 }
 
-std::string PlayerServerClient::addCredentialsToUrl(const std::string& url, const std::string& username, const std::string& password)
+std::string PlayerServerClient::addCredentialsToUrl(const std::string &url, const std::string &username, const std::string &password)
 {
     std::regex credentialsRegex(R"([^:]+:[^@]+@)");
 

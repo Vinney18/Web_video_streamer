@@ -30,6 +30,7 @@ private:
     static int serverPort_;
     static std::shared_ptr<spdlog::logger> logger_;
     static bool isVMS_;
+    static int count;
     static std::string vmsUser_;
     static std::string vmsPassword_;
 };
