@@ -18,10 +18,8 @@
 #include <regex>
 #include <cpr/cpr.h>
 
-// RTP packetization over WebRTC
-#include <rtc/h264rtppacketizer.hpp>
-#include <rtc/h265rtppacketizer.hpp>
-#include <rtc/rtppacketizationconfig.hpp>
+// Codec handler abstraction for RTP packetization
+#include "CodecHandler/CodecHandler.h"
 
 using namespace std;
 
@@ -81,50 +79,15 @@ void WebRTCWrapper::setupVideoTrack(std::shared_ptr<rtc::PeerConnection> pc,
 {
     rtc::Description::Video media("video", rtc::Description::Direction::SendOnly);
 
-    // Add codec to SDP based on probed codec
-    switch (codecId)
-    {
-    case AV_CODEC_ID_H264:
-        media.addH264Codec(96);
-        break;
-    case AV_CODEC_ID_H265:
-    default:
-        media.addH265Codec(96);
-        break;
-    }
+    auto codecHandler = CodecHandler::create(codecId);
+    codecHandler->addCodecToMedia(media);
 
     media.addSSRC(1, "video-stream");
     auto track = pc->addTrack(media);
 
-    // Pick separator based on container format
     bool isAvccFormat = boost::ends_with(url, ".mp4") || boost::ends_with(url, ".mkv") || boost::ends_with(url, ".mov");
 
-    // Create codec-specific RTP packetizer
-    std::shared_ptr<rtc::RtpPacketizationConfig> rtpConfig;
-    switch (codecId)
-    {
-    case AV_CODEC_ID_H264:
-    {
-        rtpConfig = std::make_shared<rtc::RtpPacketizationConfig>(
-            1, "video-stream", 96, rtc::H264RtpPacketizer::defaultClockRate);
-        auto separator = isAvccFormat
-            ? rtc::H264RtpPacketizer::Separator::LongStartSequence
-            : rtc::H264RtpPacketizer::Separator::StartSequence;
-        track->setMediaHandler(std::make_shared<rtc::H264RtpPacketizer>(separator, rtpConfig));
-        break;
-    }
-    case AV_CODEC_ID_H265:
-    default:
-    {
-        rtpConfig = std::make_shared<rtc::RtpPacketizationConfig>(
-            1, "video-stream", 96, rtc::H265RtpPacketizer::defaultClockRate);
-        auto separator = isAvccFormat
-            ? rtc::H265RtpPacketizer::Separator::LongStartSequence
-            : rtc::H265RtpPacketizer::Separator::StartSequence;
-        track->setMediaHandler(std::make_shared<rtc::H265RtpPacketizer>(separator, rtpConfig));
-        break;
-    }
-    }
+    auto rtpConfig = codecHandler->setMediaHandler(track, isAvccFormat);
 
     connInfo->videoTrack = track;
     connInfo->rtpConfig = rtpConfig;

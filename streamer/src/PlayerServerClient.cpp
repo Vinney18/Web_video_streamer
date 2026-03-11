@@ -108,11 +108,11 @@ std::string PlayerServerClient::resolveStreamUrl(const std::string &query)
 
     if (count % 2 == 0)
     {
-        return "/webwork/cial.ts"; // For testing only, remove this line in production
+        return "/webwork/12-12-31.ts"; // For testing only, remove this line in production
     }
     else
     {
-        return "rtsp://192.168.29.227:554/12-12-31.ts"; // For testing only, remove this line in production
+        return "rtsp://192.168.29.227:554/cial.ts"; // For testing only, remove this line in production
     }
 }
 
