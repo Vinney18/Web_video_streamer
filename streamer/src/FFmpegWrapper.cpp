@@ -6,7 +6,6 @@
 			  << AV_VERSION_MICRO(lib##_version()) << "\n";
 int FFmpegWrapper::run()
 {
-
 	while (!mStop)
 	{
 
@@ -18,34 +17,24 @@ int FFmpegWrapper::run()
 			params.isRunning = true;
 			GetInputCodecInfo();
 
-			if (!tempConnections.empty())
-			{
-
-				for (auto &el : tempConnections)
-				{
-					if (inputCodecID == AV_CODEC_ID_NONE)
-					{
-						// close websocket if not able to play
-						websocketSCallback(el.first, "unable_to_play");
-					}
-					else
-					{
-						addConnection(el.first);
-					}
-				}
-				tempConnections.clear();
-			}
 			if (inputCodecID == AV_CODEC_ID_NONE)
 			{
-
+				std::lock_guard<std::mutex> lock(connectionsMutex);
+				for (webConnHdl connHdl : connections)
+				{
+					websocketSCallback(connHdl, "unable_to_play");
+				}
 				mStop = true;
 				closeInput();
 			}
 			else
 			{
+				for (webConnHdl connHdl : connections)
+				{
+					sendVideoInformation(connHdl);
+				}
 
 				readInput();
-
 				closeInput();
 			}
 		}
@@ -81,54 +70,15 @@ FFmpegWrapper::~FFmpegWrapper()
 	// std::cout << "FFmpegWrapper Destructor Called" << std::endl;
 }
 
-// useing pts instead of manually calculating seek time or delay
-//  At start of playback
-//  auto playbackStartTime = std::chrono::steady_clock::now();
-//  double playbackStartPTS = -1.0;
-
-// while (av_read_frame(this->inputFormatCtx, &packet) >= 0 && !mStop)
-// {
-//     if (packet.stream_index == videoStream)
-//     {
-//         // Get actual timestamp from packet
-//         double currentPTS = packet.pts * av_q2d(inputFormatCtx->streams[videoStream]->time_base);
-
-//         if (playbackStartPTS < 0)
-//             playbackStartPTS = currentPTS;
-
-//         // Calculate relative time
-//         double relativeTime = (currentPTS - playbackStartPTS) / fastForwardFactor;
-
-//         // Calculate target wall-clock time
-//         auto targetTime = playbackStartTime + std::chrono::duration<double>(relativeTime);
-
-//         // Sleep until target time (only for file playback, not live)
-//         if (!isLiveMode())
-//         {
-//             std::this_thread::sleep_until(targetTime);
-//         }
-
-//         // Send packet...
-//     }
-// }
-
 void FFmpegWrapper::readInput()
 {
 	AVPacket packet;
 
-	if (inputFPS == 0 || inputFPS < 0 || inputFPS > 100)
-	{
-		inputFPS = 25;
-	}
-
 	try
 	{
 		this->params.lastStopped = GetTickCount();
-		bool sendData = true;
 		int64_t firstDts = this->inputFormatCtx->streams[videoStream]->first_dts;
-		auto startTime = std::chrono::steady_clock::now();
 		int64_t frameCount = 0;
-		double playbackStartPTS = -1.0; // Track the first PTS for playback sync
 		int readResult;
 		while ((readResult = av_read_frame(this->inputFormatCtx, &packet)) >= 0 && !mStop)
 		{
@@ -142,118 +92,14 @@ void FFmpegWrapper::readInput()
 			if (packet.stream_index == videoStream)
 			{
 				frameCount++;
-				int64_t position;
-				if (isLiveMode())
-					position = -2;
-				else
+
+				ProcessedPacket processed = processPacket(packet, firstDts, frameCount);
+
 				{
-					position = round((this->inputFormatCtx->streams[videoStream]->cur_dts - firstDts) * this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den);
-				}
-
-				// h265
-				if (outputType == rgba && !connections.empty())
-				{
-					
-					
-				}
-				// h264
-				if (outputType == mp4 && !connections.empty())
-				{
-					if (frameCount == 1)
+					std::lock_guard<std::mutex> lock(connectionsMutex);
+					for (webConnHdl hndl : connections)
 					{
-						if (isLiveMode())
-						{
-							SendVideoStartedEvent();
-						}
-						else
-						{
-							playbackFileStared = true;
-							sendData = false;
-							if (this->initial_seek_time > 0)
-							{
-								seek_video(this->initial_seek_time);
-							}
-							SendVideoStartedEvent();
-							sendData = true;
-						}
-					}
-
-					if (!isLiveMode() && frameCount > 1)
-					{
-						// Get timestamp with fallback logic for files without PTS (like some .ts files)
-						double currentPTS;
-
-						if (packet.pts != AV_NOPTS_VALUE)
-						{
-							// Use PTS if available (preferred)
-							currentPTS = packet.pts * av_q2d(inputFormatCtx->streams[videoStream]->time_base);
-						}
-						else if (packet.dts != AV_NOPTS_VALUE)
-						{
-							// Fallback to DTS if PTS not available
-							currentPTS = packet.dts * av_q2d(inputFormatCtx->streams[videoStream]->time_base);
-						}
-						else
-						{
-							// Fallback to frame-counting if no timestamps available
-							currentPTS = (frameCount - 1) / inputFPS;
-							std::cout << "----------Warning: No PTS/DTS available, using frame count for timing" << std::endl;
-						}
-
-						// Initialize playback start PTS on first frame with actual data to send
-						// (after seek completes if there was an initial seek)
-						if (playbackStartPTS < 0 && sendData)
-						{
-							playbackStartPTS = currentPTS;
-							startTime = std::chrono::steady_clock::now(); // Reset start time after seek
-						}
-
-						// Calculate relative time from start, adjusted for playback speed
-						double relativeTime = (currentPTS - playbackStartPTS) / fastForwardFactor;
-
-						// Calculate target wall-clock time
-						auto targetTime = startTime + std::chrono::duration<double>(relativeTime);
-
-						// Debug timing info
-						auto now = std::chrono::steady_clock::now();
-						double elapsed = std::chrono::duration<double>(now - startTime).count();
-						double sleepTime = std::chrono::duration<double>(targetTime - now).count();
-
-						// std::cout << "[" << cameraId << "] F#" << frameCount
-						// 		  << " PTS:" << std::fixed << std::setprecision(3) << currentPTS
-						// 		  << " RelT:" << relativeTime
-						// 		  << " Elap:" << elapsed
-						// 		  << " Sleep:" << sleepTime << "s" << std::endl;
-
-						// Sleep until target time
-						if (targetTime > now)
-						{
-							std::this_thread::sleep_until(targetTime);
-						}
-					}
-					if (sendData)
-					{
-						vector<uint8_t> mp4Data(packet.data, packet.data + packet.size);
-						int64_t savedPosition = position;
-
-						if (savedPosition >= 0)
-						{
-							mp4Data.insert(mp4Data.begin(), sizeof(savedPosition), 0);
-							int64_t tempPos = savedPosition;
-							for (size_t i = 0; i < sizeof(tempPos); ++i)
-							{
-								mp4Data[i] = tempPos & 0xFF;
-								tempPos >>= 8;
-							}
-						}
-
-						{
-							std::lock_guard<std::mutex> lock(connectionsMutex);
-							for (webConnHdl hndl : connections)
-							{
-								websocketCallback(hndl, mp4Data, savedPosition);
-							}
-						}
+						websocketCallback(hndl, processed.mp4Data, processed.position);
 					}
 				}
 			}
@@ -272,7 +118,7 @@ void FFmpegWrapper::readInput()
 			char errbuf[AV_ERROR_MAX_STRING_SIZE];
 			av_strerror(readResult, errbuf, sizeof(errbuf));
 			std::cout << "[" << cameraId << "] Read loop exited: av_read_frame returned " << readResult
-					  << " (" << errbuf << "), frameCount=" << frameCount << std::endl;
+					  << " (" << errbuf << "), frameCount= " << frameCount << std::endl;
 		}
 
 		// Check if we're stopping - don't send finish message if stopped
@@ -282,20 +128,8 @@ void FFmpegWrapper::readInput()
 			return;
 		}
 
-		if (!isLiveMode())
-		{
-			// Calculate next playback time and send as JSON
-			int nextPlaybackTime = getNextPlaybackTime();
-
-			// Send next playback time to WebSocket handler
-			std::string finishMessage = "{\"event\":\"Playback_Finished\",\"cameraId\":\"" + cameraId + "\",\"nextTime\":" + std::to_string(nextPlaybackTime) + "}";
-
-			for (webConnHdl hndl : connections)
-			{
-				websocketSCallback(hndl, finishMessage);
-			}
-			mStop = true;
-		}
+		// Hook: post-loop actions (Live is no-op, Playback sends Playback_Finished)
+		onReadLoopFinished();
 	}
 	catch (const exception &ex)
 	{
@@ -305,30 +139,10 @@ void FFmpegWrapper::readInput()
 
 bool FFmpegWrapper::openInput()
 {
-	// std::cout << "FFmpeg Version Info:\n";
-
-	// std::cout << "  libavcodec  : "
-	//           << AV_VERSION_MAJOR(avcodec_version()) << "."
-	//           << AV_VERSION_MINOR(avcodec_version()) << "."
-	//           << AV_VERSION_MICRO(avcodec_version()) << "\n";
-
-	// std::cout << "  libavformat : "
-	//           << AV_VERSION_MAJOR(avformat_version()) << "."
-	//           << AV_VERSION_MINOR(avformat_version()) << "."
-	//           << AV_VERSION_MICRO(avformat_version()) << "\n";
-
-	// std::cout << "  libavutil   : "
-	//           << AV_VERSION_MAJOR(avutil_version()) << "."
-	//           << AV_VERSION_MINOR(avutil_version()) << "."
-	//           << AV_VERSION_MICRO(avutil_version()) << "\n";
-
 	this->inputFormatCtx = avformat_alloc_context();
 	this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
 	this->inputFormatCtx->interrupt_callback.opaque = this;
 	const char *fileName = this->url.c_str();
-	// const char* fileName = "rtsp://192.168.0.40:8556/test";
-	// cout << fileName << endl;
-	//  Open file
 	AVDictionary *options1 = nullptr;
 	try
 	{
@@ -368,9 +182,6 @@ bool FFmpegWrapper::openInput()
 		}
 	}
 
-	// Dump information about file onto standard error
-	// av_dump_format(this->inputFormatCtx, 0, fileName, 0);
-
 	return true;
 }
 
@@ -406,6 +217,10 @@ bool FFmpegWrapper::GetInputCodecInfo()
 	{
 		this->inputFPS = r_frame_rate_fps;
 	}
+	if (inputFPS == 0 || inputFPS < 0 || inputFPS > 100)
+	{
+		inputFPS = 25;
+	}
 
 	std::cout << "-------------Input FPS: " << this->inputFPS << " url " << url << "  camera id  " << cameraId << std::endl;
 
@@ -429,45 +244,24 @@ void FFmpegWrapper::closeInput()
 	}
 }
 
-void FFmpegWrapper::addConnection(webConnHdl connHdl)
+void FFmpegWrapper::sendVideoInformation(webConnHdl &connHdl)
 {
-	if (inputCodecID == AV_CODEC_ID_NONE)
+	if (inputCodecCtx == NULL)
 	{
-		tempConnections.push_back(std::make_pair(connHdl, false));
+		return;
 	}
-	else
-	{
-		if (inputFPS == 0 || inputFPS < 0 || inputFPS > 100)
-		{
-			inputFPS = 25;
-		}
-		string data = to_string(inputCodecCtx->width) + "x" + to_string(inputCodecCtx->height) + "x" + to_string(inputFPS);
 
-		outputType = mp4;
-		websocketSCallback(connHdl, "mp4");
-		websocketSCallback(connHdl, "mp4 " + data);
-		if (isLiveMode())
-		{
-			SendVideoStartedEvent();
-		}
-		addConnToList(connHdl);
-	}
+	string data = to_string(inputCodecCtx->width) + "x" + to_string(inputCodecCtx->height) + "x" + to_string(inputFPS);
+
+	outputType = mp4;
+	websocketSCallback(connHdl, "mp4");
+	websocketSCallback(connHdl, "mp4 " + data);
 }
 
 bool FFmpegWrapper::removeConnection(webConnHdl connHdl)
 {
 
 	std::lock_guard<std::mutex> lock(connectionsMutex); // Protect shared resources
-
-	// Remove from temporary connections
-	auto foundPair = std::find_if(tempConnections.begin(), tempConnections.end(),
-								  [&](const std::pair<webConnHdl, bool> &p)
-								  { return p.first.get() == connHdl.get(); });
-
-	if (foundPair != tempConnections.end())
-	{
-		tempConnections.erase(foundPair);
-	}
 
 	if (connections.empty())
 	{
@@ -487,11 +281,11 @@ bool FFmpegWrapper::removeConnection(webConnHdl connHdl)
 	return false;
 }
 
-void FFmpegWrapper::addConnToList(webConnHdl connHdl)
+void FFmpegWrapper::addConnToList(webConnHdl &connHdl)
 {
 	std::lock_guard<std::mutex> lock(connectionsMutex);
-
 	connections.insert(connHdl);
+	sendVideoInformation(connHdl);
 }
 
 void FFmpegWrapper::SendVideoStartedEvent()
@@ -517,143 +311,18 @@ void FFmpegWrapper::Pause_video()
 	}
 	catch (const std::exception &)
 	{
-		// IsFilePaused = false;
 		cout << "Exception while  pause video on recording server ";
 	}
 }
 
-void FFmpegWrapper::seek_video(int time_toSeek_insec)
+AVCodecID FFmpegWrapper::probeCodec(const std::string &url)
 {
-	cout << " url is " << url << " seconds " << time_toSeek_insec << endl;
-	if (isLiveMode())
-	{
-		return;
-	}
-	if (time_toSeek_insec > 0)
-	{
-		if (fileseekingstarted && !playbackFileStared)
-		{
-			return;
-		}
-		fileseekingstarted = true;
-		// Seek is done on packet dts
-		try
-		{
-			int64_t target_dts_usecs = static_cast<int64_t>(time_toSeek_insec) * 1000000;
-			auto first_dts_usecs = (int64_t)round(this->inputFormatCtx->streams[videoStream]->first_dts * (double)this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den * AV_TIME_BASE);
-			target_dts_usecs += first_dts_usecs;
-			try
-			{
-				int rv = av_seek_frame(this->inputFormatCtx, -1, target_dts_usecs, AVSEEK_FLAG_FRAME);
-				if (rv < 0)
-				{
-					fileseekingstarted = false;
-				}
-			}
-			catch (exception ex)
-			{
-				cout << "my exc: " << ex.what() << endl;
-			}
-			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-			fileseekingstarted = false;
-		}
-		catch (const exception &ex)
-		{
-			fileseekingstarted = false;
-			if (logger)
-			{
-				logger->error("Exception while seek video: {}", ex.what());
-			}
-			else
-			{
-				std::cout << "Exception while seek video: " << ex.what() << std::endl;
-			}
-		}
-	}
-}
-
-// FastForward_video
-void FFmpegWrapper::FastForward_video(float speed)
-{
-	if (speed > 0)
-	{
-		fastForwardFactor = speed;
-		frameDuration = std::chrono::duration<double, std::milli>(1000.0 / (inputFPS * fastForwardFactor));
-
-		// set sleepTime
-		// sleepTime = int(1000 / (inputFPS * fastForwardFactor));
-	}
-}
-
-int FFmpegWrapper::getNextPlaybackTime()
-{
-	// Calculate the next playback time based on segment duration
-	int nextTime = originalRequestTime;
-
-	// First, check if we have duration from HTTP response (preferred method)
-	if (videoDuration > 0)
-	{
-		// Use the duration provided from HTTP response (already in seconds)
-		double segmentDuration = static_cast<double>(videoDuration);
-
-		std::cout << "--------- Using HTTP response duration: " << segmentDuration << " seconds" << std::endl;
-
-		// Calculate: original request time + (segment duration - seek time)
-		// This gives us the timestamp where playback ended
-		nextTime = originalRequestTime + static_cast<int>(segmentDuration - initial_seek_time) + 1;
-
-		std::cout << "Calculated next playback time: original=" << originalRequestTime
-				  << ", segmentDuration=" << segmentDuration
-				  << ", seekTime=" << initial_seek_time
-				  << ", next=" << nextTime << std::endl;
-	}
-	else if (inputFormatCtx && videoStream >= 0)
-	{
-		// Fall back to calculating from stream metadata
-		double segmentDuration = 0.0;
-
-		// Get duration from stream
-		if (inputFormatCtx->streams[videoStream]->duration != AV_NOPTS_VALUE)
-		{
-			segmentDuration = inputFormatCtx->streams[videoStream]->duration *
-							  av_q2d(inputFormatCtx->streams[videoStream]->time_base);
-		}
-
-		std::cout << "--------- Using stream metadata duration: " << segmentDuration << " seconds" << std::endl;
-
-		// Calculate: original request time + (segment duration - seek time)
-		// This gives us the timestamp where playback ended
-		nextTime = originalRequestTime + static_cast<int>(segmentDuration - initial_seek_time) + 1;
-
-		std::cout << "Calculated next playback time: original=" << originalRequestTime
-				  << ", segmentDuration=" << segmentDuration
-				  << ", seekTime=" << initial_seek_time
-				  << ", next=" << nextTime << std::endl;
-	}
-	else
-	{
-		std::cout << "--------- Warning: No duration available, using original request time" << std::endl;
-	}
-
-	return nextTime;
-}
-
-bool FFmpegWrapper::isLiveMode()
-{
-	bool livemode = true;
-	if (playmode != "Live")
-		livemode = false;
-	return livemode;
-}
-
-AVCodecID FFmpegWrapper::probeCodec(const std::string& url)
-{
-	AVFormatContext* fmtCtx = avformat_alloc_context();
+	AVFormatContext *fmtCtx = avformat_alloc_context();
 	if (!fmtCtx)
 		return AV_CODEC_ID_NONE;
 
-	AVDictionary* options = nullptr;
-		av_dict_set(&options, "rtsp_transport", "tcp", 0);
+	AVDictionary *options = nullptr;
+	av_dict_set(&options, "rtsp_transport", "tcp", 0);
 
 	av_dict_set(&options, "max_delay", "2000000", 0);
 	av_dict_set(&options, "stimeout", "5000000", 0);

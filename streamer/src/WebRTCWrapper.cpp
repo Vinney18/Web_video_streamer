@@ -4,6 +4,8 @@
 #include <json/value.h>
 #include "Options.h"
 #include "PlayerServerClient.h"
+#include "LiveFFmpegWrapper.h"
+#include "PlaybackFFmpegWrapper.h"
 
 #include <boost/algorithm/string_regex.hpp>
 #include <boost/regex.hpp>
@@ -674,17 +676,11 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
         const uint8_t *frameStart;
         size_t frameSize;
 
-        if (timestamp < 0)
-        {
-            // Live mode — no prefix, raw H264 data
-            frameStart = data.data();
-            frameSize = data.size();
-        }
-        else if (data.size() > 8)
+        if (data.size() > 0)
         {
             // Playback mode — strip 8-byte position prefix
-            frameStart = data.data() + 8;
-            frameSize = data.size() - 8;
+            frameStart = data.data();
+            frameSize = data.size();
         }
         else
         {
@@ -867,7 +863,7 @@ void WebRTCWrapper::handlePlaybackFinished(const std::string &clientId, const st
 
             int newDuration_Seconds = static_cast<int>(round(newDuration_Minutes * 60));
 
-            auto ffmpeg = std::make_shared<FFmpegWrapper>(cameraId, nextUrl, mode, newSeekTime,
+            auto ffmpeg = std::make_shared<PlaybackFFmpegWrapper>(cameraId, nextUrl, newSeekTime,
                                                           sendDataFunc, sendStringDataFunc,
                                                           connectionmode, playerServerIp, playerServerPort,
                                                           mainLogger, playbackSpeed, nextTime, newDuration_Seconds);
@@ -878,7 +874,7 @@ void WebRTCWrapper::handlePlaybackFinished(const std::string &clientId, const st
             }
 
             ffmpeg->startThread();
-            ffmpeg->addConnection(peerConn);
+            ffmpeg->addConnToList(peerConn);
 
             {
                 std::lock_guard<std::mutex> lock(clientMapMutex);
@@ -973,10 +969,10 @@ void WebRTCWrapper::processRequest(const std::string &clientId, std::string &que
 
             if (ffmpegList.find(keyValue) == ffmpegList.end())
             {
-                auto ffmpeg = std::make_shared<FFmpegWrapper>(cameraId, url, mode, seekTime_ofFile,
+                auto ffmpeg = std::make_shared<LiveFFmpegWrapper>(cameraId, url,
                                                               sendDataFunc, sendStringDataFunc,
                                                               connectionmode, playerServerIp, playerServerPort,
-                                                              mainLogger, playbackSpeed);
+                                                              mainLogger);
                 ffmpegList[keyValue] = ffmpeg;
                 ffmpeg->startThread();
             }
@@ -984,7 +980,7 @@ void WebRTCWrapper::processRequest(const std::string &clientId, std::string &que
             auto ffmpeg = ffmpegList[keyValue];
             if (ffmpeg != nullptr)
             {
-                ffmpeg->addConnection(peerConn);
+                ffmpeg->addConnToList(peerConn);
             }
 
             {
@@ -999,7 +995,7 @@ void WebRTCWrapper::processRequest(const std::string &clientId, std::string &que
 
             int duration_in_Seconds = static_cast<int>(round(duration_in_Minutes * 60));
 
-            auto ffmpeg = std::make_shared<FFmpegWrapper>(cameraId, url, mode, seekTime_ofFile,
+            auto ffmpeg = std::make_shared<PlaybackFFmpegWrapper>(cameraId, url, seekTime_ofFile,
                                                           sendDataFunc, sendStringDataFunc,
                                                           connectionmode, playerServerIp, playerServerPort,
                                                           mainLogger, playbackSpeed, start_time_ofplaybackfile,
@@ -1011,7 +1007,7 @@ void WebRTCWrapper::processRequest(const std::string &clientId, std::string &que
             }
 
             ffmpeg->startThread();
-            ffmpeg->addConnection(peerConn);
+            ffmpeg->addConnToList(peerConn);
 
             {
                 std::lock_guard<std::mutex> lock(clientMapMutex);

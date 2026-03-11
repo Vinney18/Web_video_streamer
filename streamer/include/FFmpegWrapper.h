@@ -53,91 +53,87 @@ enum OutputType {
 	rgba
 };
 
+struct ProcessedPacket {
+	vector<uint8_t> mp4Data;
+	int64_t position;
+};
+
 class FFmpegWrapper : public virtual Thread
 {
-private:
+protected:
 	string cameraId;
 	string url;
-	string playmode;
-	int initial_seek_time = 0;
-	int originalRequestTime = 0;
-	int videoDuration=0;         // Original requested start time for playback
-	WebsocketDataCallback websocketCallback;
-	WebsocketSDataCallback websocketSCallback;
 	string connectionmode;
 	string serverIp;
 	int port = 8890;
 
-	bool fileseekingstarted = false;
-	bool playbackFileStared = false;
-	OutputType outputType; // The output type for this instance (mp4 or rgba)
-	con_list connections; // Single list of connections
-	std::mutex connectionsMutex; // Mutex to protect access to connections
-	std::vector<std::pair<webConnHdl, bool>> tempConnections;
-	//std::mutex connectionlock;
+	WebsocketDataCallback websocketCallback;
+	WebsocketSDataCallback websocketSCallback;
+
+	OutputType outputType;
+	con_list connections;
+	std::mutex connectionsMutex;
+
 	AVFormatContext* inputFormatCtx = NULL;
 	AVCodecContext* inputCodecCtx = NULL;
 	AVCodecID inputCodecID = AV_CODEC_ID_NONE;
 
 	int inputFPS = 0;
 	int videoStream = -1;
-	
+
 	bool isVideoStartedEventsent = false;
 	InterruptParams params;
 
 	std::shared_ptr<spdlog::logger> logger;
-	std::chrono::duration<double, std::milli> frameDuration;
-	float fastForwardFactor = 1;
 
 public:
-	FFmpegWrapper(string _cameraId, string _url, string _playmode, int start_seek_time, WebsocketDataCallback _websocketCallback,
-			WebsocketSDataCallback _websocketSCallback, string _connectionmode, string _serverIp, int _port,
-			std::shared_ptr<spdlog::logger> _logger, float playbackSpeed, int _requestTime = 0, int _playbackFileDuration=0) : Thread(), logger(std::move(_logger)) {
+	FFmpegWrapper(string _cameraId, string _url,
+			WebsocketDataCallback _websocketCallback,
+			WebsocketSDataCallback _websocketSCallback,
+			string _connectionmode, string _serverIp, int _port,
+			std::shared_ptr<spdlog::logger> _logger) : Thread(), logger(std::move(_logger)) {
 		cameraId = _cameraId;
 		url = std::move(_url);
-		playmode = _playmode;
-		initial_seek_time = start_seek_time;
-		originalRequestTime = _requestTime;
-		videoDuration = _playbackFileDuration;
 		websocketCallback = _websocketCallback;
 		websocketSCallback = _websocketSCallback;
 		connectionmode = _connectionmode;
-		outputType = mp4; // Default, will be set based on codec
+		outputType = mp4;
 		serverIp = _serverIp;
 		port = _port;
-		fastForwardFactor = playbackSpeed;
 	}
 
-	~FFmpegWrapper();
+	virtual ~FFmpegWrapper();
 
-	void addConnection(webConnHdl connHdl);
 	bool removeConnection(webConnHdl connHdl);
-	void seek_video(int offset_time);
 	void Pause_video();
 	void SendVideoStartedEvent();
-	void FastForward_video(float factor);
-	int getNextPlaybackTime();  // Returns the next playback time in seconds when segment finishes
+
+	// Playback-specific — no-op defaults so callers don't need dynamic_cast
+	virtual void seek_video(int offset_time) { (void)offset_time; }
+	virtual void FastForward_video(float factor) { (void)factor; }
+	virtual int getNextPlaybackTime() { return 0; }
 
 	// Lightweight probe: opens stream, detects video codec, closes. Returns AV_CODEC_ID_NONE on failure.
 	static AVCodecID probeCodec(const std::string& url);
 
-
 protected:
-	virtual int run() override;
+	int run() override;
 
-private:
-	void addConnToList(webConnHdl hdl);
+	// Virtual hooks called by readInput() — subclasses implement mode-specific behavior
+	virtual ProcessedPacket processPacket(AVPacket& packet, int64_t firstDts, int64_t frameCount) = 0;
+	virtual void onReadLoopFinished() = 0;
+
+public:
+	void addConnToList(webConnHdl &hdl);
+	void sendVideoInformation(webConnHdl &connHdl);
 
 	bool openInput();
-	
+
 	bool GetInputCodecInfo();
 
 	void readInput();
 
 	void closeInput();
-
-	bool isLiveMode();
-
 
 public:
 	static double GetTickCount(void)
@@ -148,7 +144,7 @@ public:
 			return 0;
 		auto v = now.tv_sec * 1000.0 + now.tv_nsec / 1000000.0;
 		return v;
-#else		
+#else
 		return GetTickCount64();
 #endif
 	}
