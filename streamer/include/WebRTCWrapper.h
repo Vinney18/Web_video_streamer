@@ -9,7 +9,7 @@
 #include <variant>
 #include <functional>
 #include <spdlog/spdlog.h>
-#include "FFmpegWrapper.h"
+#include "Ffmpeg/FFmpegWrapper.h"
 #include "PlayerServerClient.h"
 #include "common.h"
 

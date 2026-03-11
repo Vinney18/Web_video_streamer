@@ -4,8 +4,8 @@
 #include <json/value.h>
 #include "Options.h"
 #include "PlayerServerClient.h"
-#include "LiveFFmpegWrapper.h"
-#include "PlaybackFFmpegWrapper.h"
+#include "Ffmpeg/LiveFFmpegWrapper.h"
+#include "Ffmpeg/PlaybackFFmpegWrapper.h"
 
 #include <boost/algorithm/string_regex.hpp>
 #include <boost/regex.hpp>
