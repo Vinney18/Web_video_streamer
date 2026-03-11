@@ -324,7 +324,24 @@ void WebRTCWrapper::handleRequest(const std::string &clientId, const std::string
                              avcodec_get_name(codecId), (int)codecId);
         }
 
-        // 4. Create peer connection with correct packetizer based on actual codec
+        // 4. Reject unsupported codecs
+        if (codecId != AV_CODEC_ID_H264 && codecId != AV_CODEC_ID_H265)
+        {
+            if (mainLogger)
+            {
+                mainLogger->error("Unsupported codec for client {}: {}", clientId, avcodec_get_name(codecId));
+            }
+
+            Json::Value errorMsg;
+            errorMsg["type"] = "error";
+            errorMsg["message"] = std::string("Unsupported codec: ") + avcodec_get_name(codecId);
+
+            Json::StreamWriterBuilder writerBuilder;
+            signalingTransport_.sendMessage(clientId, Json::writeString(writerBuilder, errorMsg));
+            return;
+        }
+
+        // 5. Create peer connection with correct packetizer based on actual codec
         createPeerConnection(clientId, query, url, codecId);
 
         // 5. Create FFmpegWrapper and start streaming

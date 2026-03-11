@@ -17,7 +17,6 @@ int FFmpegWrapper::run()
 		{
 			params.isRunning = true;
 			GetInputCodecInfo();
-			createRgbaOutput();
 
 			if (!tempConnections.empty())
 			{
@@ -47,7 +46,6 @@ int FFmpegWrapper::run()
 
 				readInput();
 
-				freeRgbaOutMemory();
 				closeInput();
 			}
 		}
@@ -116,19 +114,12 @@ FFmpegWrapper::~FFmpegWrapper()
 
 void FFmpegWrapper::readInput()
 {
-	int frameFinished;
 	AVPacket packet;
-	AVPixelFormat pixFormat;
 
 	if (inputFPS == 0 || inputFPS < 0 || inputFPS > 100)
 	{
 		inputFPS = 25;
 	}
-
-	std::mutex mut;
-
-	AVPacket packetEncoded;
-	av_init_packet(&packetEncoded);
 
 	try
 	{
@@ -341,11 +332,7 @@ bool FFmpegWrapper::openInput()
 	AVDictionary *options1 = nullptr;
 	try
 	{
-		if (connectionmode == "tcp")
-		{
-			av_dict_set(&options1, "rtsp_transport", "tcp", 0);
-		}
-		else if (connectionmode == "udp")
+		if (connectionmode == "udp")
 		{
 			av_dict_set(&options1, "rtsp_transport", "udp", 0);
 		}
@@ -425,61 +412,6 @@ bool FFmpegWrapper::GetInputCodecInfo()
 	return true;
 }
 
-bool FFmpegWrapper::createRgbaOutput()
-{
-	if (this->inputCodecCtx == NULL)
-	{
-		fprintf(stderr, "Unsupported codec!\n");
-		return false;
-	}
-	// Find the decoder for the video stream
-	this->decoderCodec = avcodec_find_decoder(this->inputCodecCtx->codec_id);
-	if (this->decoderCodec == NULL)
-	{
-		fprintf(stderr, "Unsupported codec!\n");
-		return false; // Codec not found
-	}
-
-	// Copy context
-	this->decoderCodecContext = avcodec_alloc_context3(this->decoderCodec);
-	if (avcodec_copy_context(this->decoderCodecContext, this->inputCodecCtx) != 0)
-	{
-		fprintf(stderr, "Couldn't copy codec context");
-		return false; // Error copying codec context
-	}
-	// this->decoderCodecContext->
-	//  Open codec
-	if (avcodec_open2(this->decoderCodecContext, this->decoderCodec, NULL) < 0)
-		return false; // Could not open codec
-
-	// Allocate video frame
-	pFrame = av_frame_alloc();
-
-	// Allocate the RGB frame
-	rgb_frame = av_frame_alloc();
-	if (rgb_frame == NULL)
-	{
-		std::cerr << "Error allocating RGB frame" << std::endl;
-		return false;
-	}
-
-	return true;
-}
-
-void FFmpegWrapper::freeRgbaOutMemory()
-{
-	// Free the YUV frame
-	av_frame_free(&pFrame);
-
-	// Clean up
-	av_free(buffer);
-	sws_freeContext(conversion_context);
-	av_frame_free(&rgb_frame);
-
-	// Close the codecs
-	avcodec_close(decoderCodecContext);
-}
-
 void FFmpegWrapper::closeInput()
 {
 	try
@@ -509,33 +441,16 @@ void FFmpegWrapper::addConnection(webConnHdl connHdl)
 		{
 			inputFPS = 25;
 		}
-		string data = to_string(pFrame->width) + "x" + to_string(pFrame->height) + "x" + to_string(inputFPS);
+		string data = to_string(inputCodecCtx->width) + "x" + to_string(inputCodecCtx->height) + "x" + to_string(inputFPS);
 
-		if (inputCodecID == AV_CODEC_ID_H264 || inputCodecID == AV_CODEC_ID_H265)
+		outputType = mp4;
+		websocketSCallback(connHdl, "mp4");
+		websocketSCallback(connHdl, "mp4 " + data);
+		if (isLiveMode())
 		{
-			outputType = mp4;
-			websocketSCallback(connHdl, "mp4");
-			websocketSCallback(connHdl, "mp4 " + data);
-			if (isLiveMode())
-			{
-				SendVideoStartedEvent();
-			}
-			addConnToList(connHdl);
+			SendVideoStartedEvent();
 		}
-		else
-		{
-			outputType = rgba;
-			// string data = "rgba " + to_string(pFrame->width) + "x" + to_string(pFrame->height) + "x" + to_string(inputFPS);
-			websocketSCallback(connHdl, "rgba");
-			// send only if pframe width is not 0, i.e this stream is getting played for first time
-			// any subsequent connection will get the data from the first connection, thus width will not be 0
-			// need to send this data to client for each connection to make the canvas
-			if (pFrame->width != 0)
-			{
-				websocketSCallback(connHdl, "rgba " + data);
-			}
-			addConnToList(connHdl);
-		}
+		addConnToList(connHdl);
 	}
 }
 
@@ -614,7 +529,6 @@ void FFmpegWrapper::seek_video(int time_toSeek_insec)
 	{
 		return;
 	}
-
 	if (time_toSeek_insec > 0)
 	{
 		if (fileseekingstarted && !playbackFileStared)
@@ -630,7 +544,6 @@ void FFmpegWrapper::seek_video(int time_toSeek_insec)
 			target_dts_usecs += first_dts_usecs;
 			try
 			{
-				avcodec_flush_buffers(this->decoderCodecContext);
 				int rv = av_seek_frame(this->inputFormatCtx, -1, target_dts_usecs, AVSEEK_FLAG_FRAME);
 				if (rv < 0)
 				{
@@ -742,10 +655,10 @@ AVCodecID FFmpegWrapper::probeCodec(const std::string& url)
 	AVDictionary* options = nullptr;
 		av_dict_set(&options, "rtsp_transport", "tcp", 0);
 
-	av_dict_set(&options, "max_delay", "500000000", 0);
-	av_dict_set(&options, "stimeout", "1500000000", 0);
-	av_dict_set(&options, "analyzeduration", "1000000000", 0);
-	av_dict_set(&options, "probesize", "1000000000", 0);
+	av_dict_set(&options, "max_delay", "2000000", 0);
+	av_dict_set(&options, "stimeout", "5000000", 0);
+	av_dict_set(&options, "analyzeduration", "300000", 0);
+	av_dict_set(&options, "probesize", "7000000", 0);
 
 	if (avformat_open_input(&fmtCtx, url.c_str(), NULL, &options) != 0)
 	{

@@ -18,7 +18,6 @@ extern "C"
 #include <libavutil/dict.h>
 #include <libavcodec/avcodec.h>
 #include <libavcodec/vaapi.h>
-#include <libswscale/swscale.h>
 #include <libavformat/avio.h>
 #include "libavutil/buffer.h"
 #include "libavutil/imgutils.h"
@@ -80,16 +79,9 @@ private:
 	AVCodecContext* inputCodecCtx = NULL;
 	AVCodecID inputCodecID = AV_CODEC_ID_NONE;
 
-	AVFrame* pFrame = NULL;
-	AVFrame* rgb_frame = NULL;
-	SwsContext* conversion_context = NULL;
-	uint8_t* buffer = NULL;
-
 	int inputFPS = 0;
 	int videoStream = -1;
 	
-	AVCodec* decoderCodec = NULL;
-	AVCodecContext* decoderCodecContext = NULL;
 	bool isVideoStartedEventsent = false;
 	InterruptParams params;
 
@@ -139,11 +131,9 @@ private:
 	bool openInput();
 	
 	bool GetInputCodecInfo();
-	bool createRgbaOutput();
 
 	void readInput();
 
-	void freeRgbaOutMemory();
 	void closeInput();
 
 	bool isLiveMode();

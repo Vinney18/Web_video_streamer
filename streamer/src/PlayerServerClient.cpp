@@ -94,7 +94,7 @@ std::string PlayerServerClient::resolveStreamUrl(const std::string& query)
     //         return GetPlayBackUrl(cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile);
     //     }
     // }
-    return "/webwork/12-12-31.ts"; // For testing only, remove this line in production
+    return "/webwork/cial.ts"; // For testing only, remove this line in production
 
     // return "rtsp://admin:Admin@123@192.168.7.242:554/enr/live/1/1"; // For testing only, remove this line in production
 }

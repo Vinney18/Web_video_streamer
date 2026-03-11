@@ -143,7 +143,7 @@ void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket>
         logger_->info("New WebSocket connection: {}", clientId);
     }
 
-    std::cout << "New WebSocket connection: " << clientId << std::endl;
+    std::cout << "New WebSocket connection: " << clientId << " threadId: " << std::this_thread::get_id() << std::endl;
 
     {
         std::lock_guard<std::mutex> lock(connectionsMutex_);
@@ -164,6 +164,7 @@ void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket>
 
     ws->onMessage([this, clientId](std::variant<rtc::binary, std::string> data)
                   {
+                    std::cout << "on WebSocket message: " << clientId << " threadId: " << std::this_thread::get_id() << std::endl;
         if (std::holds_alternative<std::string>(data)) {
             onMessage(clientId, std::get<std::string>(data));
         } });
