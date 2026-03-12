@@ -4,7 +4,7 @@
 #include "Util.h"
 #include <spdlog/spdlog.h>
 #include <spdlog/async.h>
-#include "WebSocketSignalingServer.h"
+#include "SignalingServers/WebSocketSignalingServer.h"
 
 extern "C" {
 #include <libavformat/avformat.h>

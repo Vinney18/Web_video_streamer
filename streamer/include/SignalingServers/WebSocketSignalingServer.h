@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ISignalingServer.h"
+#include "SignalingServers/ISignalingServer.h"
 #include <rtc/rtc.hpp>
 #include <string>
 #include <map>

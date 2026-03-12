@@ -1,4 +1,4 @@
-#include "WebSocketSignalingServer.h"
+#include "SignalingServers/WebSocketSignalingServer.h"
 #include "WebRTCWrapper.h"
 #include "json/json.h"
 #include <iostream>
