@@ -30,6 +30,9 @@ WebRTCWrapper::WebRTCWrapper(const std::string &playerIp, int playerPort,
       playerServerPort(playerPort),
       mainLogger(logger)
 {
+    rtc::InitLogger(rtc::LogLevel::Warning);
+    rtc::SetThreadPoolSize(2);
+
     PlayerServerClient::init(playerIp, playerPort, logger, isVMS, vmsUser, vmsPassword);
 
     if (mainLogger)

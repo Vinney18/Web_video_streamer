@@ -58,9 +58,6 @@ int main(int argc, char* argv[])
 
 	// Create a WebRTC server endpoint
 	try {
-		rtc::InitLogger(rtc::LogLevel::Warning);
-		rtc::SetThreadPoolSize(2);
-
 		if (mainLogger) { mainLogger->info("Starting signaling server on port: {}", websocket_server_port); }
 		if (mainLogger) { mainLogger->info("Player server IP is: {0} and port is: {1}", playerServerIp, playerServerPort); }
 

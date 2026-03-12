@@ -112,7 +112,7 @@ std::string PlayerServerClient::resolveStreamUrl(const std::string &query)
     }
     else
     {
-        return "rtsp://192.168.29.227:554/cial.ts"; // For testing only, remove this line in production
+        return "rtsp://192.168.4.114:554/cial.ts"; // For testing only, remove this line in production
     }
 }
 
