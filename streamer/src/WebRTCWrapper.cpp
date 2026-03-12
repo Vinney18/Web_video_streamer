@@ -39,6 +39,7 @@ WebRTCWrapper::WebRTCWrapper(const std::string &playerIp, int playerPort,
     {
         mainLogger->info("WebRTCWrapper initialized");
     }
+    
 }
 
 WebRTCWrapper::~WebRTCWrapper()
