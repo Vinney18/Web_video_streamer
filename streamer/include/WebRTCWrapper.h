@@ -85,7 +85,6 @@ private:
 
     // Utility methods
     int generateAndCheckRandomNumber();
-    void handlePlaybackFinished(const std::string& clientId, const std::string& jsonData);
 
     // Member variables
     std::string playerServerIp;
