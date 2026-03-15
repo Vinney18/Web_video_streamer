@@ -1,33 +1,14 @@
-#include <boost/filesystem.hpp>
-#include "Options.h"
 #include "CLI11.hpp"
 #include "Util.h"
 #include <spdlog/spdlog.h>
 #include <spdlog/async.h>
+#include "AppConfig.h"
 #include "SignalingServers/WebSocketSignalingServer.h"
 
 extern "C" {
 #include <libavformat/avformat.h>
 }
 using namespace i2v;
-
-#pragma once
-
-///Variables
-std::string mainConfigFile;
-std::string playerServerIp;
-int playerServerPort, websocket_server_port;
-spdlog::level::level_enum log_level;
-
-std::shared_ptr<spdlog::logger> mainLogger;
-
-// config File Related
-void setDefaultValues(Options& opt);
-void loadMainConfig();
-
-bool isVMS = false;
-std::string vmsStreamUserName = "";
-std::string vmsStreamPassword = "";
 
 
 int main(int argc, char* argv[])
@@ -44,80 +25,36 @@ int main(int argc, char* argv[])
 	std::string config_dir_path = i2v::Util::getConfigFolderPath();
 	i2v::Util::createDirectories(config_dir_path); // config directory
 
-	mainConfigFile = config_dir_path + "/mainConf.json";
-	loadMainConfig();
+	std::string mainConfigFile = config_dir_path + "/mainConf.json";
+	AppConfig::instance().load(mainConfigFile);
 
 	std::string mainLogFolder = i2v::Util::getLogsFolderPath();
 	i2v::Util::createDirectories(mainLogFolder); // log directory
 
 	// create logger
 	std::string logFilePrefix = "log_";
-	mainLogger = i2v::Util::createAsyncLoggerAndRegister(i2v::MAIN_LOGGER_NAME, mainLogFolder, logFilePrefix, show_logs_on_console, log_level);
+	auto logLevel = static_cast<spdlog::level::level_enum>(AppConfig::instance().getInt("logLevel"));
+	auto mainLogger = i2v::Util::createAsyncLoggerAndRegister(i2v::MAIN_LOGGER_NAME, mainLogFolder, logFilePrefix, show_logs_on_console, logLevel);
 	if (not mainLogger) { std::cout << "Unable to create logger !!!" << std::endl; }
-	else { mainLogger->info("Logger created Successfully"); }
+	else {
+		AppConfig::instance().setLogger(mainLogger);
+		mainLogger->info("Logger created Successfully");
+	}
 
 	// Create a WebRTC server endpoint
 	try {
-		if (mainLogger) { mainLogger->info("Starting signaling server on port: {}", websocket_server_port); }
-		if (mainLogger) { mainLogger->info("Player server IP is: {0} and port is: {1}", playerServerIp, playerServerPort); }
+		auto& cfg = AppConfig::instance();
+		if (cfg.logger()) { cfg.logger()->info("Starting signaling server on port: {}", cfg.getInt("websocket_server_port")); }
+		if (cfg.logger()) { cfg.logger()->info("Player server IP is: {0} and port is: {1}", cfg.get("playerServerIp"), cfg.getInt("playerServerPort")); }
 
-		WebSocketSignalingServer server(websocket_server_port, playerServerIp, playerServerPort,
-		                                mainLogger, isVMS, vmsStreamUserName, vmsStreamPassword);
+		WebSocketSignalingServer server(cfg.getInt("websocket_server_port"), cfg.logger());
 		server.run();
 
 	}
 	catch (const std::exception& ex) {
-		if (mainLogger) { mainLogger->error("main Error in WebRTC server: {}", ex.what()); }
+		auto logger = AppConfig::instance().logger();
+		if (logger) { logger->error("main Error in WebRTC server: {}", ex.what()); }
 		else { std::cout << ex.what() << std::endl; }
-	}
-}
-
-
-
-
-/// config related
-void setDefaultValues(Options& opt) {
-	websocket_server_port = i2v::WEBSOCKET_SERVER_PORT;
-	playerServerIp = i2v::PLAYER_SERVER_IP;
-	playerServerPort = i2v::PLAYER_SERVER_PORT;
-	log_level = spdlog::level::level_enum::info;
-	vmsStreamUserName = i2v::VMS_STREAM_USERNAME;
-	vmsStreamPassword = i2v::VMS_STREAM_PASSWORD;
-
-	opt.add("websocket_server_port", websocket_server_port);
-	opt.add("playerServerIp", playerServerIp);
-	opt.add("playerServerPort", playerServerPort);
-	opt.add("logLevel", static_cast<int>(log_level));
-	opt.add("isVMS", false);
-	opt.add("vmsStreamUserName", vmsStreamUserName);
-	opt.add("vmsStreamPassword", vmsStreamPassword);
-}
-
-void loadMainConfig() {
-	Options configoptions;
-	if (boost::filesystem::exists(mainConfigFile)) {
-
-		configoptions.readFile(mainConfigFile);
-
-		websocket_server_port = configoptions.get<int>("websocket_server_port", i2v::WEBSOCKET_SERVER_PORT);
-		playerServerIp = configoptions.get<std::string>("playerServerIp", i2v::PLAYER_SERVER_IP);
-		playerServerPort = configoptions.get<int>("playerServerPort", i2v::PLAYER_SERVER_PORT);
-		isVMS = configoptions.get<bool>("isVMS", false);
-		vmsStreamUserName = configoptions.get<std::string>("vmsStreamUserName", i2v::VMS_STREAM_USERNAME);
-		vmsStreamPassword = configoptions.get<std::string>("vmsStreamPassword", i2v::VMS_STREAM_PASSWORD);
-
-		// log level
-		int level = configoptions.get<int>("logLevel", -1);
-		// level = 0; // Force log level to info for now, can be changed later if needed
-		if (level < 0 or level > 6) {
-			level = static_cast<int>(spdlog::level::level_enum::info);
-		}
-		log_level = static_cast<spdlog::level::level_enum>(level);
-	}
-	else
-	{
-		setDefaultValues(configoptions);
-		configoptions.writeFile(mainConfigFile, true);
 	}
 }
 // cd /webwork/build && cmake .. && make -j$(nproc)

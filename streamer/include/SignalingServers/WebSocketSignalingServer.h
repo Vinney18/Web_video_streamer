@@ -13,9 +13,7 @@ class WebRTCWrapper;
 
 class WebSocketSignalingServer : public ISignalingServer {
 public:
-    WebSocketSignalingServer(int port, const std::string& playerIp, int playerPort,
-                             std::shared_ptr<spdlog::logger> logger, bool isVMS,
-                             const std::string& vmsUser, const std::string& vmsPassword);
+    WebSocketSignalingServer(int port, std::shared_ptr<spdlog::logger> logger);
     ~WebSocketSignalingServer() override;
 
     void run() override;

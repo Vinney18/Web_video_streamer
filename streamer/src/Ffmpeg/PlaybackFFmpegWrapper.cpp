@@ -4,15 +4,13 @@ PlaybackFFmpegWrapper::PlaybackFFmpegWrapper(string _cameraId, string _url,
 		int start_seek_time,
 		WebsocketDataCallback _websocketCallback,
 		WebsocketSDataCallback _websocketSCallback,
-		string _connectionmode, string _serverIp, int _port,
-		std::shared_ptr<spdlog::logger> _logger,
+		string _connectionmode,
 		float playbackSpeed,
 		int _requestTime,
 		int _playbackFileDuration)
 	: FFmpegWrapper(std::move(_cameraId), std::move(_url),
 					_websocketCallback, _websocketSCallback,
-					std::move(_connectionmode), std::move(_serverIp), _port,
-					std::move(_logger))
+					std::move(_connectionmode))
 {
 	initial_seek_time = start_seek_time;
 	originalRequestTime = _requestTime;

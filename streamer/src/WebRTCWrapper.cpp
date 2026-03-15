@@ -1,4 +1,5 @@
 #include "WebRTCWrapper.h"
+#include "AppConfig.h"
 #include "common.h"
 #include "json/json.h"
 #include <json/value.h>
@@ -23,23 +24,18 @@
 
 using namespace std;
 
-WebRTCWrapper::WebRTCWrapper(const std::string &playerIp, int playerPort,
-                             std::shared_ptr<spdlog::logger> logger, bool isVMS,
-                             const std::string &vmsUser, const std::string &vmsPassword)
-    : playerServerIp(playerIp),
-      playerServerPort(playerPort),
-      mainLogger(logger)
+WebRTCWrapper::WebRTCWrapper()
+    : mainLogger(AppConfig::instance().logger())
 {
     rtc::InitLogger(rtc::LogLevel::Warning);
     rtc::SetThreadPoolSize(2);
 
-    PlayerServerClient::init(playerIp, playerPort, logger, isVMS, vmsUser, vmsPassword);
+    PlayerServerClient::init();
 
     if (mainLogger)
     {
         mainLogger->info("WebRTCWrapper initialized");
     }
-    
 }
 
 WebRTCWrapper::~WebRTCWrapper()
@@ -59,7 +55,7 @@ void WebRTCWrapper::setSignalingTransport(SignalingTransport transport)
     signalingTransport_ = std::move(transport);
 }
 
-void WebRTCWrapper::tryCloseSignaling(const std::string &clientId)
+void WebRTCWrapper::tryCloseSignaling(const std::string &clientId, std::string query, const std::string &url)
 {
     // Must be called with connectionsMutex already held
     auto it = connections.find(clientId);
@@ -69,6 +65,7 @@ void WebRTCWrapper::tryCloseSignaling(const std::string &clientId)
     auto &info = it->second;
     if (info->isConnected && info->iceConnected && info->gatheringComplete)
     {
+        processRequest(clientId, query, url);
         if (mainLogger)
         {
             mainLogger->info("Client {} fully connected - closing WebSocket", clientId);
@@ -106,7 +103,7 @@ void WebRTCWrapper::setupVideoTrack(std::shared_ptr<rtc::PeerConnection> pc,
 }
 
 void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std::string &query,
-                                          const std::string &url, AVCodecID codecId)
+                                         const std::string &url, AVCodecID codecId)
 {
     try
     {
@@ -129,7 +126,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
         connInfo->query = query;
 
         // Set up state change callbacks
-        pc->onStateChange([this, clientId](rtc::PeerConnection::State state)
+        pc->onStateChange([this, clientId, query, url](rtc::PeerConnection::State state)
                           {
             if (mainLogger) {
                 mainLogger->info("Client {} peer connection state: {}", clientId, (int)state);
@@ -140,7 +137,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
                 auto it = connections.find(clientId);
                 if (it != connections.end()) {
                     it->second->isConnected = true;
-                    tryCloseSignaling(clientId);
+                    tryCloseSignaling(clientId,query,url);
                 }
             }
             else if (state == rtc::PeerConnection::State::Disconnected ||
@@ -152,7 +149,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
                 removeConnection(clientId);
             } });
 
-        pc->onIceStateChange([this, clientId](rtc::PeerConnection::IceState state)
+        pc->onIceStateChange([this, clientId, query, url](rtc::PeerConnection::IceState state)
                              {
             if (mainLogger) {
                 mainLogger->info("Client {} ICE connection state: {}", clientId, (int)state);
@@ -163,11 +160,11 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
                 auto it = connections.find(clientId);
                 if (it != connections.end()) {
                     it->second->iceConnected = true;
-                    tryCloseSignaling(clientId);
+                    tryCloseSignaling(clientId,query,url);
                 }
             } });
 
-        pc->onGatheringStateChange([this, clientId](rtc::PeerConnection::GatheringState state)
+        pc->onGatheringStateChange([this, clientId, query, url](rtc::PeerConnection::GatheringState state)
                                    {
             if (mainLogger) {
                 mainLogger->debug("Client {} ICE gathering state: {}", clientId, (int)state);
@@ -178,7 +175,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
                 auto it = connections.find(clientId);
                 if (it != connections.end()) {
                     it->second->gatheringComplete = true;
-                    tryCloseSignaling(clientId);
+                    tryCloseSignaling(clientId,query,url);
                 }
             } });
 
@@ -284,7 +281,6 @@ void WebRTCWrapper::handleRequest(const std::string &clientId, const std::string
             return;
         }
 
-
         // 3. Probe actual codec from stream before creating peer connection
         AVCodecID codecId = FFmpegWrapper::probeCodec(url);
         if (mainLogger)
@@ -313,9 +309,9 @@ void WebRTCWrapper::handleRequest(const std::string &clientId, const std::string
         // 5. Create peer connection with correct packetizer based on actual codec
         createPeerConnection(clientId, query, url, codecId);
 
-        // 5. Create FFmpegWrapper and start streaming
-        std::string queryCopy = query;
-        processRequest(clientId, queryCopy, url);
+        // // 5. Create FFmpegWrapper and start streaming
+        // std::string queryCopy = query;
+        // processRequest(clientId, queryCopy, url);
     }
     catch (const std::exception &ex)
     {
@@ -703,7 +699,6 @@ void WebRTCWrapper::SendStringData(rtcConnHdl &conn, std::string sdata)
         auto dc = it->second->dataChannel;
         std::string clientId = it->second->clientId;
 
-
         // Send string message via data channel
         if (dc->isOpen())
         {
@@ -718,7 +713,6 @@ void WebRTCWrapper::SendStringData(rtcConnHdl &conn, std::string sdata)
         }
     }
 }
-
 
 void WebRTCWrapper::processRequest(const std::string &clientId, std::string &query, const std::string &url)
 {
@@ -763,13 +757,11 @@ void WebRTCWrapper::processRequest(const std::string &clientId, std::string &que
 
         // Create FFmpeg wrapper
         rtcConnHdl peerConn;
+
+        auto it = connections.find(clientId);
+        if (it != connections.end())
         {
-            std::lock_guard<std::mutex> lock(connectionsMutex);
-            auto it = connections.find(clientId);
-            if (it != connections.end())
-            {
-                peerConn = it->second->peerConnection;
-            }
+            peerConn = it->second->peerConnection;
         }
 
         if (!peerConn)
@@ -794,9 +786,8 @@ void WebRTCWrapper::processRequest(const std::string &clientId, std::string &que
             if (ffmpegList.find(keyValue) == ffmpegList.end())
             {
                 auto ffmpeg = std::make_shared<LiveFFmpegWrapper>(cameraId, url,
-                                                              sendDataFunc, sendStringDataFunc,
-                                                              connectionmode, playerServerIp, playerServerPort,
-                                                              mainLogger);
+                                                                  sendDataFunc, sendStringDataFunc,
+                                                                  connectionmode);
                 ffmpegList[keyValue] = ffmpeg;
                 ffmpeg->startThread();
             }
@@ -820,10 +811,9 @@ void WebRTCWrapper::processRequest(const std::string &clientId, std::string &que
             int duration_in_Seconds = static_cast<int>(round(duration_in_Minutes * 60));
 
             auto ffmpeg = std::make_shared<PlaybackFFmpegWrapper>(cameraId, url, seekTime_ofFile,
-                                                          sendDataFunc, sendStringDataFunc,
-                                                          connectionmode, playerServerIp, playerServerPort,
-                                                          mainLogger, playbackSpeed, start_time_ofplaybackfile,
-                                                          duration_in_Seconds);
+                                                                  sendDataFunc, sendStringDataFunc,
+                                                                  connectionmode, playbackSpeed, start_time_ofplaybackfile,
+                                                                  duration_in_Seconds);
 
             {
                 std::lock_guard<std::mutex> lock(ffmpegListMutex);

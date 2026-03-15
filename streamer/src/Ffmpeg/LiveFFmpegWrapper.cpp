@@ -3,12 +3,10 @@
 LiveFFmpegWrapper::LiveFFmpegWrapper(string _cameraId, string _url,
 		WebsocketDataCallback _websocketCallback,
 		WebsocketSDataCallback _websocketSCallback,
-		string _connectionmode, string _serverIp, int _port,
-		std::shared_ptr<spdlog::logger> _logger)
+		string _connectionmode)
 	: FFmpegWrapper(std::move(_cameraId), std::move(_url),
 					_websocketCallback, _websocketSCallback,
-					std::move(_connectionmode), std::move(_serverIp), _port,
-					std::move(_logger))
+					std::move(_connectionmode))
 {
 }
 

@@ -161,7 +161,7 @@ bool FFmpegWrapper::openInput()
 	}
 	catch (boost::bad_lexical_cast)
 	{
-		// bad parameter
+		std::cout << "Invalid connection mode: " << connectionmode << ". Defaulting to TCP." << std::endl;
 	}
 
 	this->params.lastStopped = GetTickCount();
@@ -222,7 +222,7 @@ bool FFmpegWrapper::GetInputCodecInfo()
 		inputFPS = 25;
 	}
 
-	std::cout << "-------------Input FPS: " << this->inputFPS << " url " << url << "  camera id  " << cameraId << std::endl;
+	// std::cout << "-------------Input FPS: " << this->inputFPS << " url " << url << "  camera id  " << cameraId << std::endl;
 
 	return true;
 }

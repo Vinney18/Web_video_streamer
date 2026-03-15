@@ -26,6 +26,7 @@ extern "C"
 }
 
 #include <spdlog/spdlog.h>
+#include "AppConfig.h"
 
 #ifndef FFMPEGWRAPPER_H
 #define FFMPEGWRAPPER_H
@@ -64,8 +65,6 @@ protected:
 	string cameraId;
 	string url;
 	string connectionmode;
-	string serverIp;
-	int port = 8890;
 
 	WebsocketDataCallback websocketCallback;
 	WebsocketSDataCallback websocketSCallback;
@@ -90,16 +89,13 @@ public:
 	FFmpegWrapper(string _cameraId, string _url,
 			WebsocketDataCallback _websocketCallback,
 			WebsocketSDataCallback _websocketSCallback,
-			string _connectionmode, string _serverIp, int _port,
-			std::shared_ptr<spdlog::logger> _logger) : Thread(), logger(std::move(_logger)) {
+			string _connectionmode) : Thread(), logger(AppConfig::instance().logger()) {
 		cameraId = _cameraId;
 		url = std::move(_url);
 		websocketCallback = _websocketCallback;
 		websocketSCallback = _websocketSCallback;
 		connectionmode = _connectionmode;
 		outputType = mp4;
-		serverIp = _serverIp;
-		port = _port;
 	}
 
 	virtual ~FFmpegWrapper();

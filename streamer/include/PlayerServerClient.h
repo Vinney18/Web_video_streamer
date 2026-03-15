@@ -6,11 +6,7 @@
 
 class PlayerServerClient {
 public:
-    static void init(const std::string& serverIp, int serverPort,
-                     std::shared_ptr<spdlog::logger> logger,
-                     bool isVMS = false,
-                     const std::string& vmsUser = "",
-                     const std::string& vmsPassword = "");
+    static void init();
 
     static std::string resolveStreamUrl(const std::string& query);
     static std::string GetLiveUrl(const std::string& cameraId, int streamType,

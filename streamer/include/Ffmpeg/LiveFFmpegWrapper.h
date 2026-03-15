@@ -10,8 +10,7 @@ public:
 	LiveFFmpegWrapper(string _cameraId, string _url,
 			WebsocketDataCallback _websocketCallback,
 			WebsocketSDataCallback _websocketSCallback,
-			string _connectionmode, string _serverIp, int _port,
-			std::shared_ptr<spdlog::logger> _logger);
+			string _connectionmode);
 
 	~LiveFFmpegWrapper() override = default;
 

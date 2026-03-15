@@ -47,9 +47,7 @@ struct WebRTCConnectionInfo {
 
 class WebRTCWrapper {
 public:
-    WebRTCWrapper(const std::string& playerIp, int playerPort,
-                  std::shared_ptr<spdlog::logger> logger, bool isVMS,
-                  const std::string& vmsUser, const std::string& vmsPassword);
+    WebRTCWrapper();
     ~WebRTCWrapper();
 
     // Signaling provides its transport capabilities
@@ -76,7 +74,7 @@ private:
     void processRequest(const std::string& clientId, std::string& query, const std::string& url);
 
     // Connection lifecycle
-    void tryCloseSignaling(const std::string& clientId);  // call with connectionsMutex held
+    void tryCloseSignaling(const std::string& clientId, std::string query, const std::string& url);  // call with connectionsMutex held
 
     // Video track setup (codec-specific packetizer selection)
     void setupVideoTrack(std::shared_ptr<rtc::PeerConnection> pc,
@@ -87,8 +85,6 @@ private:
     int generateAndCheckRandomNumber();
 
     // Member variables
-    std::string playerServerIp;
-    int playerServerPort;
     std::shared_ptr<spdlog::logger> mainLogger;
 
     // Signaling transport callbacks

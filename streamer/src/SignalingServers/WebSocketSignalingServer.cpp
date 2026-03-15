@@ -6,12 +6,10 @@
 #include <thread>
 #include <sstream>
 
-WebSocketSignalingServer::WebSocketSignalingServer(int port, const std::string& playerIp, int playerPort,
-                                                   std::shared_ptr<spdlog::logger> logger, bool isVMS,
-                                                   const std::string& vmsUser, const std::string& vmsPassword)
+WebSocketSignalingServer::WebSocketSignalingServer(int port, std::shared_ptr<spdlog::logger> logger)
     : port_(port), logger_(logger)
 {
-    rtcWrapper_ = std::make_unique<WebRTCWrapper>(playerIp, playerPort, logger, isVMS, vmsUser, vmsPassword);
+    rtcWrapper_ = std::make_unique<WebRTCWrapper>();
     rtcWrapper_->setSignalingTransport({
         .sendMessage = [this](const std::string& id, const std::string& msg) { sendMessage(id, msg); },
         .closeConnection = [this](const std::string& id) { closeConnection(id); }
@@ -127,9 +125,7 @@ void WebSocketSignalingServer::closeConnection(const std::string &clientId)
     {
         if (it->second)
         {
-            std::cout << "Closing WebSocket for client: " << clientId << std::endl;
             it->second->close();
-            std::cout << "Closed WebSocket for client: " << clientId << std::endl;
         }
     }
 }
@@ -143,7 +139,7 @@ void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket>
         logger_->info("New WebSocket connection: {}", clientId);
     }
 
-    std::cout << "New WebSocket connection: " << clientId << " threadId: " << std::this_thread::get_id() << std::endl;
+    // std::cout << "New WebSocket connection: " << clientId << " threadId: " << std::this_thread::get_id() << std::endl;
 
     {
         std::lock_guard<std::mutex> lock(connectionsMutex_);
@@ -164,7 +160,7 @@ void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket>
 
     ws->onMessage([this, clientId](std::variant<rtc::binary, std::string> data)
                   {
-                    std::cout << "on WebSocket message: " << clientId << " threadId: " << std::this_thread::get_id() << std::endl;
+                    // std::cout << "on WebSocket message: " << clientId << " threadId: " << std::this_thread::get_id() << std::endl;
         if (std::holds_alternative<std::string>(data)) {
             onMessage(clientId, std::get<std::string>(data));
         } });
@@ -197,16 +193,19 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
 
         if (type == "request")
         {
+            // std::cout << "request message WebSocket for client: " << clientId << std::endl;
             std::string query = root.get("query", "").asString();
             rtcWrapper_->handleRequest(clientId, query);
         }
         else if (type == "answer")
         {
+            // std::cout << "answer message WebSocket for client: " << clientId << std::endl;
             std::string sdp = root["sdp"].asString();
             rtcWrapper_->handleAnswer(clientId, sdp);
         }
         else if (type == "candidate" || type == "ice")
         {
+            // std::cout << "candidate message WebSocket for client: " << clientId << std::endl;
             std::string candidate = root["candidate"].asString();
             std::string sdpMid = root.get("sdpMid", "").asString();
             int sdpMLineIndex = root.get("sdpMLineIndex", 0).asInt();

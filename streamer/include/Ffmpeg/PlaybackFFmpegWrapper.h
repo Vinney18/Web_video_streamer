@@ -22,8 +22,7 @@ public:
 			int start_seek_time,
 			WebsocketDataCallback _websocketCallback,
 			WebsocketSDataCallback _websocketSCallback,
-			string _connectionmode, string _serverIp, int _port,
-			std::shared_ptr<spdlog::logger> _logger,
+			string _connectionmode,
 			float playbackSpeed,
 			int _requestTime = 0,
 			int _playbackFileDuration = 0);

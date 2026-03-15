@@ -1,4 +1,5 @@
 #include "PlayerServerClient.h"
+#include "AppConfig.h"
 #include <cpr/cpr.h>
 #include <json/json.h>
 #include <boost/algorithm/string.hpp>
@@ -20,18 +21,15 @@ int PlayerServerClient::count = 0;
 std::string PlayerServerClient::vmsUser_;
 std::string PlayerServerClient::vmsPassword_;
 
-void PlayerServerClient::init(const std::string &serverIp, int serverPort,
-                              std::shared_ptr<spdlog::logger> logger,
-                              bool isVMS,
-                              const std::string &vmsUser,
-                              const std::string &vmsPassword)
+void PlayerServerClient::init()
 {
-    serverIp_ = serverIp;
-    serverPort_ = serverPort;
-    logger_ = logger;
-    isVMS_ = isVMS;
-    vmsUser_ = vmsUser;
-    vmsPassword_ = vmsPassword;
+    auto& cfg = AppConfig::instance();
+    serverIp_ = cfg.get("playerServerIp");
+    serverPort_ = cfg.getInt("playerServerPort");
+    logger_ = cfg.logger();
+    isVMS_ = cfg.getBool("isVMS");
+    vmsUser_ = cfg.get("vmsStreamUserName");
+    vmsPassword_ = cfg.get("vmsStreamPassword");
 }
 
 std::string PlayerServerClient::resolveStreamUrl(const std::string &query)
@@ -64,14 +62,15 @@ std::string PlayerServerClient::resolveStreamUrl(const std::string &query)
             cameraId = value;
         else if (key == "mode")
         {
-            if (count % 2 == 0)
-            {
-                mode = value;
-            }
-            else
-            {
-                mode = "Live";
-            }
+            mode=value;
+            // if (count % 2 == 0)
+            // {
+            //     mode = value;
+            // }
+            // else
+            // {
+            //     mode = "Live";
+            // }
         }
         else if (key == "streamType" || key == "streamtype")
             streamtype = std::stoi(value);
@@ -106,14 +105,15 @@ std::string PlayerServerClient::resolveStreamUrl(const std::string &query)
     //     }
     // }
 
-    if (count % 2 == 0)
-    {
-        return "/webwork/12-12-31.ts"; // For testing only, remove this line in production
-    }
-    else
-    {
-        return "rtsp://192.168.4.114:554/cial.ts"; // For testing only, remove this line in production
-    }
+    // if (count % 2 == 0)
+    // {
+    //     return "/webwork/12-12-31.ts"; // For testing only, remove this line in production
+    // }
+    // else
+    // {
+    //     return "rtsp://localhost:554/cial.ts"; // For testing only, remove this line in production
+    // }
+    return "rtsp://localhost:554/cial.ts";
 }
 
 std::string PlayerServerClient::GetLiveUrl(const std::string &cameraId, int streamtype,
