@@ -37,6 +37,8 @@ struct WebRTCConnectionInfo {
     std::shared_ptr<rtc::Track> videoTrack;
     std::shared_ptr<rtc::RtpPacketizationConfig> rtpConfig;  // RTP config for timestamp control
     std::string query;
+    std::shared_ptr<FFmpegWrapper> ffmpegWrapper;  // direct ref to this client's FFmpeg
+    std::string ffmpegKey;                          // key in liveStreams map (empty for playback)
     bool isConnected = false;
     bool iceConnected = false;
     bool gatheringComplete = false;
@@ -71,18 +73,12 @@ private:
     void handleDataChannelMessage(const std::string& clientId, std::variant<rtc::binary, std::string> data);
 
     // Query processing
-    void processRequest(const std::string& clientId, std::string& query, const std::string& url);
-
-    // Connection lifecycle
-    void tryCloseSignaling(const std::string& clientId, std::string query, const std::string& url);  // call with connectionsMutex held
+    void processRequest(const std::string& clientId,const std::string& query, const std::string& url);
 
     // Video track setup (codec-specific packetizer selection)
     void setupVideoTrack(std::shared_ptr<rtc::PeerConnection> pc,
                          std::shared_ptr<WebRTCConnectionInfo> connInfo,
                          const std::string& url, AVCodecID codecId);
-
-    // Utility methods
-    int generateAndCheckRandomNumber();
 
     // Member variables
     std::shared_ptr<spdlog::logger> mainLogger;
@@ -94,11 +90,7 @@ private:
     std::map<std::string, std::shared_ptr<WebRTCConnectionInfo>> connections;
     std::mutex connectionsMutex;
 
-    // FFmpeg wrapper instances
-    std::map<std::string, std::shared_ptr<FFmpegWrapper>> ffmpegList;
-    std::mutex ffmpegListMutex;
-
-    // Client ID to FFmpeg key mapping
-    std::map<std::string, std::string> clientToFfmpegMap;
-    std::mutex clientMapMutex;
+    // Live stream sharing: URL → shared FFmpegWrapper (only for live mode)
+    std::map<std::string, std::shared_ptr<FFmpegWrapper>> liveStreams;
+    std::mutex liveStreamsMutex;
 };

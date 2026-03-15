@@ -2,6 +2,7 @@
 #include "WebRTCWrapper.h"
 #include "json/json.h"
 #include <iostream>
+#include <atomic>
 #include <chrono>
 #include <thread>
 #include <sstream>
@@ -133,7 +134,7 @@ void WebSocketSignalingServer::closeConnection(const std::string &clientId)
 void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
 {
     std::string clientId = "ws_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
-
+std::cout<<"WebSocket fully opened for: " << clientId << std::endl;
     if (logger_)
     {
         logger_->info("New WebSocket connection: {}", clientId);
@@ -148,6 +149,7 @@ void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket>
 
     ws->onOpen([this, clientId]()
                {
+                
         if (logger_) {
             logger_->info("WebSocket fully opened for: {}", clientId);
         } });
@@ -160,9 +162,11 @@ void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket>
 
     ws->onMessage([this, clientId](std::variant<rtc::binary, std::string> data)
                   {
-                    // std::cout << "on WebSocket message: " << clientId << " threadId: " << std::this_thread::get_id() << std::endl;
         if (std::holds_alternative<std::string>(data)) {
-            onMessage(clientId, std::get<std::string>(data));
+            std::string message = std::get<std::string>(data);
+            std::thread([this, clientId, message = std::move(message)]() {
+                onMessage(clientId, message);
+            }).detach();
         } });
 }
 
