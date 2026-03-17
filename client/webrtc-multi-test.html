@@ -219,7 +219,7 @@
             // Wait 2 seconds before next connection (except after the last one)
             if (i < count - 1) {
                 log(`Waiting 2s before stream #${i + 2}...`, 'info');
-                await sleep(2);
+                await sleep();
             }
         }
 
@@ -237,6 +237,16 @@
         label.textContent = state.charAt(0).toUpperCase() + state.slice(1);
     }
 
+    function sendRequest(s) {
+        const mode = document.getElementById('streamMode').value;
+        const query = `cameraId~~cam1&&mode~~${mode}&&streamType~~0&&startTime~~0`;
+        s.ws.send(JSON.stringify({
+            type: 'request',
+            clientId: s.clientId,
+            query: query
+        }));
+    }
+
     function connectStream(s, serverUrl) {
         let wsUrl = serverUrl.replace(/^http/, 'ws');
         if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
@@ -246,41 +256,53 @@
         log(`[#${s.index + 1}] Connecting WS to ${wsUrl}`, 'info');
         s.ws = new WebSocket(wsUrl);
 
+        // 5s connection timeout — retry if not connected
+        const connectTimeout = setTimeout(() => {
+            if (s.ws && s.ws.readyState !== WebSocket.OPEN) {
+                log(`[#${s.index + 1}] WebSocket connection timeout (5s), retrying...`, 'error');
+                s.ws.close();
+                connectStream(s, serverUrl);
+            }
+        }, 5000);
+
         s.ws.onopen = () => {
+            clearTimeout(connectTimeout);
             log(`[#${s.index + 1}] WebSocket connected, sending request`, 'success');
-            const mode = document.getElementById('streamMode').value;
-            const query = `cameraId~~cam1&&mode~~${mode}&&streamType~~0&&startTime~~0`;
-            s.ws.send(JSON.stringify({
-                type: 'request',
-                clientId: s.clientId,
-                query: query
-            }));
+            sendRequest(s);
         };
 
         s.ws.onmessage = (event) => {
             try {
                 const msg = JSON.parse(event.data);
-                handleSignaling(s, msg);
+                handleSignaling(s, msg, serverUrl);
             } catch (e) {
                 log(`[#${s.index + 1}] Parse error: ${e.message}`, 'error');
             }
         };
 
         s.ws.onerror = () => {
+            clearTimeout(connectTimeout);
             log(`[#${s.index + 1}] WebSocket error`, 'error');
             updateStreamState(s, 'failed');
         };
 
         s.ws.onclose = () => {
+            clearTimeout(connectTimeout);
             log(`[#${s.index + 1}] WebSocket closed`, 'info');
         };
     }
 
-    function handleSignaling(s, msg) {
+    function handleSignaling(s, msg, serverUrl) {
         switch (msg.type) {
             case 'offer': handleOffer(s, msg); break;
             case 'candidate': handleCandidate(s, msg); break;
-            case 'error': log(`[#${s.index + 1}] Server error: ${msg.message}`, 'error'); break;
+            case 'error':
+                log(`[#${s.index + 1}] Server error: ${msg.message}`, 'error');
+                if (msg.message && msg.message.toLowerCase().includes('unsupported codec')) {
+                    log(`[#${s.index + 1}] Unsupported codec, retrying in 2s...`, 'info');
+                    setTimeout(() => sendRequest(s), 2000);
+                }
+                break;
         }
     }
 
