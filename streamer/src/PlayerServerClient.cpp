@@ -113,8 +113,20 @@ std::string PlayerServerClient::resolveStreamUrl(const std::string &query)
     // {
     //     return "rtsp://localhost:554/cial.ts"; // For testing only, remove this line in production
     // }
-    return "rtsp://localhost:554/cial.ts";
+    if (mode == "Live")
+    {
+// return "rtsp://localhost:554/12-12-31.ts";
+return "rtsp://admin:tcil@132@103.44.119.74/Streaming/Channels/101";
+    }
     // return "/webwork/12-12-31.ts";
+    if(count % 2 == 0)
+    {
+        return "/webwork/cial.ts";
+    }
+    else
+    {
+    return "/webwork/12-12-31.ts";
+    }
 }
 
 std::string PlayerServerClient::GetLiveUrl(const std::string &cameraId, int streamtype,

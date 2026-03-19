@@ -11,10 +11,12 @@ WebSocketSignalingServer::WebSocketSignalingServer(int port, std::shared_ptr<spd
     : port_(port), logger_(logger)
 {
     rtcWrapper_ = std::make_unique<WebRTCWrapper>();
-    rtcWrapper_->setSignalingTransport({
-        .sendMessage = [this](const std::string& id, const std::string& msg) { sendMessage(id, msg); },
-        .closeConnection = [this](const std::string& id) { closeConnection(id); }
-    });
+    rtcWrapper_->setSignalingTransport({.sendMessage = [this](const std::string &id, const std::string &msg)
+                                        { sendMessage(id, msg); },
+                                        .closeConnection = [this](const std::string &id)
+                                        { closeConnection(id); },
+                                        .isConnected = [this](const std::string &id)
+                                        { return isConnected(id); }});
 }
 
 WebSocketSignalingServer::~WebSocketSignalingServer()
@@ -48,9 +50,26 @@ void WebSocketSignalingServer::run()
             logger_->info("WebSocket signaling server started on port {}", port_);
         }
 
+        int statsCounter = 0;
         while (running_)
         {
             std::this_thread::sleep_for(std::chrono::seconds(1));
+            statsCounter++;
+            if (statsCounter >= 5)
+            {
+                statsCounter = 0;
+                size_t wsCount = 0;
+                {
+                    std::lock_guard<std::mutex> lock(connectionsMutex_);
+                    wsCount = connections_.size();
+                }
+                std::cout << "[Stats] WebSocket connections: " << wsCount << std::endl;
+                if (logger_)
+                {
+                    logger_->info("[Stats] WebSocket connections: {}", wsCount);
+                }
+                rtcWrapper_->logStats();
+            }
         }
 
         server_->stop();
@@ -131,10 +150,21 @@ void WebSocketSignalingServer::closeConnection(const std::string &clientId)
     }
 }
 
+bool WebSocketSignalingServer::isConnected(const std::string &clientId)
+{
+    std::lock_guard<std::mutex> lock(connectionsMutex_);
+    auto it = connections_.find(clientId);
+    if (it != connections_.end())
+    {
+        return true;
+    }
+    return false;
+}
+
 void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
 {
     std::string clientId = "ws_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
-std::cout<<"WebSocket fully opened for: " << clientId << std::endl;
+
     if (logger_)
     {
         logger_->info("New WebSocket connection: {}", clientId);
@@ -155,7 +185,9 @@ std::cout<<"WebSocket fully opened for: " << clientId << std::endl;
         } });
 
     ws->onClosed([this, clientId]()
-                 { onClosed(clientId); });
+                 { std::thread([this, clientId]()
+                               { onClosed(clientId); })
+                       .detach(); });
 
     ws->onError([this, clientId](std::string error)
                 { onError(clientId, error); });
@@ -244,6 +276,8 @@ void WebSocketSignalingServer::onClosed(const std::string &clientId)
         std::lock_guard<std::mutex> lock(connectionsMutex_);
         connections_.erase(clientId);
     }
+
+    rtcWrapper_->closePeerConnectionIfNotConnected(clientId);
 }
 
 void WebSocketSignalingServer::onError(const std::string &clientId, const std::string &error)

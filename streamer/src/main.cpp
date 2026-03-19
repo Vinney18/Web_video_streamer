@@ -55,8 +55,7 @@ int main(int argc, char* argv[])
 		auto logger = AppConfig::instance().logger();
 		if (logger) { logger->error("main Error in WebRTC server: {}", ex.what()); }
 		else { std::cout << ex.what() << std::endl; }
-	}
-}
+	}}
 // cd /webwork/build && cmake .. && make -j$(nproc)
 // cd /webwork/build && make -j$(nproc)
 // cd /webwork && rm -rf build && cmake -B build -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_MANIFEST_MODE=OFF -DCMAKE_PREFIX_PATH=/vcpkg/installed/x64-linux && cmake --build build

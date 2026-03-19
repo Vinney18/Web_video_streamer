@@ -27,6 +27,7 @@ using rtcConnHdl = std::shared_ptr<rtc::PeerConnection>;
 struct SignalingTransport {
     std::function<void(const std::string& clientId, const std::string& message)> sendMessage;
     std::function<void(const std::string& clientId)> closeConnection;
+    std::function<bool(const std::string& clientId)> isConnected;
 };
 
 // WebRTC connection information
@@ -42,6 +43,7 @@ struct WebRTCConnectionInfo {
     bool isConnected = false;
     bool iceConnected = false;
     bool gatheringComplete = false;
+    uint64_t packetsSent = 0;
     std::chrono::steady_clock::time_point createdAt;
 
     WebRTCConnectionInfo() : createdAt(std::chrono::steady_clock::now()) {}
@@ -65,6 +67,12 @@ public:
     void SendData(rtcConnHdl& conn, std::vector<uint8_t>& data, int64_t timestamp);
     void SendStringData(rtcConnHdl& conn, std::string sdata);
 
+    // Close peer connection (triggers onStateChange → removeConnection)
+    void closePeerConnectionIfNotConnected(const std::string& clientId);
+
+    // Stats logging
+    void logStats();
+
 private:
     // WebRTC peer connection management
     void createPeerConnection(const std::string& clientId, const std::string& query,
@@ -73,6 +81,7 @@ private:
     void handleDataChannelMessage(const std::string& clientId, std::variant<rtc::binary, std::string> data);
 
     // Query processing
+    void onFullyConnected(const std::string& clientId, const std::string& query, const std::string& url);
     void processRequest(const std::string& clientId,const std::string& query, const std::string& url);
 
     // Video track setup (codec-specific packetizer selection)

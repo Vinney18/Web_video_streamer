@@ -21,6 +21,7 @@ public:
 
     void sendMessage(const std::string& clientId, const std::string& message) override;
     void closeConnection(const std::string& clientId) override;
+    bool isConnected(const std::string& clientId);
 
 private:
     void onClientConnected(std::shared_ptr<rtc::WebSocket> ws);

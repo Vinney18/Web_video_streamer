@@ -55,6 +55,32 @@ void WebRTCWrapper::setSignalingTransport(SignalingTransport transport)
     signalingTransport_ = std::move(transport);
 }
 
+void WebRTCWrapper::logStats()
+{
+    std::lock_guard<std::mutex> lock(connectionsMutex);
+    size_t liveCount = 0;
+    {
+        std::lock_guard<std::mutex> lock2(liveStreamsMutex);
+        liveCount = liveStreams.size();
+    }
+    std::cout << "[Stats] WebRTC connections: " << connections.size()
+              << ", Live FFmpeg streams: " << liveCount << std::endl;
+    for (const auto &[id, conn] : connections)
+    {
+        if (conn->packetsSent == 0)
+        {
+            std::cout << "  " << id << " | packets: " << conn->packetsSent << std::endl;
+        }
+    }
+    if (mainLogger)
+    {
+        mainLogger->info("[Stats] WebRTC connections: {}, Live FFmpeg streams: {}", connections.size(), liveCount);
+        for (const auto &[id, conn] : connections)
+        {
+            mainLogger->info("  {} | packets: {}", id, conn->packetsSent);
+        }
+    }
+}
 
 void WebRTCWrapper::setupVideoTrack(std::shared_ptr<rtc::PeerConnection> pc,
                                     std::shared_ptr<WebRTCConnectionInfo> connInfo,
@@ -125,18 +151,20 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
                     }
                 }
                 if (fullyConnected) {
-                    processRequest(clientId, query, url);
-                    signalingTransport_.closeConnection(clientId);
+                    onFullyConnected(clientId, query, url);
                 }
             }
-            else if (state == rtc::PeerConnection::State::Disconnected ||
-                state == rtc::PeerConnection::State::Failed ||
-                state == rtc::PeerConnection::State::Closed) {
+            else if (state == rtc::PeerConnection::State::Disconnected
+                ) {
                 if (mainLogger) {
                     mainLogger->info("Client {} disconnected, cleaning up", clientId);
                 }
-                removeConnection(clientId);
-            } });
+                
+            } 
+        else if(state == rtc::PeerConnection::State::Closed||state == rtc::PeerConnection::State::Failed)
+    {
+removeConnection(clientId);
+    } });
 
         pc->onIceStateChange([this, clientId, query, url](rtc::PeerConnection::IceState state)
                              {
@@ -155,8 +183,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
                     }
                 }
                 if (fullyConnected) {
-                    processRequest(clientId, query, url);
-                    signalingTransport_.closeConnection(clientId);
+                    onFullyConnected(clientId, query, url);
                 }
             } });
 
@@ -177,8 +204,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
                     }
                 }
                 if (fullyConnected) {
-                    processRequest(clientId, query, url);
-                    signalingTransport_.closeConnection(clientId);
+                    onFullyConnected(clientId, query, url);
                 }
             } });
 
@@ -211,6 +237,16 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
             Json::StreamWriterBuilder writerBuilder;
             signalingTransport_.sendMessage(clientId, Json::writeString(writerBuilder, offerMsg)); });
 
+        // Store connection
+        {
+            std::lock_guard<std::mutex> lock(connectionsMutex);
+            connections[clientId] = connInfo;
+        }
+        if (!signalingTransport_.isConnected(clientId))
+        {
+            connInfo->peerConnection->close();
+            return;
+        }
         // Add video track with codec-specific packetizer
         setupVideoTrack(pc, connInfo, url, codecId);
 
@@ -230,16 +266,17 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std:
             } });
 
         dc->onMessage([this, clientId](std::variant<rtc::binary, std::string> data)
-                      { handleDataChannelMessage(clientId, data); });
+                      {
+            handleDataChannelMessage(clientId, data); });
 
         connInfo->dataChannel = dc;
 
-        // Store connection
+        if (!signalingTransport_.isConnected(clientId))
         {
+            connInfo->peerConnection->close();
             std::lock_guard<std::mutex> lock(connectionsMutex);
-            connections[clientId] = connInfo;
+            connections.erase(clientId);
         }
-
         if (mainLogger)
         {
             mainLogger->info("Peer connection created and offer sent for client: {}", clientId);
@@ -445,6 +482,10 @@ void WebRTCWrapper::removeConnection(const std::string &clientId)
                 }
             }
         }
+        else
+        {
+            std::cout << "No FFmpeg wrapper to remove connection from for client: " << clientId << std::endl;
+        }
 
         if (mainLogger)
         {
@@ -642,6 +683,7 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
             rtc::binary rtpPayload(reinterpret_cast<const std::byte *>(frameStart),
                                    reinterpret_cast<const std::byte *>(frameStart + frameSize));
             track->send(rtpPayload);
+            it->second->packetsSent++;
         }
     }
     catch (const std::exception &ex)
@@ -689,7 +731,29 @@ void WebRTCWrapper::SendStringData(rtcConnHdl &conn, std::string sdata)
     }
 }
 
-void WebRTCWrapper::processRequest(const std::string &clientId,const std::string &query, const std::string &url)
+void WebRTCWrapper::closePeerConnectionIfNotConnected(const std::string &clientId)
+{
+    std::lock_guard<std::mutex> lock(connectionsMutex);
+    auto it = connections.find(clientId);
+    if (it != connections.end() && it->second->peerConnection)
+    {
+        if (it->second->peerConnection->state() != rtc::PeerConnection::State::Connected && it->second->peerConnection->state() != rtc::PeerConnection::State::Disconnected)
+        {
+            it->second->peerConnection->close();
+        }
+    }
+}
+
+void WebRTCWrapper::onFullyConnected(const std::string &clientId, const std::string &query, const std::string &url)
+{
+    std::thread([this, clientId, query, url]()
+                {
+        processRequest(clientId, query, url);
+        signalingTransport_.closeConnection(clientId); })
+        .detach();
+}
+
+void WebRTCWrapper::processRequest(const std::string &clientId, const std::string &query, const std::string &url)
 {
     try
     {
@@ -790,6 +854,32 @@ void WebRTCWrapper::processRequest(const std::string &clientId,const std::string
             connInfo->ffmpegWrapper = ffmpeg;
         }
 
+        // Check if connection was removed while we were setting up FFmpeg
+        {
+            std::lock_guard<std::mutex> lock(connectionsMutex);
+            if (connections.find(clientId) == connections.end())
+            {
+                bool canStop = connInfo->ffmpegWrapper->removeConnection(peerConn);
+                if (canStop)
+                {
+                    connInfo->ffmpegWrapper->stopThread();
+
+                    // Remove from liveStreams if it's a live stream
+                    if (!connInfo->ffmpegKey.empty())
+                    {
+                        std::lock_guard<std::mutex> lock(liveStreamsMutex);
+                        liveStreams.erase(connInfo->ffmpegKey);
+                    }
+
+                    if (mainLogger)
+                    {
+                        mainLogger->info("Stopped FFmpeg instance for client: {}", clientId);
+                    }
+                }
+                return;
+            }
+        }
+
         if (mainLogger)
         {
             mainLogger->info("Created FFmpeg wrapper for client {} in {} mode", clientId, mode);
@@ -803,4 +893,3 @@ void WebRTCWrapper::processRequest(const std::string &clientId,const std::string
         }
     }
 }
-
