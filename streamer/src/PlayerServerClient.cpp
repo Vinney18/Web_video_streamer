@@ -87,23 +87,23 @@ std::string PlayerServerClient::resolveStreamUrl(const std::string &query)
     }
 
     // Get URL based on mode
-    // if (mode == "Live")
-    // {
-    //     return GetLiveUrl(cameraId, streamtype, analyticType, vaServerId, vaServerPipeId);
-    // }
-    // else
-    // {
-    //     int seekTime = 0;
-    //     float duration = 0;
-    //     if (end_time_ofplaybackfile == 0)
-    //     {
-    //         return GetPlayBackUrl(cameraId, start_time_ofplaybackfile, &seekTime, &duration);
-    //     }
-    //     else
-    //     {
-    //         return GetPlayBackUrl(cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile);
-    //     }
-    // }
+    if (mode == "Live")
+    {
+        return GetLiveUrl(cameraId, streamtype, analyticType, vaServerId, vaServerPipeId);
+    }
+    else
+    {
+        int seekTime = 0;
+        float duration = 0;
+        if (end_time_ofplaybackfile == 0)
+        {
+            return GetPlayBackUrl(cameraId, start_time_ofplaybackfile, &seekTime, &duration);
+        }
+        else
+        {
+            return GetPlayBackUrl(cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile);
+        }
+    }
 
     // if (count % 2 == 0)
     // {
