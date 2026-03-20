@@ -32,60 +32,19 @@ void PlayerServerClient::init()
     vmsPassword_ = cfg.get("vmsStreamPassword");
 }
 
-std::string PlayerServerClient::resolveStreamUrl(const std::string &query)
+std::string PlayerServerClient::resolveStreamUrl(const Json::Value &query)
 {
     count++;
-    std::string cameraId;
-    std::string mode = "Live";
-    int streamtype = 0;
-    int start_time_ofplaybackfile = 0;
-    int end_time_ofplaybackfile = 0;
-    std::string analyticType = "";
-    std::string vaServerId = "";
-    std::string vaServerPipeId = "";
+    std::string cameraId = query.get("cameraId", "").asString();
+    std::string mode = query.get("mode", "Live").asString();
+    int streamtype = query.get("streamType", 0).asInt();
+    int start_time_ofplaybackfile = query.get("startTime", 0).asInt();
+    int end_time_ofplaybackfile = query.get("endTime", 0).asInt();
+    std::string analyticType = query.get("analyticType", "").asString();
+    std::string vaServerId = query.get("vaServerId", "").asString();
+    std::string vaServerPipeId = query.get("vaServerPipeId", "").asString();
 
-    // Parse query parameters
-    std::vector<std::string> props;
-    boost::algorithm::split_regex(props, query, boost::regex("&&"));
-
-    for (auto const &prop : props)
-    {
-        std::vector<std::string> keyValue;
-        boost::algorithm::split_regex(keyValue, prop, boost::regex("~~"));
-        if (keyValue.size() < 2)
-            continue;
-
-        auto &key = keyValue[0];
-        auto &value = keyValue[1];
-
-        if (key == "cameraId")
-            cameraId = value;
-        else if (key == "mode")
-        {
-            mode=value;
-            // if (count % 2 == 0)
-            // {
-            //     mode = value;
-            // }
-            // else
-            // {
-            //     mode = "Live";
-            // }
-        }
-        else if (key == "streamType" || key == "streamtype")
-            streamtype = std::stoi(value);
-        else if (key == "startTime")
-            start_time_ofplaybackfile = std::stoi(value);
-        else if (key == "endTime")
-            end_time_ofplaybackfile = std::stoi(value);
-        else if (key == "analyticType")
-            analyticType = value;
-        else if (key == "vaServerId" && !value.empty())
-            vaServerId = value;
-        else if (key == "vaServerPipeId" && !value.empty())
-            vaServerPipeId = value;
-    }
-
+    return "/webwork/cial.ts";
     // Get URL based on mode
     if (mode == "Live")
     {

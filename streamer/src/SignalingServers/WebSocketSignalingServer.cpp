@@ -229,21 +229,7 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
 
         if (type == "request")
         {
-            // Convert JSON query object to legacy ~~&& format for resolveStreamUrl
-            std::string query;
-            Json::Value queryObj = root["query"];
-            if (queryObj.isObject())
-            {
-                for (const auto &key : queryObj.getMemberNames())
-                {
-                    if (!query.empty()) query += "&&";
-                    query += key + "~~" + queryObj[key].asString();
-                }
-            }
-            else
-            {
-                query = root.get("query", "").asString();
-            }
+            Json::Value query = root["query"];
             rtcWrapper_->handleRequest(clientId, query);
         }
         else if (type == "answer")

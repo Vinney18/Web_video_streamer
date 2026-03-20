@@ -37,7 +37,7 @@ struct WebRTCConnectionInfo {
     std::shared_ptr<rtc::DataChannel> dataChannel;
     std::shared_ptr<rtc::Track> videoTrack;
     std::shared_ptr<rtc::RtpPacketizationConfig> rtpConfig;  // RTP config for timestamp control
-    std::string query;
+    Json::Value query;
     std::shared_ptr<FFmpegWrapper> ffmpegWrapper;  // direct ref to this client's FFmpeg
     std::string ffmpegKey;                          // key in liveStreams map (empty for playback)
     bool isConnected = false;
@@ -58,7 +58,7 @@ public:
     void setSignalingTransport(SignalingTransport transport);
 
     // Called by signaling when messages arrive from clients
-    void handleRequest(const std::string& clientId, const std::string& query);
+    void handleRequest(const std::string& clientId, const Json::Value& query);
     void handleAnswer(const std::string& clientId, const std::string& sdp);
     void handleIceCandidate(const std::string& clientId, const std::string& candidate,
                            const std::string& sdpMid, int sdpMLineIndex);
@@ -75,14 +75,14 @@ public:
 
 private:
     // WebRTC peer connection management
-    void createPeerConnection(const std::string& clientId, const std::string& query,
+    void createPeerConnection(const std::string& clientId, const Json::Value& query,
                               const std::string& url, AVCodecID codecId);
     void removeConnection(const std::string& clientId);
     void handleDataChannelMessage(const std::string& clientId, std::variant<rtc::binary, std::string> data);
 
     // Query processing
-    void onFullyConnected(const std::string& clientId, const std::string& query, const std::string& url);
-    void processRequest(const std::string& clientId,const std::string& query, const std::string& url);
+    void onFullyConnected(const std::string& clientId, const Json::Value& query, const std::string& url);
+    void processRequest(const std::string& clientId, const Json::Value& query, const std::string& url);
 
     // Video track setup (codec-specific packetizer selection)
     void setupVideoTrack(std::shared_ptr<rtc::PeerConnection> pc,

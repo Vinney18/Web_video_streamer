@@ -2,13 +2,14 @@
 
 #include <string>
 #include <memory>
+#include <json/json.h>
 #include <spdlog/spdlog.h>
 
 class PlayerServerClient {
 public:
     static void init();
 
-    static std::string resolveStreamUrl(const std::string& query);
+    static std::string resolveStreamUrl(const Json::Value& query);
     static std::string GetLiveUrl(const std::string& cameraId, int streamType,
                                   const std::string& analyticType,
                                   const std::string& vaServerId,

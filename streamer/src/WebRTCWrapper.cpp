@@ -110,7 +110,7 @@ void WebRTCWrapper::setupVideoTrack(std::shared_ptr<rtc::PeerConnection> pc,
     }
 }
 
-void WebRTCWrapper::createPeerConnection(const std::string &clientId, const std::string &query,
+void WebRTCWrapper::createPeerConnection(const std::string &clientId, const Json::Value &query,
                                          const std::string &url, AVCodecID codecId)
 {
     try
@@ -292,7 +292,7 @@ removeConnection(clientId);
     }
 }
 
-void WebRTCWrapper::handleRequest(const std::string &clientId, const std::string &query)
+void WebRTCWrapper::handleRequest(const std::string &clientId, const Json::Value &query)
 {
     try
     {
@@ -744,7 +744,7 @@ void WebRTCWrapper::closePeerConnectionIfNotConnected(const std::string &clientI
     }
 }
 
-void WebRTCWrapper::onFullyConnected(const std::string &clientId, const std::string &query, const std::string &url)
+void WebRTCWrapper::onFullyConnected(const std::string &clientId, const Json::Value &query, const std::string &url)
 {
     std::thread([this, clientId, query, url]()
                 {
@@ -753,46 +753,18 @@ void WebRTCWrapper::onFullyConnected(const std::string &clientId, const std::str
         .detach();
 }
 
-void WebRTCWrapper::processRequest(const std::string &clientId, const std::string &query, const std::string &url)
+void WebRTCWrapper::processRequest(const std::string &clientId, const Json::Value &query, const std::string &url)
 {
     try
     {
-        std::string cameraId;
-        std::string mode = "Live";
-        std::string connectionmode = "tcp";
-        float playbackSpeed = 1.0;
-        int start_time_ofplaybackfile = 0;
+        std::string cameraId = query.get("cameraId", "").asString();
+        std::string mode = query.get("mode", "Live").asString();
+        std::string connectionmode = query.get("connectionMode", "tcp").asString();
+        float playbackSpeed = query.get("playbackSpeed", 1.0).asFloat();
+        playbackSpeed = std::clamp(playbackSpeed, 0.5f, 5.0f);
+        int start_time_ofplaybackfile = query.get("startTime", 0).asInt();
         int seekTime_ofFile = 0;
         float duration_in_Minutes = 0;
-
-        // Parse query parameters
-        std::vector<std::string> props;
-        boost::algorithm::split_regex(props, query, boost::regex("&&"));
-
-        for (auto const &prop : props)
-        {
-            std::vector<std::string> keyValue;
-            boost::algorithm::split_regex(keyValue, prop, boost::regex("~~"));
-            if (keyValue.size() < 2)
-                continue;
-
-            auto &key = keyValue[0];
-            auto &value = keyValue[1];
-
-            if (key == "cameraId")
-                cameraId = value;
-            else if (key == "mode")
-                mode = value;
-            else if (key == "startTime")
-                start_time_ofplaybackfile = std::stoi(value);
-            else if (key == "connectionMode")
-                connectionmode = value;
-            else if (key == "playbackSpeed" && !value.empty())
-            {
-                playbackSpeed = std::stof(value);
-                playbackSpeed = std::clamp(playbackSpeed, 0.5f, 5.0f);
-            }
-        }
 
         // Create FFmpeg wrapper
         std::shared_ptr<WebRTCConnectionInfo> connInfo;

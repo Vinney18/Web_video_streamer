@@ -239,11 +239,15 @@
 
     function sendRequest(s) {
         const mode = document.getElementById('streamMode').value;
-        const query = `cameraId~~cam1&&mode~~${mode}&&streamType~~0&&startTime~~0`;
         s.ws.send(JSON.stringify({
             type: 'request',
             clientId: s.clientId,
-            query: query
+            query: {
+                cameraId: 'cam1',
+                mode: mode,
+                streamType: 0,
+                startTime: 0
+            }
         }));
     }
 
