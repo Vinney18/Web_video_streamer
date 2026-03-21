@@ -110,7 +110,7 @@ void WebRTCWrapper::setupVideoTrack(std::shared_ptr<rtc::PeerConnection> pc,
     }
 }
 
-void WebRTCWrapper::createPeerConnection(const std::string &clientId, const Json::Value &query,
+void WebRTCWrapper::createPeerConnection(const std::string &clientId,
                                          const std::string &url, AVCodecID codecId)
 {
     try
@@ -131,10 +131,11 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const Json
         auto connInfo = std::make_shared<WebRTCConnectionInfo>();
         connInfo->clientId = clientId;
         connInfo->peerConnection = pc;
-        connInfo->query = query;
+        connInfo->query = signalingTransport_.getQuery(clientId);
+        connInfo->url = url;
 
         // Set up state change callbacks
-        pc->onStateChange([this, clientId, query, url](rtc::PeerConnection::State state)
+        pc->onStateChange([this, clientId](rtc::PeerConnection::State state)
                           {
             if (mainLogger) {
                 mainLogger->info("Client {} peer connection state: {}", clientId, (int)state);
@@ -151,7 +152,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const Json
                     }
                 }
                 if (fullyConnected) {
-                    onFullyConnected(clientId, query, url);
+                    onFullyConnected(clientId);
                 }
             }
             else if (state == rtc::PeerConnection::State::Disconnected
@@ -166,7 +167,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId, const Json
 removeConnection(clientId);
     } });
 
-        pc->onIceStateChange([this, clientId, query, url](rtc::PeerConnection::IceState state)
+        pc->onIceStateChange([this, clientId](rtc::PeerConnection::IceState state)
                              {
             if (mainLogger) {
                 mainLogger->info("Client {} ICE connection state: {}", clientId, (int)state);
@@ -183,11 +184,11 @@ removeConnection(clientId);
                     }
                 }
                 if (fullyConnected) {
-                    onFullyConnected(clientId, query, url);
+                    onFullyConnected(clientId);
                 }
             } });
 
-        pc->onGatheringStateChange([this, clientId, query, url](rtc::PeerConnection::GatheringState state)
+        pc->onGatheringStateChange([this, clientId](rtc::PeerConnection::GatheringState state)
                                    {
             if (mainLogger) {
                 mainLogger->debug("Client {} ICE gathering state: {}", clientId, (int)state);
@@ -204,7 +205,7 @@ removeConnection(clientId);
                     }
                 }
                 if (fullyConnected) {
-                    onFullyConnected(clientId, query, url);
+                    onFullyConnected(clientId);
                 }
             } });
 
@@ -292,7 +293,7 @@ removeConnection(clientId);
     }
 }
 
-void WebRTCWrapper::handleRequest(const std::string &clientId, const Json::Value &query)
+void WebRTCWrapper::handleRequest(const std::string &clientId)
 {
     try
     {
@@ -300,6 +301,9 @@ void WebRTCWrapper::handleRequest(const std::string &clientId, const Json::Value
         {
             mainLogger->info("Handling request from client: {}", clientId);
         }
+
+        // Fetch query from signaling transport (stored in websocket dictionary)
+        Json::Value query = signalingTransport_.getQuery(clientId);
 
         // 1. Resolve URL first (need it to pick correct RTP packetizer separator)
         std::string url = PlayerServerClient::resolveStreamUrl(query);
@@ -347,11 +351,8 @@ void WebRTCWrapper::handleRequest(const std::string &clientId, const Json::Value
         }
 
         // 5. Create peer connection with correct packetizer based on actual codec
-        createPeerConnection(clientId, query, url, codecId);
+        createPeerConnection(clientId, url, codecId);
 
-        // // 5. Create FFmpegWrapper and start streaming
-        // std::string queryCopy = query;
-        // processRequest(clientId, queryCopy, url);
     }
     catch (const std::exception &ex)
     {
@@ -744,29 +745,20 @@ void WebRTCWrapper::closePeerConnectionIfNotConnected(const std::string &clientI
     }
 }
 
-void WebRTCWrapper::onFullyConnected(const std::string &clientId, const Json::Value &query, const std::string &url)
+void WebRTCWrapper::onFullyConnected(const std::string &clientId)
 {
-    std::thread([this, clientId, query, url]()
+    std::thread([this, clientId]()
                 {
-        processRequest(clientId, query, url);
+        processRequest(clientId);
         signalingTransport_.closeConnection(clientId); })
         .detach();
 }
 
-void WebRTCWrapper::processRequest(const std::string &clientId, const Json::Value &query, const std::string &url)
+void WebRTCWrapper::processRequest(const std::string &clientId)
 {
     try
     {
-        std::string cameraId = query.get("cameraId", "").asString();
-        std::string mode = query.get("mode", "Live").asString();
-        std::string connectionmode = query.get("connectionMode", "tcp").asString();
-        float playbackSpeed = query.get("playbackSpeed", 1.0).asFloat();
-        playbackSpeed = std::clamp(playbackSpeed, 0.5f, 5.0f);
-        int start_time_ofplaybackfile = query.get("startTime", 0).asInt();
-        int seekTime_ofFile = 0;
-        float duration_in_Minutes = 0;
-
-        // Create FFmpeg wrapper
+        // Look up connection info first (has query and url stored from createPeerConnection)
         std::shared_ptr<WebRTCConnectionInfo> connInfo;
         rtcConnHdl peerConn;
         {
@@ -779,6 +771,18 @@ void WebRTCWrapper::processRequest(const std::string &clientId, const Json::Valu
             connInfo = connIt->second;
             peerConn = connInfo->peerConnection;
         }
+
+        const Json::Value &query = connInfo->query;
+        const std::string &url = connInfo->url;
+
+        std::string cameraId = query.get("cameraId", "").asString();
+        std::string mode = query.get("mode", "Live").asString();
+        std::string connectionmode = query.get("connectionMode", "tcp").asString();
+        float playbackSpeed = query.get("playbackSpeed", 1.0).asFloat();
+        playbackSpeed = std::clamp(playbackSpeed, 0.5f, 5.0f);
+        int start_time_ofplaybackfile = query.get("startTime", 0).asInt();
+        int seekTime_ofFile = 0;
+        float duration_in_Minutes = 0;
 
         auto bindSendData = std::bind(&WebRTCWrapper::SendData, this,
                                       std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);

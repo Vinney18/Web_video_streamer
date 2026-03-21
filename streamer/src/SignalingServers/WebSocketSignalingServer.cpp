@@ -16,7 +16,9 @@ WebSocketSignalingServer::WebSocketSignalingServer(int port, std::shared_ptr<spd
                                         .closeConnection = [this](const std::string &id)
                                         { closeConnection(id); },
                                         .isConnected = [this](const std::string &id)
-                                        { return isConnected(id); }});
+                                        { return isConnected(id); },
+                                        .getQuery = [this](const std::string &id)
+                                        { return getClientQuery(id); }});
 }
 
 WebSocketSignalingServer::~WebSocketSignalingServer()
@@ -95,9 +97,9 @@ void WebSocketSignalingServer::stop()
         std::lock_guard<std::mutex> lock(connectionsMutex_);
         for (auto &pair : connections_)
         {
-            if (pair.second)
+            if (pair.second.ws)
             {
-                pair.second->close();
+                pair.second.ws->close();
             }
         }
         connections_.clear();
@@ -117,9 +119,9 @@ void WebSocketSignalingServer::sendMessage(const std::string &clientId, const st
         {
             std::lock_guard<std::mutex> lock(connectionsMutex_);
             auto it = connections_.find(clientId);
-            if (it != connections_.end() && it->second)
+            if (it != connections_.end() && it->second.ws)
             {
-                ws = it->second;
+                ws = it->second.ws;
             }
         }
 
@@ -143,9 +145,9 @@ void WebSocketSignalingServer::closeConnection(const std::string &clientId)
     auto it = connections_.find(clientId);
     if (it != connections_.end())
     {
-        if (it->second)
+        if (it->second.ws)
         {
-            it->second->close();
+            it->second.ws->close();
         }
     }
 }
@@ -174,7 +176,7 @@ void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket>
 
     {
         std::lock_guard<std::mutex> lock(connectionsMutex_);
-        connections_[clientId] = ws;
+        connections_[clientId] = {ws, {}};
     }
 
     ws->onOpen([this, clientId]()
@@ -230,7 +232,14 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
         if (type == "request")
         {
             Json::Value query = root["query"];
-            rtcWrapper_->handleRequest(clientId, query);
+            {
+                std::lock_guard<std::mutex> lock(connectionsMutex_);
+                auto it = connections_.find(clientId);
+                if (it != connections_.end()) {
+                    it->second.requestQuery = query;
+                }
+            }
+            rtcWrapper_->handleRequest(clientId);
         }
         else if (type == "answer")
         {
@@ -285,4 +294,15 @@ void WebSocketSignalingServer::onError(const std::string &clientId, const std::s
     {
         logger_->error("WebSocket error for client {}: {}", clientId, error);
     }
+}
+
+Json::Value WebSocketSignalingServer::getClientQuery(const std::string &clientId)
+{
+    std::lock_guard<std::mutex> lock(connectionsMutex_);
+    auto it = connections_.find(clientId);
+    if (it != connections_.end())
+    {
+        return it->second.requestQuery;
+    }
+    return Json::Value::null;
 }

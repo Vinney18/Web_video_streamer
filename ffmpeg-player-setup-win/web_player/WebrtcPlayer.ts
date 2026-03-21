@@ -1,142 +1,68 @@
-export interface ServerConfig {
-  wPlayerIp: string;
-  wPlayerPort: string;
-  wServerIp: string;
-  wServerPort?: any;
+export class ServerConfig {
+  streamerIp: string;
+  streamerPort: string;
+  playerServerIp: string;
+  playerServerPort?: any;
   useSecureConnection?: boolean;
 }
 
-export interface StreamConfig {
+class StreamConfig {
   cameraId: number;
   mode: string;
   streamType: number;
-  startTime: number;
-  endTime: number;
-  analyticType: string;
   connectionMode: string;
-  playbackSpeed: number;
-  vaServerId?: string;
-  vaServerPipeId?: string;
+
+  constructor(cameraId: number, mode: string, streamType: number, connectionMode: string) {
+    this.cameraId = cameraId;
+    this.mode = mode;
+    this.streamType = streamType;
+    this.connectionMode = connectionMode;
+  }
 }
 
-export class I2vWebRtcSdk {
-  clVersion: string = "7.3";
-  wPlayerIp: string = "localhost";
-  wServerIp: string;
-  wServerPort: any = 8890;
-  player: I2vWebRtcPlayer;
+export class LiveStreamConfig extends StreamConfig {
+  constructor(cameraId: number, streamType: number, connectionMode: string) {
+    super(cameraId, "Live", streamType, connectionMode);
+  }
+}
+
+export class AnalyticStreamConfig extends LiveStreamConfig {
+  analyticType: string;
   vaServerId: string;
   vaServerPipeId: string;
 
-  constructor(
-    _wPlayerIp: string,
-    _wServerIp: string,
-    _wServerPort?: any,
-    useSecureConnection?: boolean,
-  ) {
-    this.wPlayerIp = _wPlayerIp;
-    this.wServerIp = _wServerIp;
-    this.wServerPort = _wServerPort || this.wServerPort;
+  constructor(cameraId: number, streamType: number, connectionMode: string, analyticType: string, vaServerId: string = "", vaServerPipeId: string = "") {
+    super(cameraId, streamType, connectionMode);
+    this.analyticType = analyticType;
+    this.vaServerId = vaServerId;
+    this.vaServerPipeId = vaServerPipeId;
   }
+}
 
-  GetLivePlayer(
-    elId: any,
-    cameraId: number,
-    streamtype: number,
-    analyticType: string,
-    connectionmode: string,
-    vaServerId?: string,
-    vaServerPipeId?: string,
-  ) {
-    this.player = new I2vWebRtcPlayer(
-      elId,
-      cameraId,
-      "Live",
-      streamtype,
-      0,
-      0,
-      analyticType,
-      connectionmode,
-      this.clVersion,
-      1,
-      vaServerId,
-      vaServerPipeId,
-    );
-    this.player.wPlayerIp = this.wPlayerIp;
-    this.player.wServerIp = this.wServerIp;
-    this.player.wServerPort = this.wServerPort;
+export class PlaybackStreamConfig extends StreamConfig {
+  startTime: number;
+  endTime: number;
+  playbackSpeed: number;
 
-    return this.player;
-  }
-
-  GetPlaybackPlayer(
-    elId: any,
-    cameraId: number,
-    startTime: number,
-    endTime: number,
-    _playbackviaapache: string,
-    playbackSpeed: number = 1,
-    connectionMode: string = "tcp",
-  ) {
-    this.player = new I2vWebRtcPlayer(
-      elId,
-      cameraId,
-      "PlayBack",
-      0,
-      startTime,
-      endTime,
-      "",
-      connectionMode,
-      this.clVersion,
-      playbackSpeed,
-    );
-    this.player.wPlayerIp = this.wPlayerIp;
-    this.player.wServerIp = this.wServerIp;
-    this.player.wServerPort = this.wServerPort;
-
-    return this.player;
-  }
-
-  SeekVideo(startTime: any) {
-    if (this.player && this.player.mode != "Live") {
-      this.player.SeekVideo(startTime);
-    }
-  }
-
-  Pause() {
-    if (this.player && this.player.mode != "Live") {
-      this.player.Pause();
-    }
-  }
-
-  FastForward(factor: number) {
-    if (this.player && this.player.mode != "Live") {
-      this.player.FastForward(factor);
-    }
+  constructor(cameraId: number, streamType: number, connectionMode: string, startTime: number, endTime: number, playbackSpeed: number = 1) {
+    super(cameraId, "PlayBack", streamType, connectionMode);
+    this.startTime = startTime;
+    this.endTime = endTime;
+    this.playbackSpeed = playbackSpeed;
   }
 }
 
 export class I2vWebRtcPlayer {
-  wPlayerIp: string;
+  clVersion: string = "7.3";
   elId: any;
-  cameraId: number;
-  mode: string;
-  streamType: number;
-  startTime: number;
-  endTime: number;
-  analyticType: string;
-  connectionMode: string = "tcp";
-  wServerIp: string;
-  wServerPort: any = 8890;
-  clVersion: string;
+  serverConfig: ServerConfig;
+  streamConfig: LiveStreamConfig | PlaybackStreamConfig | AnalyticStreamConfig;
 
-  useSecureConnection: boolean = false;
-
+  // WebRTC state
   w: WebSocket;
   v: HTMLVideoElement;
   pc: RTCPeerConnection;
   dc: RTCDataChannel;
-  clientId: string;
 
   remoteDescSet: boolean = false;
   pendingCandidates: RTCIceCandidate[] = [];
@@ -153,10 +79,6 @@ export class I2vWebRtcPlayer {
   status: any;
   svVersion: any;
 
-  playbackSpeed: number = 1;
-  vaServerId: string;
-  vaServerPipeId: string;
-
   private static readonly rtcConfig: RTCConfiguration = {
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
@@ -164,48 +86,24 @@ export class I2vWebRtcPlayer {
     ],
   };
 
-  constructor(
-    elId: any,
-    cameraId: number,
-    mode: string,
-    streamtype: number,
-    startTime: number,
-    endTime: number,
-    _analyticType: string,
-    _connectionmode: string,
-    _clVersion: string,
-    playbackSpeed: number = 1,
-    vaServerId: string = "",
-    vaServerPipeId: string = "",
-  ) {
+  constructor(elId: any, serverConfig: ServerConfig, streamConfig: AnalyticStreamConfig);
+  constructor(elId: any, serverConfig: ServerConfig, streamConfig: LiveStreamConfig);
+  constructor(elId: any, serverConfig: ServerConfig, streamConfig: PlaybackStreamConfig);
+  constructor(elId: any, serverConfig: ServerConfig, streamConfig: LiveStreamConfig | PlaybackStreamConfig | AnalyticStreamConfig) {
     this.elId = elId;
-    this.cameraId = cameraId;
-    this.mode = mode;
-    this.streamType = streamtype;
-    this.startTime = startTime;
-    this.endTime = endTime;
-    this.analyticType = _analyticType;
-    this.clVersion = _clVersion;
+    this.serverConfig = serverConfig;
+    this.streamConfig = streamConfig;
 
-    if (playbackSpeed < 0.5) playbackSpeed = 0.5;
-    if (playbackSpeed > 5) playbackSpeed = 5;
-    playbackSpeed = Math.round(playbackSpeed * 2) / 2;
-    console.log("playbackSpeed Allowed: 0.5 to 5, with 0.5 step, 1 is default");
-    console.log("playbackSpeed: " + playbackSpeed);
-    this.playbackSpeed = playbackSpeed;
-    this.vaServerId = vaServerId;
-    this.vaServerPipeId = vaServerPipeId;
-
-    if (!this.analyticType) this.analyticType = "";
-
-    if (!this.connectionMode) {
-      this.connectionMode = "";
-    } else {
-      this.connectionMode = this.connectionMode.toLowerCase();
-      if (this.connectionMode != "tcp" && this.connectionMode != "udp") {
-        this.connectionMode = "";
+    // Validate connectionMode
+    if (this.streamConfig.connectionMode) {
+      this.streamConfig.connectionMode = this.streamConfig.connectionMode.toLowerCase();
+      if (this.streamConfig.connectionMode != "tcp" && this.streamConfig.connectionMode != "udp") {
+        this.streamConfig.connectionMode = "";
       }
+    } else {
+      this.streamConfig.connectionMode = "";
     }
+
   }
 
   setErrorCallback(errorCallback: any) {
@@ -216,27 +114,13 @@ export class I2vWebRtcPlayer {
     this.retryingCallback = retryingCallback;
   }
 
-  private generateClientId(): string {
-    return (
-      "webrtc_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9)
-    );
-  }
 
   private buildQuery(): object {
     return {
-      cameraId: this.cameraId,
-      mode: this.mode,
-      streamType: this.streamType,
-      startTime: this.startTime,
-      endTime: this.endTime,
-      analyticType: this.analyticType,
-      connectionMode: this.connectionMode,
-      wServerIp: this.wServerIp,
-      wServerPort: this.wServerPort,
+      ...this.streamConfig,
+      playerServerIp: this.serverConfig.playerServerIp,
+      playerServerPort: this.serverConfig.playerServerPort,
       clVersion: this.clVersion,
-      playbackSpeed: this.playbackSpeed,
-      vaServerId: this.vaServerId,
-      vaServerPipeId: this.vaServerPipeId,
     };
   }
 
@@ -312,26 +196,22 @@ export class I2vWebRtcPlayer {
 
   play() {
     var protocolType: string = "ws";
-    var port: number = 8181;
 
-    if (this.useSecureConnection) {
+    if (this.serverConfig.useSecureConnection) {
       protocolType = "wss";
-      port = 8182;
     }
 
     this.removeErrorMessage();
     this.showErrorMessage("Trying to Connect...");
     this.doesStopRequested = false;
-    this.clientId = this.generateClientId();
 
-    this.w = new WebSocket(`${protocolType}://${this.wPlayerIp}:${port}`);
+    this.w = new WebSocket(`${protocolType}://${this.serverConfig.streamerIp}:${this.serverConfig.streamerPort}`);
 
     this.w.addEventListener("open", () => {
       console.log("WebSocket connected, sending request");
       this.w.send(
         JSON.stringify({
           type: "request",
-          clientId: this.clientId,
           query: this.buildQuery(),
         }),
       );
@@ -406,7 +286,6 @@ export class I2vWebRtcPlayer {
           this.w.send(
             JSON.stringify({
               type: "candidate",
-              clientId: this.clientId,
               candidate: event.candidate.candidate,
               sdpMid: event.candidate.sdpMid,
               sdpMLineIndex: event.candidate.sdpMLineIndex,
@@ -458,7 +337,6 @@ export class I2vWebRtcPlayer {
         this.w.send(
           JSON.stringify({
             type: "answer",
-            clientId: this.clientId,
             sdp: answer.sdp,
             sdpType: answer.type,
           }),
@@ -549,7 +427,7 @@ export class I2vWebRtcPlayer {
         return;
       case "EmptyUrl":
         var errMsg =
-          this.mode == "Live" ? "Stream not Found" : "Recording not Found";
+          this.streamConfig.mode == "Live" ? "Stream not Found" : "Recording not Found";
         if (this.errorCallback) {
           this.errorCallback(errMsg);
         }
@@ -625,7 +503,9 @@ export class I2vWebRtcPlayer {
   }
 
   FastForward(factor: number) {
-    this.playbackSpeed = factor;
+    if (this.streamConfig instanceof PlaybackStreamConfig) {
+      this.streamConfig.playbackSpeed = factor;
+    }
     if (this.dc && this.dc.readyState === "open") {
       this.dc.send("FastForward" + factor);
     }

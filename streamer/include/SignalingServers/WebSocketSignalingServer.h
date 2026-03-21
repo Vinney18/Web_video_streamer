@@ -8,8 +8,14 @@
 #include <memory>
 #include <atomic>
 #include <spdlog/spdlog.h>
+#include <json/json.h>
 
 class WebRTCWrapper;
+
+struct WsClientData {
+    std::shared_ptr<rtc::WebSocket> ws;
+    Json::Value requestQuery;  // stored when "request" message arrives
+};
 
 class WebSocketSignalingServer : public ISignalingServer {
 public:
@@ -21,6 +27,7 @@ public:
 
     void sendMessage(const std::string& clientId, const std::string& message) override;
     void closeConnection(const std::string& clientId) override;
+    Json::Value getClientQuery(const std::string& clientId) override;
     bool isConnected(const std::string& clientId);
 
 private:
@@ -32,7 +39,7 @@ private:
     int port_;
     std::shared_ptr<spdlog::logger> logger_;
     std::shared_ptr<rtc::WebSocketServer> server_;
-    std::map<std::string, std::shared_ptr<rtc::WebSocket>> connections_;
+    std::map<std::string, WsClientData> connections_;
     std::mutex connectionsMutex_;
     std::atomic<bool> running_{false};
 
