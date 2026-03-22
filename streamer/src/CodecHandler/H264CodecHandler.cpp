@@ -1,6 +1,6 @@
 #include "CodecHandler/H264CodecHandler.h"
 
-void H264CodecHandler::addCodecToMedia(rtc::Description::Video& media)
+void H264CodecHandler::addCodecToMedia(rtc::Description::Video &media)
 {
 	media.addH264Codec(96);
 }
@@ -12,7 +12,7 @@ H264CodecHandler::setMediaHandler(std::shared_ptr<rtc::Track> track, bool isAvcc
 		1, "video-stream", 96, rtc::H264RtpPacketizer::defaultClockRate);
 
 	auto separator = isAvccFormat
-		? rtc::H264RtpPacketizer::Separator::LongStartSequence
+		? rtc::H264RtpPacketizer::Separator::Length
 		: rtc::H264RtpPacketizer::Separator::StartSequence;
 
 	track->setMediaHandler(std::make_shared<rtc::H264RtpPacketizer>(separator, rtpConfig));

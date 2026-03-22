@@ -304,5 +304,5 @@ Json::Value WebSocketSignalingServer::getClientQuery(const std::string &clientId
     {
         return it->second.requestQuery;
     }
-    return Json::Value::null;
+    throw std::runtime_error("No query found for client: " + clientId);
 }

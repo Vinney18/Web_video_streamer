@@ -104,10 +104,8 @@ public:
 	void Pause_video();
 	void SendVideoStartedEvent();
 
-	// Playback-specific — no-op defaults so callers don't need dynamic_cast
-	virtual void seek_video(int offset_time) { (void)offset_time; }
-	virtual void FastForward_video(float factor) { (void)factor; }
-	virtual int getNextPlaybackTime() { return 0; }
+	// Handle datachannel commands (JSON key-value). Subclasses override for mode-specific behavior.
+	virtual void handleClientCommand(const std::string& jsonMessage) { (void)jsonMessage; }
 
 	// Lightweight probe: opens stream, detects video codec, closes. Returns AV_CODEC_ID_NONE on failure.
 	static AVCodecID probeCodec(const std::string& url);

@@ -1,4 +1,5 @@
 #include "Ffmpeg/PlaybackFFmpegWrapper.h"
+#include "json/json.h"
 
 PlaybackFFmpegWrapper::PlaybackFFmpegWrapper(string _cameraId, string _url,
 		int start_seek_time,
@@ -195,4 +196,39 @@ int PlaybackFFmpegWrapper::getNextPlaybackTime()
 	}
 
 	return nextTime;
+}
+
+void PlaybackFFmpegWrapper::handleClientCommand(const std::string& jsonMessage)
+{
+	Json::Value root;
+	Json::Reader reader;
+	if (!reader.parse(jsonMessage, root))
+	{
+		if (logger)
+		{
+			logger->warn("Invalid JSON command: {}", jsonMessage);
+		}
+		return;
+	}
+
+	if (root.isMember("seek_Time"))
+	{
+		int seekTime = root["seek_Time"].asInt();
+		if (seekTime >= 0)
+		{
+			seek_video(seekTime);
+		}
+	}
+	else if (root.isMember("FastForward"))
+	{
+		float speed = root["FastForward"].asFloat();
+		if (speed >= 0)
+		{
+			FastForward_video(speed);
+		}
+	}
+	else if (root.isMember("Pause"))
+	{
+		Pause_video();
+	}
 }

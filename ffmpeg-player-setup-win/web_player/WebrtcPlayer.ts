@@ -492,13 +492,13 @@ export class I2vWebRtcPlayer {
 
   Pause() {
     if (this.dc && this.dc.readyState === "open") {
-      this.dc.send("Pause");
+      this.dc.send(JSON.stringify({ Pause: true }));
     }
   }
 
   SeekVideo(starttime: string) {
     if (this.dc && this.dc.readyState === "open") {
-      this.dc.send("seek_Time" + starttime);
+      this.dc.send(JSON.stringify({ seek_Time: parseInt(starttime) }));
     }
   }
 
@@ -507,7 +507,7 @@ export class I2vWebRtcPlayer {
       this.streamConfig.playbackSpeed = factor;
     }
     if (this.dc && this.dc.readyState === "open") {
-      this.dc.send("FastForward" + factor);
+      this.dc.send(JSON.stringify({ FastForward: factor }));
     }
   }
 

@@ -96,7 +96,7 @@ void WebRTCWrapper::setupVideoTrack(std::shared_ptr<rtc::PeerConnection> pc,
 
     bool isAvccFormat = boost::ends_with(url, ".mp4") || boost::ends_with(url, ".mkv") || boost::ends_with(url, ".mov");
 
-    auto rtpConfig = codecHandler->setMediaHandler(track, isAvccFormat);
+    auto rtpConfig = codecHandler->setMediaHandler(track, false);
 
     connInfo->videoTrack = track;
     connInfo->rtpConfig = rtpConfig;
@@ -540,40 +540,8 @@ void WebRTCWrapper::handleDataChannelMessage(const std::string &clientId, std::v
             ffmpeg = it->second->ffmpegWrapper;
         }
 
-        // Route message to FFmpegWrapper
-        if (boost::starts_with(message, "seek_Time"))
-        {
-            std::string timeStr = message.substr(9);
-            if (!timeStr.empty())
-            {
-                int seekTime = std::stoi(timeStr);
-                if (seekTime >= 0)
-                {
-                    ffmpeg->seek_video(seekTime);
-                }
-            }
-        }
-        else if (message == "Pause")
-        {
-            ffmpeg->Pause_video();
-        }
-        else if (message == "Resume")
-        {
-            // Resume not implemented in FFmpegWrapper yet
-        }
-        else if (boost::starts_with(message, "FastForward"))
-        {
-            std::string speedStr = message.substr(11);
-            if (!speedStr.empty())
-            {
-                float speed = std::stof(speedStr);
-                if (speed >= 0)
-                {
-                    ffmpeg->FastForward_video(speed);
-                }
-            }
-        }
-        else if (message == "Version")
+        // Non-FFmpeg messages handled here; everything else passed as JSON to FFmpeg
+        if (message == "Version")
         {
             std::lock_guard<std::mutex> lock(connectionsMutex);
             auto it = connections.find(clientId);
@@ -600,6 +568,11 @@ void WebRTCWrapper::handleDataChannelMessage(const std::string &clientId, std::v
             {
                 SendStringData(it->second->peerConnection, "--servStatus " + servData);
             }
+        }
+        else
+        {
+            // All other messages are JSON commands — pass directly to FFmpeg
+            ffmpeg->handleClientCommand(message);
         }
     }
     catch (const std::exception &ex)

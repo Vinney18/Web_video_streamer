@@ -17,6 +17,10 @@ private:
 	double playbackStartPTS = -1.0;
 	std::chrono::steady_clock::time_point playbackStartTime;
 
+	void seek_video(int offset_time);
+	void FastForward_video(float factor);
+	int getNextPlaybackTime();
+
 public:
 	PlaybackFFmpegWrapper(string _cameraId, string _url,
 			int start_seek_time,
@@ -29,9 +33,7 @@ public:
 
 	~PlaybackFFmpegWrapper() override = default;
 
-	void seek_video(int offset_time) override;
-	void FastForward_video(float factor) override;
-	int getNextPlaybackTime() override;
+	void handleClientCommand(const std::string& jsonMessage) override;
 
 protected:
 	ProcessedPacket processPacket(AVPacket& packet, int64_t firstDts, int64_t frameCount) override;

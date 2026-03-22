@@ -43,8 +43,8 @@ std::string PlayerServerClient::resolveStreamUrl(const Json::Value &query)
     std::string analyticType = query.get("analyticType", "").asString();
     std::string vaServerId = query.get("vaServerId", "").asString();
     std::string vaServerPipeId = query.get("vaServerPipeId", "").asString();
-
-    return "/webwork/cial.ts";
+    // return "/webwork/demo.mp4";
+    // return "rtsp://admin:admin@192.168.2.82/noabandon1.mp4";
     // Get URL based on mode
     if (mode == "Live")
     {
