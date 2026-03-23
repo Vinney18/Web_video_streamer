@@ -55,6 +55,15 @@ void WebRTCWrapper::setSignalingTransport(SignalingTransport transport)
     signalingTransport_ = std::move(transport);
 }
 
+std::string WebRTCWrapper::buildJsonMessage(const std::string &type, const std::string &message)
+{
+    Json::Value msg;
+    msg["type"] = type;
+    msg["message"] = message;
+    Json::StreamWriterBuilder writerBuilder;
+    return Json::writeString(writerBuilder, msg);
+}
+
 void WebRTCWrapper::logStats()
 {
     std::lock_guard<std::mutex> lock(connectionsMutex);
@@ -267,8 +276,7 @@ removeConnection(clientId);
             } });
 
         dc->onMessage([this, clientId](std::variant<rtc::binary, std::string> data)
-                      {
-            handleDataChannelMessage(clientId, data); });
+                      { handleDataChannelMessage(clientId, data); });
 
         connInfo->dataChannel = dc;
 
@@ -305,6 +313,8 @@ void WebRTCWrapper::handleRequest(const std::string &clientId)
         // Fetch query from signaling transport (stored in websocket dictionary)
         Json::Value query = signalingTransport_.getQuery(clientId);
 
+        signalingTransport_.sendMessage(clientId, buildJsonMessage("status", "Connecting Player Server"));
+
         // 1. Resolve URL first (need it to pick correct RTP packetizer separator)
         std::string url = PlayerServerClient::resolveStreamUrl(query);
 
@@ -316,16 +326,12 @@ void WebRTCWrapper::handleRequest(const std::string &clientId)
                 mainLogger->error("Failed to get URL for client {}: {}", clientId, url);
             }
 
-            Json::Value errorMsg;
-            errorMsg["type"] = "error";
-            errorMsg["message"] = url.empty() ? "Failed to resolve stream URL" : url;
-
-            Json::StreamWriterBuilder writerBuilder;
-            signalingTransport_.sendMessage(clientId, Json::writeString(writerBuilder, errorMsg));
+            signalingTransport_.sendMessage(clientId, buildJsonMessage("error", url.empty() ? "Failed to resolve stream URL" : url));
             return;
         }
 
         // 3. Probe actual codec from stream before creating peer connection
+        signalingTransport_.sendMessage(clientId, buildJsonMessage("status", "fetching codec Information"));
         AVCodecID codecId = FFmpegWrapper::probeCodec(url);
         if (mainLogger)
         {
@@ -341,18 +347,12 @@ void WebRTCWrapper::handleRequest(const std::string &clientId)
                 mainLogger->error("Unsupported codec for client {}: {}", clientId, avcodec_get_name(codecId));
             }
 
-            Json::Value errorMsg;
-            errorMsg["type"] = "error";
-            errorMsg["message"] = std::string("Unsupported codec: ") + avcodec_get_name(codecId);
-
-            Json::StreamWriterBuilder writerBuilder;
-            signalingTransport_.sendMessage(clientId, Json::writeString(writerBuilder, errorMsg));
+            signalingTransport_.sendMessage(clientId, buildJsonMessage("error", std::string("Unsupported codec: ") + avcodec_get_name(codecId)));
             return;
         }
 
         // 5. Create peer connection with correct packetizer based on actual codec
         createPeerConnection(clientId, url, codecId);
-
     }
     catch (const std::exception &ex)
     {
@@ -361,12 +361,7 @@ void WebRTCWrapper::handleRequest(const std::string &clientId)
             mainLogger->error("Error handling request from client {}: {}", clientId, ex.what());
         }
 
-        Json::Value errorMsg;
-        errorMsg["type"] = "error";
-        errorMsg["message"] = ex.what();
-
-        Json::StreamWriterBuilder writerBuilder;
-        signalingTransport_.sendMessage(clientId, Json::writeString(writerBuilder, errorMsg));
+        signalingTransport_.sendMessage(clientId, buildJsonMessage("error", ex.what()));
     }
 }
 
@@ -462,9 +457,11 @@ void WebRTCWrapper::removeConnection(const std::string &clientId)
             }
         }
 
+        
         // Remove from FFmpeg wrapper
         if (connInfo && connInfo->ffmpegWrapper)
         {
+            //todovineet here race condition should occur
             bool canStop = connInfo->ffmpegWrapper->removeConnection(connInfo->peerConnection);
             if (canStop)
             {
@@ -722,6 +719,7 @@ void WebRTCWrapper::onFullyConnected(const std::string &clientId)
 {
     std::thread([this, clientId]()
                 {
+                    signalingTransport_.sendMessage(clientId, buildJsonMessage("status", "starting video"));
         processRequest(clientId);
         signalingTransport_.closeConnection(clientId); })
         .detach();

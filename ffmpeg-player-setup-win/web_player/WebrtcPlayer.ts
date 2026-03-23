@@ -75,7 +75,10 @@ export class I2vWebRtcPlayer {
   doesStopRequested: boolean = false;
   isErrorMessageVisible: boolean = false;
 
+  consoleDetailedLog: boolean = false;
+
   playrecursivetimeout: any;
+  statsInterval: any;
   status: any;
   svVersion: any;
 
@@ -86,13 +89,14 @@ export class I2vWebRtcPlayer {
     ],
   };
 
-  constructor(elId: any, serverConfig: ServerConfig, streamConfig: AnalyticStreamConfig);
-  constructor(elId: any, serverConfig: ServerConfig, streamConfig: LiveStreamConfig);
-  constructor(elId: any, serverConfig: ServerConfig, streamConfig: PlaybackStreamConfig);
-  constructor(elId: any, serverConfig: ServerConfig, streamConfig: LiveStreamConfig | PlaybackStreamConfig | AnalyticStreamConfig) {
+  constructor(elId: any, serverConfig: ServerConfig, streamConfig: AnalyticStreamConfig, consoleDetailedLog?: boolean);
+  constructor(elId: any, serverConfig: ServerConfig, streamConfig: LiveStreamConfig, consoleDetailedLog?: boolean);
+  constructor(elId: any, serverConfig: ServerConfig, streamConfig: PlaybackStreamConfig, consoleDetailedLog?: boolean);
+  constructor(elId: any, serverConfig: ServerConfig, streamConfig: LiveStreamConfig | PlaybackStreamConfig | AnalyticStreamConfig, consoleDetailedLog: boolean = false) {
     this.elId = elId;
     this.serverConfig = serverConfig;
     this.streamConfig = streamConfig;
+    this.consoleDetailedLog = consoleDetailedLog;
 
     // Validate connectionMode
     if (this.streamConfig.connectionMode) {
@@ -128,6 +132,7 @@ export class I2vWebRtcPlayer {
     try {
       this.removeErrorMessage();
       this.doesStopRequested = true;
+      this.stopStatsLogging();
       if (this.playrecursivetimeout) {
         clearTimeout(this.playrecursivetimeout);
         this.playrecursivetimeout = null;
@@ -159,6 +164,7 @@ export class I2vWebRtcPlayer {
   }
 
   private cleanup() {
+    this.stopStatsLogging();
     if (this.dc) {
       this.dc.close();
       this.dc = null;
@@ -208,7 +214,7 @@ export class I2vWebRtcPlayer {
     this.w = new WebSocket(`${protocolType}://${this.serverConfig.streamerIp}:${this.serverConfig.streamerPort}`);
 
     this.w.addEventListener("open", () => {
-      console.log("WebSocket connected, sending request");
+      if (this.consoleDetailedLog) console.log("WebSocket connected, sending request");
       this.w.send(
         JSON.stringify({
           type: "request",
@@ -229,7 +235,7 @@ export class I2vWebRtcPlayer {
     });
 
     this.w.addEventListener("error", () => {
-      console.error("WebSocket error");
+      if (this.consoleDetailedLog) console.error("WebSocket error");
     });
 
     this.w.addEventListener("message", (e) => {
@@ -266,10 +272,12 @@ export class I2vWebRtcPlayer {
 
       this.pc.onconnectionstatechange = () => {
         const state = this.pc.connectionState;
-        console.log("Connection state:", state);
+        if (this.consoleDetailedLog) console.log("Connection state:", state);
         if (state === "connected") {
           this.removeErrorMessage();
+          if (this.consoleDetailedLog) this.startStatsLogging();
         } else if (state === "failed" || state === "closed") {
+          this.stopStatsLogging();
           if (!this.doesStopRequested) {
             this.showErrorMessage("Connection Lost...");
             this.retryConnection();
@@ -278,10 +286,19 @@ export class I2vWebRtcPlayer {
       };
 
       this.pc.oniceconnectionstatechange = () => {
-        console.log("ICE state:", this.pc.iceConnectionState);
+        if (this.consoleDetailedLog) console.log("ICE state:", this.pc.iceConnectionState);
+      };
+
+      this.pc.onicegatheringstatechange = () => {
+        if (this.consoleDetailedLog) console.log("ICE gathering state:", this.pc.iceGatheringState);
+      };
+
+      this.pc.onsignalingstatechange = () => {
+        if (this.consoleDetailedLog) console.log("Signaling state:", this.pc.signalingState);
       };
 
       this.pc.onicecandidate = (event) => {
+        if (this.consoleDetailedLog) console.log("ICE candidate:", event.candidate ? event.candidate.candidate : "gathering complete");
         if (event.candidate && this.w && this.w.readyState === WebSocket.OPEN) {
           this.w.send(
             JSON.stringify({
@@ -295,7 +312,7 @@ export class I2vWebRtcPlayer {
       };
 
       this.pc.ontrack = (event) => {
-        console.log("Got track:", event.track.kind);
+        if (this.consoleDetailedLog) console.log("Got track:", event.track.kind, "readyState:", event.track.readyState);
         if (event.track.kind === "video") {
           this.setupVideoElement();
           if (event.streams && event.streams[0]) {
@@ -311,13 +328,15 @@ export class I2vWebRtcPlayer {
 
       this.pc.ondatachannel = (event) => {
         this.dc = event.channel;
+        if (this.consoleDetailedLog) console.log("Data channel received:", this.dc.label);
         this.dc.onopen = () => {
-          console.log("Data channel open");
+          if (this.consoleDetailedLog) console.log("Data channel open");
         };
         this.dc.onclose = () => {
-          console.log("Data channel closed");
+          if (this.consoleDetailedLog) console.log("Data channel closed");
         };
         this.dc.onmessage = (e) => {
+          if (this.consoleDetailedLog) console.log("Data channel message:", e.data);
           this.handleDataChannelMessage(e.data);
         };
       };
@@ -488,6 +507,38 @@ export class I2vWebRtcPlayer {
           console.log("DC message:", data);
         }
     }
+  }
+
+  private startStatsLogging() {
+    this.stopStatsLogging();
+    this.statsInterval = setInterval(() => {
+      this.logDetailedStats();
+    }, 5000);
+  }
+
+  private stopStatsLogging() {
+    if (this.statsInterval) {
+      clearInterval(this.statsInterval);
+      this.statsInterval = null;
+    }
+  }
+
+  private logDetailedStats() {
+    if (!this.pc) return;
+    this.pc.getStats().then((stats) => {
+      stats.forEach((report) => {
+        if (report.type === "inbound-rtp" && report.kind === "video") {
+          console.log(
+            `[Stats] packetsReceived: ${report.packetsReceived}, ` +
+            `packetsLost: ${report.packetsLost}, ` +
+            `framesDecoded: ${report.framesDecoded}, ` +
+            `framesDropped: ${report.framesDropped}, ` +
+            `framesReceived: ${report.framesReceived}, ` +
+            `bytesReceived: ${report.bytesReceived}`
+          );
+        }
+      });
+    });
   }
 
   Pause() {

@@ -213,6 +213,9 @@ std::string PlayerServerClient::GetPlayBackUrl(const std::string &cameraId, int 
 
                 *seekTime = std::stoi(resultValue1.asString());
 
+                auto x=resultValue.asString();
+                auto y= resultValue1.asString();
+                std::cout << "Playback URL: " << x << ", Seek Time: " << y << std::endl;
                 if (duration != nullptr)
                 {
                     *duration = duration_in_Minutes_value;

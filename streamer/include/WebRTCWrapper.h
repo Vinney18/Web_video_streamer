@@ -91,6 +91,9 @@ private:
                          std::shared_ptr<WebRTCConnectionInfo> connInfo,
                          const std::string& url, AVCodecID codecId);
 
+    // Helper to build a JSON string with "type" and "message" keys
+    static std::string buildJsonMessage(const std::string& type, const std::string& message);
+
     // Member variables
     std::shared_ptr<spdlog::logger> mainLogger;
 
