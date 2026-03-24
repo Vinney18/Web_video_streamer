@@ -32,7 +32,7 @@ void PlayerServerClient::init()
     vmsPassword_ = cfg.get("vmsStreamPassword");
 }
 
-std::string PlayerServerClient::resolveStreamUrl(const Json::Value &query)
+Json::Value PlayerServerClient::resolveStreamUrl(const Json::Value &query)
 {
     count++;
     std::string cameraId = query.get("cameraId", "").asString();
@@ -43,12 +43,12 @@ std::string PlayerServerClient::resolveStreamUrl(const Json::Value &query)
     std::string analyticType = query.get("analyticType", "").asString();
     std::string vaServerId = query.get("vaServerId", "").asString();
     std::string vaServerPipeId = query.get("vaServerPipeId", "").asString();
-    // return "/webwork/demo.mp4";
-    // return "rtsp://admin:admin@192.168.2.82/noabandon1.mp4";
-    // Get URL based on mode
+
+    Json::Value result;
+
     if (mode == "Live")
     {
-        return GetLiveUrl(cameraId, streamtype, analyticType, vaServerId, vaServerPipeId);
+        result["url"] = GetLiveUrl(cameraId, streamtype, analyticType, vaServerId, vaServerPipeId);
     }
     else
     {
@@ -56,13 +56,17 @@ std::string PlayerServerClient::resolveStreamUrl(const Json::Value &query)
         float duration = 0;
         if (end_time_ofplaybackfile == 0)
         {
-            return GetPlayBackUrl(cameraId, start_time_ofplaybackfile, &seekTime, &duration);
+            result["url"] = GetPlayBackUrl(cameraId, start_time_ofplaybackfile, &seekTime, &duration);
+            result["seekTime"] = seekTime;
+            result["durationMinutes"] = duration;
         }
         else
         {
-            return GetPlayBackUrl(cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile);
+            result["url"] = GetPlayBackUrl(cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile);
         }
     }
+
+    return result;
 
     // if (count % 2 == 0)
     // {

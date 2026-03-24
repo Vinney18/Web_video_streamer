@@ -39,7 +39,7 @@ struct WebRTCConnectionInfo {
     std::shared_ptr<rtc::Track> videoTrack;
     std::shared_ptr<rtc::RtpPacketizationConfig> rtpConfig;  // RTP config for timestamp control
     Json::Value query;
-    std::string url;
+    Json::Value streamInfo;
     std::shared_ptr<FFmpegWrapper> ffmpegWrapper;  // direct ref to this client's FFmpeg
     std::string ffmpegKey;                          // key in liveStreams map (empty for playback)
     bool isConnected = false;
@@ -78,7 +78,8 @@ public:
 private:
     // WebRTC peer connection management
     void createPeerConnection(const std::string& clientId,
-                              const std::string& url, AVCodecID codecId);
+                              const std::string& url, AVCodecID codecId,
+                              const Json::Value& streamInfo);
     void removeConnection(const std::string& clientId);
     void handleDataChannelMessage(const std::string& clientId, std::variant<rtc::binary, std::string> data);
 

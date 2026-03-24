@@ -9,7 +9,7 @@ class PlayerServerClient {
 public:
     static void init();
 
-    static std::string resolveStreamUrl(const Json::Value& query);
+    static Json::Value resolveStreamUrl(const Json::Value& query);
     static std::string GetLiveUrl(const std::string& cameraId, int streamType,
                                   const std::string& analyticType,
                                   const std::string& vaServerId,

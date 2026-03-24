@@ -26,6 +26,7 @@ extern "C"
 }
 
 #include <spdlog/spdlog.h>
+#include <json/json.h>
 #include "AppConfig.h"
 
 #ifndef FFMPEGWRAPPER_H
@@ -86,15 +87,14 @@ protected:
 	std::shared_ptr<spdlog::logger> logger;
 
 public:
-	FFmpegWrapper(string _cameraId, string _url,
+	FFmpegWrapper(const Json::Value& streamInfo,
 			WebsocketDataCallback _websocketCallback,
-			WebsocketSDataCallback _websocketSCallback,
-			string _connectionmode) : Thread(), logger(AppConfig::instance().logger()) {
-		cameraId = _cameraId;
-		url = std::move(_url);
+			WebsocketSDataCallback _websocketSCallback) : Thread(), logger(AppConfig::instance().logger()) {
+		url = streamInfo.get("url", "").asString();
+		cameraId = streamInfo.get("cameraId", "").asString();
+		connectionmode = streamInfo.get("connectionMode", "tcp").asString();
 		websocketCallback = _websocketCallback;
 		websocketSCallback = _websocketSCallback;
-		connectionmode = _connectionmode;
 		outputType = mp4;
 	}
 
@@ -154,7 +154,7 @@ public:
 		auto tickCount = GetTickCount();
 
 		//timeout after 2 seconds of no activity
-		if (thisObj->params.isRunning && (tickCount - thisObj->params.lastStopped > 2000.0))
+		if (thisObj->params.isRunning && (tickCount - thisObj->params.lastStopped > 1000.0))
 			return 1;
 
 

@@ -7,10 +7,9 @@
 class LiveFFmpegWrapper : public FFmpegWrapper
 {
 public:
-	LiveFFmpegWrapper(string _cameraId, string _url,
+	LiveFFmpegWrapper(const Json::Value& streamInfo,
 			WebsocketDataCallback _websocketCallback,
-			WebsocketSDataCallback _websocketSCallback,
-			string _connectionmode);
+			WebsocketSDataCallback _websocketSCallback);
 
 	~LiveFFmpegWrapper() override = default;
 

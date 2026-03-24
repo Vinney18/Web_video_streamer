@@ -22,14 +22,9 @@ private:
 	int getNextPlaybackTime();
 
 public:
-	PlaybackFFmpegWrapper(string _cameraId, string _url,
-			int start_seek_time,
+	PlaybackFFmpegWrapper(const Json::Value& streamInfo,
 			WebsocketDataCallback _websocketCallback,
-			WebsocketSDataCallback _websocketSCallback,
-			string _connectionmode,
-			float playbackSpeed,
-			int _requestTime = 0,
-			int _playbackFileDuration = 0);
+			WebsocketSDataCallback _websocketSCallback);
 
 	~PlaybackFFmpegWrapper() override = default;
 

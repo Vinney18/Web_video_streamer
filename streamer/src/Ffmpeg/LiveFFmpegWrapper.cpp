@@ -1,12 +1,9 @@
 #include "Ffmpeg/LiveFFmpegWrapper.h"
 
-LiveFFmpegWrapper::LiveFFmpegWrapper(string _cameraId, string _url,
+LiveFFmpegWrapper::LiveFFmpegWrapper(const Json::Value& streamInfo,
 		WebsocketDataCallback _websocketCallback,
-		WebsocketSDataCallback _websocketSCallback,
-		string _connectionmode)
-	: FFmpegWrapper(std::move(_cameraId), std::move(_url),
-					_websocketCallback, _websocketSCallback,
-					std::move(_connectionmode))
+		WebsocketSDataCallback _websocketSCallback)
+	: FFmpegWrapper(streamInfo, _websocketCallback, _websocketSCallback)
 {
 }
 

@@ -1,22 +1,15 @@
 #include "Ffmpeg/PlaybackFFmpegWrapper.h"
 #include "json/json.h"
 
-PlaybackFFmpegWrapper::PlaybackFFmpegWrapper(string _cameraId, string _url,
-		int start_seek_time,
+PlaybackFFmpegWrapper::PlaybackFFmpegWrapper(const Json::Value& streamInfo,
 		WebsocketDataCallback _websocketCallback,
-		WebsocketSDataCallback _websocketSCallback,
-		string _connectionmode,
-		float playbackSpeed,
-		int _requestTime,
-		int _playbackFileDuration)
-	: FFmpegWrapper(std::move(_cameraId), std::move(_url),
-					_websocketCallback, _websocketSCallback,
-					std::move(_connectionmode))
+		WebsocketSDataCallback _websocketSCallback)
+	: FFmpegWrapper(streamInfo, _websocketCallback, _websocketSCallback)
 {
-	initial_seek_time = start_seek_time;
-	originalRequestTime = _requestTime;
-	videoDuration = _playbackFileDuration;
-	fastForwardFactor = playbackSpeed;
+	initial_seek_time = streamInfo.get("seekTime", 0).asInt();
+	originalRequestTime = streamInfo.get("startTime", 0).asInt();
+	videoDuration = static_cast<int>(round(streamInfo.get("durationMinutes", 0).asFloat() * 60));
+	fastForwardFactor = streamInfo.get("playbackSpeed", 1.0).asFloat();
 }
 
 ProcessedPacket PlaybackFFmpegWrapper::processPacket(AVPacket& packet, int64_t firstDts, int64_t frameCount)

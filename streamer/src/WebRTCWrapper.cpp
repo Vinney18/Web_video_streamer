@@ -120,7 +120,8 @@ void WebRTCWrapper::setupVideoTrack(std::shared_ptr<rtc::PeerConnection> pc,
 }
 
 void WebRTCWrapper::createPeerConnection(const std::string &clientId,
-                                         const std::string &url, AVCodecID codecId)
+                                         const std::string &url, AVCodecID codecId,
+                                         const Json::Value &streamInfo)
 {
     try
     {
@@ -141,7 +142,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
         connInfo->clientId = clientId;
         connInfo->peerConnection = pc;
         connInfo->query = signalingTransport_.getQuery(clientId);
-        connInfo->url = url;
+        connInfo->streamInfo = streamInfo;
 
         // Set up state change callbacks
         pc->onStateChange([this, clientId](rtc::PeerConnection::State state)
@@ -315,8 +316,9 @@ void WebRTCWrapper::handleRequest(const std::string &clientId)
 
         signalingTransport_.sendMessage(clientId, buildJsonMessage("status", "Connecting Player Server"));
 
-        // 1. Resolve URL first (need it to pick correct RTP packetizer separator)
-        std::string url = PlayerServerClient::resolveStreamUrl(query);
+        // 1. Resolve stream info (URL + metadata like seekTime, duration)
+        Json::Value streamInfo = PlayerServerClient::resolveStreamUrl(query);
+        std::string url = streamInfo.get("url", "").asString();
 
         if (url.empty() || boost::starts_with(url, "Player_Server_Not_Connected") ||
             boost::starts_with(url, "URL_Server_Not_Connected"))
@@ -351,8 +353,10 @@ void WebRTCWrapper::handleRequest(const std::string &clientId)
             return;
         }
 
+        signalingTransport_.sendMessage(clientId, buildJsonMessage("status", "creating peer connection"));
+
         // 5. Create peer connection with correct packetizer based on actual codec
-        createPeerConnection(clientId, url, codecId);
+        createPeerConnection(clientId, url, codecId, streamInfo);
     }
     catch (const std::exception &ex)
     {
@@ -744,16 +748,13 @@ void WebRTCWrapper::processRequest(const std::string &clientId)
         }
 
         const Json::Value &query = connInfo->query;
-        const std::string &url = connInfo->url;
-
-        std::string cameraId = query.get("cameraId", "").asString();
+        std::string url = connInfo->streamInfo.get("url", "").asString();
         std::string mode = query.get("mode", "Live").asString();
-        std::string connectionmode = query.get("connectionMode", "tcp").asString();
-        float playbackSpeed = query.get("playbackSpeed", 1.0).asFloat();
-        playbackSpeed = std::clamp(playbackSpeed, 0.5f, 5.0f);
-        int start_time_ofplaybackfile = query.get("startTime", 0).asInt();
-        int seekTime_ofFile = 0;
-        float duration_in_Minutes = 0;
+
+        // Enrich streamInfo with query-derived values for FFmpeg wrapper constructors
+        Json::Value streamInfo = connInfo->streamInfo;
+        streamInfo["cameraId"] = query.get("cameraId", "").asString();
+        streamInfo["connectionMode"] = query.get("connectionMode", "tcp").asString();
 
         auto bindSendData = std::bind(&WebRTCWrapper::SendData, this,
                                       std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
@@ -770,9 +771,8 @@ void WebRTCWrapper::processRequest(const std::string &clientId)
             auto it = liveStreams.find(url);
             if (it == liveStreams.end())
             {
-                auto ffmpeg = std::make_shared<LiveFFmpegWrapper>(cameraId, url,
-                                                                  sendDataFunc, sendStringDataFunc,
-                                                                  connectionmode);
+                auto ffmpeg = std::make_shared<LiveFFmpegWrapper>(streamInfo,
+                                                                  sendDataFunc, sendStringDataFunc);
                 liveStreams[url] = ffmpeg;
                 ffmpeg->startThread();
             }
@@ -788,12 +788,13 @@ void WebRTCWrapper::processRequest(const std::string &clientId)
         }
         else
         { // PlayBack mode
-            int duration_in_Seconds = static_cast<int>(round(duration_in_Minutes * 60));
+            float playbackSpeed = query.get("playbackSpeed", 1.0).asFloat();
+            playbackSpeed = std::clamp(playbackSpeed, 0.5f, 5.0f);
+            streamInfo["playbackSpeed"] = playbackSpeed;
+            streamInfo["startTime"] = query.get("startTime", 0).asInt();
 
-            auto ffmpeg = std::make_shared<PlaybackFFmpegWrapper>(cameraId, url, seekTime_ofFile,
-                                                                  sendDataFunc, sendStringDataFunc,
-                                                                  connectionmode, playbackSpeed, start_time_ofplaybackfile,
-                                                                  duration_in_Seconds);
+            auto ffmpeg = std::make_shared<PlaybackFFmpegWrapper>(streamInfo,
+                                                                  sendDataFunc, sendStringDataFunc);
 
             ffmpeg->startThread();
             ffmpeg->addConnToList(peerConn);
