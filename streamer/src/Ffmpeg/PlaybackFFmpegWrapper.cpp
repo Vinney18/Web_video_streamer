@@ -73,8 +73,11 @@ void PlaybackFFmpegWrapper::onReadLoopFinished()
 	// Calculate next playback time and send as JSON
 	int nextPlaybackTime = getNextPlaybackTime();
 
-	// Send next playback time to WebSocket handler
-	std::string finishMessage = "{\"event\":\"Playback_Finished\",\"cameraId\":\"" + cameraId + "\",\"nextTime\":" + std::to_string(nextPlaybackTime) + "}";
+	Json::Value msg;
+    msg["type"] = "Playback_Finished";
+    msg["time"] = nextPlaybackTime;
+    Json::StreamWriterBuilder writerBuilder;
+    std::string finishMessage= Json::writeString(writerBuilder, msg);
 
 	for (webConnHdl hndl : connections)
 	{
