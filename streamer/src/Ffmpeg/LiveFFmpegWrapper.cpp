@@ -5,6 +5,7 @@ LiveFFmpegWrapper::LiveFFmpegWrapper(const Json::Value& streamInfo,
 		WebsocketSDataCallback _websocketSCallback)
 	: FFmpegWrapper(streamInfo, _websocketCallback, _websocketSCallback)
 {
+	interruptTimeoutMs = 3000.0;  // 3s timeout for live streams
 }
 
 ProcessedPacket LiveFFmpegWrapper::processPacket(AVPacket& packet, int64_t /*firstDts*/, int64_t frameCount)

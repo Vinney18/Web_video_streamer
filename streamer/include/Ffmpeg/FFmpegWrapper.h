@@ -83,6 +83,7 @@ protected:
 
 	bool isVideoStartedEventsent = false;
 	InterruptParams params;
+	double interruptTimeoutMs = 20000.0;  // default 20s, overridden by subclasses
 
 	std::shared_ptr<spdlog::logger> logger;
 
@@ -153,8 +154,8 @@ public:
 		}
 		auto tickCount = GetTickCount();
 
-		//timeout after 2 seconds of no activity
-		if (thisObj->params.isRunning && (tickCount - thisObj->params.lastStopped > 1000.0))
+		//timeout after no activity
+		if (thisObj->params.isRunning && (tickCount - thisObj->params.lastStopped > thisObj->interruptTimeoutMs))
 			return 1;
 
 
