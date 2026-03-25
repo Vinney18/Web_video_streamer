@@ -53,14 +53,14 @@ int FFmpegWrapper::run()
 		}
 	}
 
-	{
-		std::lock_guard<std::mutex> lock(connectionsMutex); // Protect access to the connections list
+	// {
+	// 	std::lock_guard<std::mutex> lock(connectionsMutex); // Protect access to the connections list
 
-		for (webConnHdl connHdl : connections)
-		{
-			websocketSCallback(connHdl, "Stopped");
-		}
-	}
+	// 	for (webConnHdl connHdl : connections)
+	// 	{
+	// 		websocketSCallback(connHdl, "Stopped");
+	// 	}
+	// }
 
 	return 0;
 }

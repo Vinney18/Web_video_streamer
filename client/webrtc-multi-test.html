@@ -351,7 +351,10 @@
                     console.log(`[#${s.index + 1}] ---------------- No stream on track event, creating new stream`);
                         video.srcObject = new MediaStream([event.track]);
                     }
-                    // Poll frame stats every 2s
+                    // Poll frame stats every 2s + detect codec change
+                    s.lastDecoded = 0;
+                    s.lastReceived = 0;
+                    s.zeroDecodeCount = 0;
                     s.statsInterval = setInterval(async () => {
                         if (!s.pc) { clearInterval(s.statsInterval); return; }
                         const stats = await s.pc.getStats();
@@ -364,10 +367,36 @@
                                     const received = report.framesReceived || 0;
                                     const bytes = report.bytesReceived || 0;
                                     el.innerHTML = `Decoded: ${decoded} | Received: ${received} | <span class="dropped">Dropped: ${dropped}</span> | Bytes: ${bytes}`;
+
+                                    // Detect stale connection or codec change
+                                    const newDecoded = decoded - s.lastDecoded;
+                                    const newReceived = received - s.lastReceived;
+                                    s.lastDecoded = decoded;
+                                    s.lastReceived = received;
+
+                                    const needsReconnect =
+                                        (newReceived > 0 && newDecoded === 0) || // codec change: packets arrive but can't decode
+                                        (newReceived === 0 && newDecoded === 0);  // no packets at all: connection dead
+
+                                    if (needsReconnect) {
+                                        s.zeroDecodeCount++;
+                                        const reason = newReceived > 0 ? 'no frames decoded' : 'no packets received';
+                                        log(`[#${s.index + 1}] ${reason} - streak: ${s.zeroDecodeCount}`, 'error');
+                                        // 3 consecutive polls (6s) -> reconnect
+                                        if (s.zeroDecodeCount >= 3) {
+                                            log(`[#${s.index + 1}] Stream stale (${reason}), reconnecting...`, 'error');
+                                            s.zeroDecodeCount = 0;
+                                            clearInterval(s.statsInterval);
+                                            if (s.pc) { s.pc.close(); s.pc = null; }
+                                            sendRequest(s);
+                                        }
+                                    } else {
+                                        s.zeroDecodeCount = 0;
+                                    }
                                 }
                             }
                         });
-                    }, 2000);
+                    }, 5000);
                 }
             };
 
