@@ -21,6 +21,10 @@ private:
 	void FastForward_video(float factor);
 	int getNextPlaybackTime();
 
+
+	// todovineet no need to make this static
+	static double getVideoDuration(const std::string& url);
+
 public:
 	PlaybackFFmpegWrapper(const Json::Value& streamInfo,
 			WebsocketDataCallback _websocketCallback,

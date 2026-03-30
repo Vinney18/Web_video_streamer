@@ -49,7 +49,7 @@ int FFmpegWrapper::run()
 					websocketSCallback(connHdl, "retrying");
 				}
 			}
-			this_thread::sleep_for(std::chrono::seconds(1));
+			this_thread::sleep_for(std::chrono::milliseconds(500));
 		}
 	}
 
@@ -318,6 +318,8 @@ void FFmpegWrapper::Pause_video()
 AVCodecID FFmpegWrapper::probeCodec(const std::string &url)
 {
 	AVFormatContext *fmtCtx = avformat_alloc_context();
+	
+
 	if (!fmtCtx)
 		return AV_CODEC_ID_NONE;
 
@@ -339,7 +341,6 @@ AVCodecID FFmpegWrapper::probeCodec(const std::string &url)
 		avformat_close_input(&fmtCtx);
 		return AV_CODEC_ID_NONE;
 	}
-
 	AVCodecID codecId = AV_CODEC_ID_NONE;
 	for (unsigned int i = 0; i < fmtCtx->nb_streams; i++)
 	{
@@ -353,3 +354,5 @@ AVCodecID FFmpegWrapper::probeCodec(const std::string &url)
 	avformat_close_input(&fmtCtx);
 	return codecId;
 }
+
+

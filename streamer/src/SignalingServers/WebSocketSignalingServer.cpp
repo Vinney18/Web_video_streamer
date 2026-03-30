@@ -30,7 +30,6 @@ void WebSocketSignalingServer::run()
 {
     try
     {
-        std::cout << "Starting WebSocket signaling server on port: " << port_ << std::endl;
         if (logger_)
         {
             logger_->info("Starting WebSocket signaling server on port: {}", port_);
@@ -172,7 +171,6 @@ void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket>
         logger_->info("New WebSocket connection: {}", clientId);
     }
 
-    // std::cout << "New WebSocket connection: " << clientId << " threadId: " << std::this_thread::get_id() << std::endl;
 
     {
         std::lock_guard<std::mutex> lock(connectionsMutex_);
@@ -235,7 +233,8 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
             {
                 std::lock_guard<std::mutex> lock(connectionsMutex_);
                 auto it = connections_.find(clientId);
-                if (it != connections_.end()) {
+                if (it != connections_.end())
+                {
                     it->second.requestQuery = query;
                 }
             }
@@ -243,13 +242,11 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
         }
         else if (type == "answer")
         {
-            // std::cout << "answer message WebSocket for client: " << clientId << std::endl;
             std::string sdp = root["sdp"].asString();
             rtcWrapper_->handleAnswer(clientId, sdp);
         }
         else if (type == "candidate" || type == "ice")
         {
-            // std::cout << "candidate message WebSocket for client: " << clientId << std::endl;
             std::string candidate = root["candidate"].asString();
             std::string sdpMid = root.get("sdpMid", "").asString();
             int sdpMLineIndex = root.get("sdpMLineIndex", 0).asInt();
@@ -274,7 +271,6 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
 
 void WebSocketSignalingServer::onClosed(const std::string &clientId)
 {
-    std::cout << "WebSocket closed for client: " << clientId << std::endl;
     if (logger_)
     {
         logger_->info("WebSocket closed for client: {}", clientId);

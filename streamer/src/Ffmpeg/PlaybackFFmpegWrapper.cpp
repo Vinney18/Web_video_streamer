@@ -1,9 +1,9 @@
 #include "Ffmpeg/PlaybackFFmpegWrapper.h"
 #include "json/json.h"
 
-PlaybackFFmpegWrapper::PlaybackFFmpegWrapper(const Json::Value& streamInfo,
-		WebsocketDataCallback _websocketCallback,
-		WebsocketSDataCallback _websocketSCallback)
+PlaybackFFmpegWrapper::PlaybackFFmpegWrapper(const Json::Value &streamInfo,
+											 WebsocketDataCallback _websocketCallback,
+											 WebsocketSDataCallback _websocketSCallback)
 	: FFmpegWrapper(streamInfo, _websocketCallback, _websocketSCallback)
 {
 	initial_seek_time = streamInfo.get("seekTime", 0).asInt();
@@ -12,12 +12,14 @@ PlaybackFFmpegWrapper::PlaybackFFmpegWrapper(const Json::Value& streamInfo,
 	fastForwardFactor = streamInfo.get("playbackSpeed", 1.0).asFloat();
 }
 
-ProcessedPacket PlaybackFFmpegWrapper::processPacket(AVPacket& packet, int64_t firstDts, int64_t frameCount)
+ProcessedPacket PlaybackFFmpegWrapper::processPacket(AVPacket &packet, int64_t firstDts, int64_t frameCount)
 {
 	int64_t position = round((this->inputFormatCtx->streams[videoStream]->cur_dts - firstDts) * this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den);
 
 	if (frameCount == 1)
 	{
+		videoDuration = getVideoDuration(url);
+
 		playbackFileStared = true;
 		if (this->initial_seek_time > 0)
 		{
@@ -65,8 +67,37 @@ ProcessedPacket PlaybackFFmpegWrapper::processPacket(AVPacket& packet, int64_t f
 	return {vector<uint8_t>(packet.data, packet.data + packet.size), position};
 }
 
+// todovineet extra code is written
 void PlaybackFFmpegWrapper::onReadLoopFinished()
 {
+	double segmentDuration = static_cast<double>(videoDuration);
+	if (this->inputFormatCtx->duration != AV_NOPTS_VALUE)
+	{
+		auto x = getVideoDuration(url);
+		if (logger)
+		{
+			logger->error("secondfetched video duration {}", x);
+		}
+		// std::cout << "##############Input Duration (seconds): " << x << " url " << url << "  provided  " << segmentDuration << std::endl;
+		if (x > segmentDuration + 1)
+		{
+			int difference = static_cast<int>(segmentDuration - initial_seek_time);
+			if (difference < 0)
+			{
+				difference = 0;
+			}
+			originalRequestTime = originalRequestTime + difference + 1;
+			initial_seek_time = initial_seek_time + difference + 1;
+			videoDuration = x;
+			logger->error("##########Warning: HTTP duration {} differs from stream duration {} orignal request time {}", segmentDuration, x, originalRequestTime);
+			// std::cout << "##########Warning: HTTP duration " << segmentDuration << " differs from stream duration " << x << std::endl;
+			return;
+		}
+		else
+		{
+			logger->error("##########Duration from HTTP matches stream duration: {} seconds", segmentDuration);
+		}
+	}
 	playbackStartPTS = -1.0;
 	playbackStartTime = std::chrono::steady_clock::time_point();
 
@@ -74,10 +105,10 @@ void PlaybackFFmpegWrapper::onReadLoopFinished()
 	int nextPlaybackTime = getNextPlaybackTime();
 
 	Json::Value msg;
-    msg["type"] = "Playback_Finished";
-    msg["time"] = nextPlaybackTime;
-    Json::StreamWriterBuilder writerBuilder;
-    std::string finishMessage= Json::writeString(writerBuilder, msg);
+	msg["type"] = "Playback_Finished";
+	msg["time"] = nextPlaybackTime;
+	Json::StreamWriterBuilder writerBuilder;
+	std::string finishMessage = Json::writeString(writerBuilder, msg);
 
 	for (webConnHdl hndl : connections)
 	{
@@ -122,11 +153,11 @@ void PlaybackFFmpegWrapper::seek_video(int time_toSeek_insec)
 			fileseekingstarted = false;
 			if (logger)
 			{
-				logger->error("Exception while seek video: {}", ex.what());
+				logger->error("Exception in seek video: {}", ex.what());
 			}
 			else
 			{
-				std::cout << "Exception while seek video: " << ex.what() << std::endl;
+				std::cout << "Exception in seek video: " << ex.what() << std::endl;
 			}
 		}
 	}
@@ -156,7 +187,12 @@ int PlaybackFFmpegWrapper::getNextPlaybackTime()
 
 		// Calculate: original request time + (segment duration - seek time)
 		// This gives us the timestamp where playback ended
-		nextTime = originalRequestTime + static_cast<int>(segmentDuration - initial_seek_time) + 1;
+		auto difference = static_cast<int>(segmentDuration - initial_seek_time);
+		if (difference < 0)
+		{
+			difference = 0;
+		}
+		nextTime = originalRequestTime + difference + 1;
 
 		std::cout << "Calculated next playback time: original=" << originalRequestTime
 				  << ", segmentDuration=" << segmentDuration
@@ -179,7 +215,12 @@ int PlaybackFFmpegWrapper::getNextPlaybackTime()
 
 		// Calculate: original request time + (segment duration - seek time)
 		// This gives us the timestamp where playback ended
-		nextTime = originalRequestTime + static_cast<int>(segmentDuration - initial_seek_time) + 1;
+		auto difference = static_cast<int>(segmentDuration - initial_seek_time);
+		if (difference < 0)
+		{
+			difference = 0;
+		}
+		nextTime = originalRequestTime + difference + 1;
 
 		std::cout << "Calculated next playback time: original=" << originalRequestTime
 				  << ", segmentDuration=" << segmentDuration
@@ -194,7 +235,7 @@ int PlaybackFFmpegWrapper::getNextPlaybackTime()
 	return nextTime;
 }
 
-void PlaybackFFmpegWrapper::handleClientCommand(const std::string& jsonMessage)
+void PlaybackFFmpegWrapper::handleClientCommand(const std::string &jsonMessage)
 {
 	Json::Value root;
 	Json::Reader reader;
@@ -227,4 +268,34 @@ void PlaybackFFmpegWrapper::handleClientCommand(const std::string& jsonMessage)
 	{
 		Pause_video();
 	}
+}
+
+double PlaybackFFmpegWrapper::getVideoDuration(const std::string &url)
+{
+	AVFormatContext *fmtCtx = avformat_alloc_context();
+
+	if (!fmtCtx)
+		return AV_CODEC_ID_NONE;
+
+	AVDictionary *options = nullptr;
+	av_dict_set(&options, "rtsp_transport", "tcp", 0);
+
+	av_dict_set(&options, "max_delay", "2000000", 0);
+	av_dict_set(&options, "stimeout", "5000000", 0);
+	av_dict_set(&options, "analyzeduration", "300000", 0);
+	av_dict_set(&options, "probesize", "7000000", 0);
+
+	if (avformat_open_input(&fmtCtx, url.c_str(), NULL, &options) != 0)
+	{
+		return AV_CODEC_ID_NONE;
+	}
+
+	if (avformat_find_stream_info(fmtCtx, NULL) < 0)
+	{
+		avformat_close_input(&fmtCtx);
+		return AV_CODEC_ID_NONE;
+	}
+	auto x = (double)fmtCtx->duration / AV_TIME_BASE;
+	avformat_close_input(&fmtCtx);
+	return x;
 }

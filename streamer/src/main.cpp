@@ -15,8 +15,7 @@ int main(int argc, char* argv[])
 {
 	CLI::App app{ "i2V streamer" };
 	av_register_all();
-	std::cout << "i2V Streamer starting..." << std::endl;
-	bool show_logs_on_console = false;
+	bool show_logs_on_console = true;
 	app.add_option("-s,--show_log", show_logs_on_console, "Show logs on console");
 	// show_logs_on_console = true; // Default to true, can be overridden by command line argument
 	CLI11_PARSE(app, argc, argv)

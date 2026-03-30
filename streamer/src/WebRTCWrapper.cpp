@@ -81,14 +81,6 @@ void WebRTCWrapper::logStats()
             std::cout << "  " << id << " | packets: " << conn->packetsSent << std::endl;
         }
     }
-    if (mainLogger)
-    {
-        mainLogger->info("[Stats] WebRTC connections: {}, Live FFmpeg streams: {}", connections.size(), liveCount);
-        for (const auto &[id, conn] : connections)
-        {
-            mainLogger->info("  {} | packets: {}", id, conn->packetsSent);
-        }
-    }
 }
 
 void WebRTCWrapper::setupVideoTrack(std::shared_ptr<rtc::PeerConnection> pc,
@@ -463,11 +455,10 @@ void WebRTCWrapper::removeConnection(const std::string &clientId)
             }
         }
 
-        
         // Remove from FFmpeg wrapper
         if (connInfo && connInfo->ffmpegWrapper)
         {
-            //todovineet here race condition should occur
+            // todovineet here race condition should occur
             bool canStop = connInfo->ffmpegWrapper->removeConnection(connInfo->peerConnection);
             if (canStop)
             {
@@ -488,7 +479,10 @@ void WebRTCWrapper::removeConnection(const std::string &clientId)
         }
         else
         {
-            std::cout << "No FFmpeg wrapper to remove connection from for client: " << clientId << std::endl;
+            if (mainLogger)
+            {
+                mainLogger->error("No FFmpeg wrapper to remove connection from for client:  {}", clientId);
+            }
         }
 
         if (mainLogger)
