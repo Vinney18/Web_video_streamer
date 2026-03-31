@@ -70,34 +70,28 @@ ProcessedPacket PlaybackFFmpegWrapper::processPacket(AVPacket &packet, int64_t f
 // todovineet extra code is written
 void PlaybackFFmpegWrapper::onReadLoopFinished()
 {
-	double segmentDuration = static_cast<double>(videoDuration);
-	if (this->inputFormatCtx->duration != AV_NOPTS_VALUE)
+	int existingVideoDuration = static_cast<int>(videoDuration);
+
+	auto currentVideoDuration = getVideoDuration(url);
+	if (currentVideoDuration > existingVideoDuration + 1)
 	{
-		auto x = getVideoDuration(url);
-		if (logger)
+		int difference = existingVideoDuration - initial_seek_time;
+		if (difference < 0)
 		{
-			logger->error("secondfetched video duration {}", x);
+			difference = 0;
 		}
-		// std::cout << "##############Input Duration (seconds): " << x << " url " << url << "  provided  " << segmentDuration << std::endl;
-		if (x > segmentDuration + 1)
-		{
-			int difference = static_cast<int>(segmentDuration - initial_seek_time);
-			if (difference < 0)
-			{
-				difference = 0;
-			}
-			originalRequestTime = originalRequestTime + difference + 1;
-			initial_seek_time = initial_seek_time + difference + 1;
-			videoDuration = x;
-			logger->error("##########Warning: HTTP duration {} differs from stream duration {} orignal request time {}", segmentDuration, x, originalRequestTime);
-			// std::cout << "##########Warning: HTTP duration " << segmentDuration << " differs from stream duration " << x << std::endl;
-			return;
-		}
-		else
-		{
-			logger->error("##########Duration from HTTP matches stream duration: {} seconds", segmentDuration);
-		}
+		originalRequestTime = originalRequestTime + difference + 1;
+		initial_seek_time = initial_seek_time + difference + 1;
+		videoDuration = currentVideoDuration;
+		logger->error("##########Warning: HTTP duration {} differs from stream duration {} orignal request time {}", existingVideoDuration, currentVideoDuration, originalRequestTime);
+		// std::cout << "##########Warning: HTTP duration " << existingVideoDuration << " differs from stream duration " << currentVideoDuration << std::endl;
+		return;
 	}
+	else
+	{
+		logger->error("##########Duration from HTTP matches stream duration: {} seconds", existingVideoDuration);
+	}
+
 	playbackStartPTS = -1.0;
 	playbackStartTime = std::chrono::steady_clock::time_point();
 
@@ -174,64 +168,23 @@ void PlaybackFFmpegWrapper::FastForward_video(float speed)
 
 int PlaybackFFmpegWrapper::getNextPlaybackTime()
 {
-	// Calculate the next playback time based on segment duration
-	int nextTime = originalRequestTime;
 
-	// First, check if we have duration from HTTP response (preferred method)
-	if (videoDuration > 0)
+	// Use the duration provided from HTTP response (already in seconds)
+	int segmentDuration = static_cast<int>(videoDuration);
+
+	// Calculate: original request time + (segment duration - seek time)
+	// This gives us the timestamp where playback ended
+	auto difference = segmentDuration - initial_seek_time;
+	if (difference < 0)
 	{
-		// Use the duration provided from HTTP response (already in seconds)
-		double segmentDuration = static_cast<double>(videoDuration);
-
-		std::cout << "--------- Using HTTP response duration: " << segmentDuration << " seconds" << std::endl;
-
-		// Calculate: original request time + (segment duration - seek time)
-		// This gives us the timestamp where playback ended
-		auto difference = static_cast<int>(segmentDuration - initial_seek_time);
-		if (difference < 0)
-		{
-			difference = 0;
-		}
-		nextTime = originalRequestTime + difference + 1;
-
-		std::cout << "Calculated next playback time: original=" << originalRequestTime
-				  << ", segmentDuration=" << segmentDuration
-				  << ", seekTime=" << initial_seek_time
-				  << ", next=" << nextTime << std::endl;
+		difference = 0;
 	}
-	else if (inputFormatCtx && videoStream >= 0)
-	{
-		// Fall back to calculating from stream metadata
-		double segmentDuration = 0.0;
+	int nextTime = originalRequestTime + difference + 1;
 
-		// Get duration from stream
-		if (inputFormatCtx->streams[videoStream]->duration != AV_NOPTS_VALUE)
-		{
-			segmentDuration = inputFormatCtx->streams[videoStream]->duration *
-							  av_q2d(inputFormatCtx->streams[videoStream]->time_base);
-		}
-
-		std::cout << "--------- Using stream metadata duration: " << segmentDuration << " seconds" << std::endl;
-
-		// Calculate: original request time + (segment duration - seek time)
-		// This gives us the timestamp where playback ended
-		auto difference = static_cast<int>(segmentDuration - initial_seek_time);
-		if (difference < 0)
-		{
-			difference = 0;
-		}
-		nextTime = originalRequestTime + difference + 1;
-
-		std::cout << "Calculated next playback time: original=" << originalRequestTime
-				  << ", segmentDuration=" << segmentDuration
-				  << ", seekTime=" << initial_seek_time
-				  << ", next=" << nextTime << std::endl;
-	}
-	else
-	{
-		std::cout << "--------- Warning: No duration available, using original request time" << std::endl;
-	}
-
+	std::cout << "Calculated next playback time: original=" << originalRequestTime
+			  << ", segmentDuration=" << segmentDuration
+			  << ", seekTime=" << initial_seek_time
+			  << ", next=" << nextTime << std::endl;
 	return nextTime;
 }
 
@@ -295,7 +248,7 @@ double PlaybackFFmpegWrapper::getVideoDuration(const std::string &url)
 		avformat_close_input(&fmtCtx);
 		return AV_CODEC_ID_NONE;
 	}
-	auto x = (double)fmtCtx->duration / AV_TIME_BASE;
+	auto currentVideoDuration = (double)fmtCtx->duration / AV_TIME_BASE;
 	avformat_close_input(&fmtCtx);
-	return x;
+	return currentVideoDuration;
 }
