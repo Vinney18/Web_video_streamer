@@ -65,7 +65,7 @@ set_target_properties(
 		${EXE_NAME}
 		PROPERTIES
 		POSITION_INDEPENDENT_CODE ON
-		CXX_STANDARD 17
+		CXX_STANDARD 20
 		CXX_STANDARD_REQUIRED YES
 		CXX_EXTENSIONS NO
 		LINKER_LANGUAGE CXX
@@ -110,3 +110,15 @@ else()
 endif()
 
 target_compile_definitions(${EXE_NAME} PUBLIC SPDLOG_FMT_EXTERNAL)
+
+# Auto-copy FFmpeg DLLs next to the exe after build (Windows only)
+if(WIN32)
+    file(GLOB FFMPEG_DLLS "${PROJECT_SOURCE_DIR}/external_libs/av*.dll"
+                          "${PROJECT_SOURCE_DIR}/external_libs/sw*.dll"
+                          "${PROJECT_SOURCE_DIR}/external_libs/postproc*.dll")
+    foreach(DLL ${FFMPEG_DLLS})
+        add_custom_command(TARGET ${EXE_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${DLL}" "$<TARGET_FILE_DIR:${EXE_NAME}>"
+        )
+    endforeach()
+endif()
