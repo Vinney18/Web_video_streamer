@@ -136,7 +136,7 @@
         </div>
         <div class="setup-row">
             <label for="streamCount">Streams:</label>
-            <input type="number" id="streamCount" value="8" min="1" max="20">
+            <input type="number" id="streamCount" value="8" min="1" max="120">
             <button class="btn btn-start" id="startBtn" onclick="startTest()">Start</button>
             <button class="btn btn-stop" id="stopBtn" onclick="stopAll()" disabled>Stop All</button>
         </div>
@@ -175,7 +175,7 @@
     }
 
     async function startTest() {
-        const count = Math.min(20, Math.max(1, parseInt(document.getElementById('streamCount').value) || 1));
+        const count = Math.min(120, Math.max(1, parseInt(document.getElementById('streamCount').value) || 1));
         const serverUrl = document.getElementById('serverUrl').value.trim();
 
         document.getElementById('startBtn').disabled = true;
@@ -219,7 +219,7 @@
             // Wait 2 seconds before next connection (except after the last one)
             if (i < count - 1) {
                 log(`Waiting 2s before stream #${i + 2}...`, 'info');
-                await sleep(2);
+                await sleep();
             }
         }
 
@@ -237,6 +237,20 @@
         label.textContent = state.charAt(0).toUpperCase() + state.slice(1);
     }
 
+    function sendRequest(s) {
+        const mode = document.getElementById('streamMode').value;
+        s.ws.send(JSON.stringify({
+            type: 'request',
+            clientId: s.clientId,
+            query: {
+                cameraId: 'cam1',
+                mode: mode,
+                streamType: 0,
+                startTime: 0
+            }
+        }));
+    }
+
     function connectStream(s, serverUrl) {
         let wsUrl = serverUrl.replace(/^http/, 'ws');
         if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
@@ -246,41 +260,54 @@
         log(`[#${s.index + 1}] Connecting WS to ${wsUrl}`, 'info');
         s.ws = new WebSocket(wsUrl);
 
+        // 5s connection timeout — retry if not connected
+        const connectTimeout = setTimeout(() => {
+            if (s.ws && s.ws.readyState !== WebSocket.OPEN) {
+                log(`[#${s.index + 1}] WebSocket connection timeout (5s), retrying...`, 'error');
+                s.ws.close();
+                connectStream(s, serverUrl);
+            }
+        }, 5000);
+
         s.ws.onopen = () => {
+            clearTimeout(connectTimeout);
             log(`[#${s.index + 1}] WebSocket connected, sending request`, 'success');
-            const mode = document.getElementById('streamMode').value;
-            const query = `cameraId~~cam1&&mode~~${mode}&&streamType~~0&&startTime~~0`;
-            s.ws.send(JSON.stringify({
-                type: 'request',
-                clientId: s.clientId,
-                query: query
-            }));
+            sendRequest(s);
         };
 
         s.ws.onmessage = (event) => {
             try {
                 const msg = JSON.parse(event.data);
-                handleSignaling(s, msg);
+                handleSignaling(s, msg, serverUrl);
             } catch (e) {
                 log(`[#${s.index + 1}] Parse error: ${e.message}`, 'error');
             }
         };
 
         s.ws.onerror = () => {
-            log(`[#${s.index + 1}] WebSocket error`, 'error');
-            updateStreamState(s, 'failed');
+            clearTimeout(connectTimeout);
+            log(`[#${s.index + 1}] WebSocket error, retrying in 2s...`, 'error');
+            s.ws.close();
+            setTimeout(() => connectStream(s, serverUrl), 2000);
         };
 
         s.ws.onclose = () => {
+            clearTimeout(connectTimeout);
             log(`[#${s.index + 1}] WebSocket closed`, 'info');
         };
     }
 
-    function handleSignaling(s, msg) {
+    function handleSignaling(s, msg, serverUrl) {
         switch (msg.type) {
             case 'offer': handleOffer(s, msg); break;
             case 'candidate': handleCandidate(s, msg); break;
-            case 'error': log(`[#${s.index + 1}] Server error: ${msg.message}`, 'error'); break;
+            case 'error':
+                log(`[#${s.index + 1}] Server error: ${msg.message}`, 'error');
+                if (msg.message && msg.message.toLowerCase().includes('unsupported codec')) {
+                    log(`[#${s.index + 1}] Unsupported codec, retrying in 2s...`, 'info');
+                    setTimeout(() => sendRequest(s), 2000);
+                }
+                break;
         }
     }
 
@@ -319,10 +346,15 @@
                     const video = document.getElementById(`video-${s.index}`);
                     if (event.streams && event.streams[0]) {
                         video.srcObject = event.streams[0];
-                    } else {
+                    } 
+                    else {
+                    console.log(`[#${s.index + 1}] ---------------- No stream on track event, creating new stream`);
                         video.srcObject = new MediaStream([event.track]);
                     }
-                    // Poll frame stats every 2s
+                    // Poll frame stats every 2s + detect codec change
+                    s.lastDecoded = 0;
+                    s.lastReceived = 0;
+                    s.zeroDecodeCount = 0;
                     s.statsInterval = setInterval(async () => {
                         if (!s.pc) { clearInterval(s.statsInterval); return; }
                         const stats = await s.pc.getStats();
@@ -335,10 +367,36 @@
                                     const received = report.framesReceived || 0;
                                     const bytes = report.bytesReceived || 0;
                                     el.innerHTML = `Decoded: ${decoded} | Received: ${received} | <span class="dropped">Dropped: ${dropped}</span> | Bytes: ${bytes}`;
+
+                                    // Detect stale connection or codec change
+                                    const newDecoded = decoded - s.lastDecoded;
+                                    const newReceived = received - s.lastReceived;
+                                    s.lastDecoded = decoded;
+                                    s.lastReceived = received;
+
+                                    const needsReconnect =
+                                        (newReceived > 0 && newDecoded === 0) || // codec change: packets arrive but can't decode
+                                        (newReceived === 0 && newDecoded === 0);  // no packets at all: connection dead
+
+                                    if (needsReconnect) {
+                                        s.zeroDecodeCount++;
+                                        const reason = newReceived > 0 ? 'no frames decoded' : 'no packets received';
+                                        log(`[#${s.index + 1}] ${reason} - streak: ${s.zeroDecodeCount}`, 'error');
+                                        // 3 consecutive polls (6s) -> reconnect
+                                        if (s.zeroDecodeCount >= 3) {
+                                            log(`[#${s.index + 1}] Stream stale (${reason}), reconnecting...`, 'error');
+                                            s.zeroDecodeCount = 0;
+                                            clearInterval(s.statsInterval);
+                                            if (s.pc) { s.pc.close(); s.pc = null; }
+                                            sendRequest(s);
+                                        }
+                                    } else {
+                                        s.zeroDecodeCount = 0;
+                                    }
                                 }
                             }
                         });
-                    }, 2000);
+                    }, 5000);
                 }
             };
 

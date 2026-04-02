@@ -49,18 +49,18 @@ int FFmpegWrapper::run()
 					websocketSCallback(connHdl, "retrying");
 				}
 			}
-			this_thread::sleep_for(std::chrono::seconds(1));
+			this_thread::sleep_for(std::chrono::milliseconds(500));
 		}
 	}
 
-	{
-		std::lock_guard<std::mutex> lock(connectionsMutex); // Protect access to the connections list
+	// {
+	// 	std::lock_guard<std::mutex> lock(connectionsMutex); // Protect access to the connections list
 
-		for (webConnHdl connHdl : connections)
-		{
-			websocketSCallback(connHdl, "Stopped");
-		}
-	}
+	// 	for (webConnHdl connHdl : connections)
+	// 	{
+	// 		websocketSCallback(connHdl, "Stopped");
+	// 	}
+	// }
 
 	return 0;
 }
@@ -161,7 +161,7 @@ bool FFmpegWrapper::openInput()
 	}
 	catch (boost::bad_lexical_cast)
 	{
-		// bad parameter
+		std::cout << "Invalid connection mode: " << connectionmode << ". Defaulting to TCP." << std::endl;
 	}
 
 	this->params.lastStopped = GetTickCount();
@@ -222,7 +222,7 @@ bool FFmpegWrapper::GetInputCodecInfo()
 		inputFPS = 25;
 	}
 
-	std::cout << "-------------Input FPS: " << this->inputFPS << " url " << url << "  camera id  " << cameraId << std::endl;
+	// std::cout << "-------------Input FPS: " << this->inputFPS << " url " << url << "  camera id  " << cameraId << std::endl;
 
 	return true;
 }
@@ -318,6 +318,8 @@ void FFmpegWrapper::Pause_video()
 AVCodecID FFmpegWrapper::probeCodec(const std::string &url)
 {
 	AVFormatContext *fmtCtx = avformat_alloc_context();
+	
+
 	if (!fmtCtx)
 		return AV_CODEC_ID_NONE;
 
@@ -339,7 +341,6 @@ AVCodecID FFmpegWrapper::probeCodec(const std::string &url)
 		avformat_close_input(&fmtCtx);
 		return AV_CODEC_ID_NONE;
 	}
-
 	AVCodecID codecId = AV_CODEC_ID_NONE;
 	for (unsigned int i = 0; i < fmtCtx->nb_streams; i++)
 	{
@@ -353,3 +354,5 @@ AVCodecID FFmpegWrapper::probeCodec(const std::string &url)
 	avformat_close_input(&fmtCtx);
 	return codecId;
 }
+
+

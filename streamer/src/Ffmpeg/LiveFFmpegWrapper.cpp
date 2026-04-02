@@ -1,15 +1,11 @@
 #include "Ffmpeg/LiveFFmpegWrapper.h"
 
-LiveFFmpegWrapper::LiveFFmpegWrapper(string _cameraId, string _url,
+LiveFFmpegWrapper::LiveFFmpegWrapper(const Json::Value& streamInfo,
 		WebsocketDataCallback _websocketCallback,
-		WebsocketSDataCallback _websocketSCallback,
-		string _connectionmode, string _serverIp, int _port,
-		std::shared_ptr<spdlog::logger> _logger)
-	: FFmpegWrapper(std::move(_cameraId), std::move(_url),
-					_websocketCallback, _websocketSCallback,
-					std::move(_connectionmode), std::move(_serverIp), _port,
-					std::move(_logger))
+		WebsocketSDataCallback _websocketSCallback)
+	: FFmpegWrapper(streamInfo, _websocketCallback, _websocketSCallback)
 {
+	interruptTimeoutMs = 3000.0;  // 3s timeout for live streams
 }
 
 ProcessedPacket LiveFFmpegWrapper::processPacket(AVPacket& packet, int64_t /*firstDts*/, int64_t frameCount)

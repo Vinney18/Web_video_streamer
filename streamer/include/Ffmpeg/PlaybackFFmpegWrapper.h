@@ -17,22 +17,22 @@ private:
 	double playbackStartPTS = -1.0;
 	std::chrono::steady_clock::time_point playbackStartTime;
 
+	void seek_video(int offset_time);
+	void FastForward_video(float factor);
+	int getNextPlaybackTime();
+
+
+	// todovineet no need to make this static
+	static double getVideoDuration(const std::string& url);
+
 public:
-	PlaybackFFmpegWrapper(string _cameraId, string _url,
-			int start_seek_time,
+	PlaybackFFmpegWrapper(const Json::Value& streamInfo,
 			WebsocketDataCallback _websocketCallback,
-			WebsocketSDataCallback _websocketSCallback,
-			string _connectionmode, string _serverIp, int _port,
-			std::shared_ptr<spdlog::logger> _logger,
-			float playbackSpeed,
-			int _requestTime = 0,
-			int _playbackFileDuration = 0);
+			WebsocketSDataCallback _websocketSCallback);
 
 	~PlaybackFFmpegWrapper() override = default;
 
-	void seek_video(int offset_time) override;
-	void FastForward_video(float factor) override;
-	int getNextPlaybackTime() override;
+	void handleClientCommand(const std::string& jsonMessage) override;
 
 protected:
 	ProcessedPacket processPacket(AVPacket& packet, int64_t firstDts, int64_t frameCount) override;

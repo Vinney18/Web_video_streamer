@@ -12,7 +12,7 @@ H265CodecHandler::setMediaHandler(std::shared_ptr<rtc::Track> track, bool isAvcc
 		1, "video-stream", 96, rtc::H265RtpPacketizer::defaultClockRate);
 
 	auto separator = isAvccFormat
-		? rtc::H265RtpPacketizer::Separator::LongStartSequence
+		? rtc::H265RtpPacketizer::Separator::Length
 		: rtc::H265RtpPacketizer::Separator::StartSequence;
 
 	track->setMediaHandler(std::make_shared<rtc::H265RtpPacketizer>(separator, rtpConfig));

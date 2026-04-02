@@ -1,21 +1,24 @@
-#include "WebSocketSignalingServer.h"
+#include "SignalingServers/WebSocketSignalingServer.h"
 #include "WebRTCWrapper.h"
 #include "json/json.h"
 #include <iostream>
+#include <atomic>
 #include <chrono>
 #include <thread>
 #include <sstream>
 
-WebSocketSignalingServer::WebSocketSignalingServer(int port, const std::string& playerIp, int playerPort,
-                                                   std::shared_ptr<spdlog::logger> logger, bool isVMS,
-                                                   const std::string& vmsUser, const std::string& vmsPassword)
+WebSocketSignalingServer::WebSocketSignalingServer(int port, std::shared_ptr<spdlog::logger> logger)
     : port_(port), logger_(logger)
 {
-    rtcWrapper_ = std::make_unique<WebRTCWrapper>(playerIp, playerPort, logger, isVMS, vmsUser, vmsPassword);
-    rtcWrapper_->setSignalingTransport({
-        .sendMessage = [this](const std::string& id, const std::string& msg) { sendMessage(id, msg); },
-        .closeConnection = [this](const std::string& id) { closeConnection(id); }
-    });
+    rtcWrapper_ = std::make_unique<WebRTCWrapper>();
+    rtcWrapper_->setSignalingTransport({.sendMessage = [this](const std::string &id, const std::string &msg)
+                                        { sendMessage(id, msg); },
+                                        .closeConnection = [this](const std::string &id)
+                                        { closeConnection(id); },
+                                        .isConnected = [this](const std::string &id)
+                                        { return isConnected(id); },
+                                        .getQuery = [this](const std::string &id)
+                                        { return getClientQuery(id); }});
 }
 
 WebSocketSignalingServer::~WebSocketSignalingServer()
@@ -27,7 +30,6 @@ void WebSocketSignalingServer::run()
 {
     try
     {
-        std::cout << "Starting WebSocket signaling server on port: " << port_ << std::endl;
         if (logger_)
         {
             logger_->info("Starting WebSocket signaling server on port: {}", port_);
@@ -49,9 +51,26 @@ void WebSocketSignalingServer::run()
             logger_->info("WebSocket signaling server started on port {}", port_);
         }
 
+        int statsCounter = 0;
         while (running_)
         {
             std::this_thread::sleep_for(std::chrono::seconds(1));
+            statsCounter++;
+            if (statsCounter >= 5)
+            {
+                statsCounter = 0;
+                size_t wsCount = 0;
+                {
+                    std::lock_guard<std::mutex> lock(connectionsMutex_);
+                    wsCount = connections_.size();
+                }
+                std::cout << "[Stats] WebSocket connections: " << wsCount << std::endl;
+                if (logger_)
+                {
+                    logger_->info("[Stats] WebSocket connections: {}", wsCount);
+                }
+                rtcWrapper_->logStats();
+            }
         }
 
         server_->stop();
@@ -77,9 +96,9 @@ void WebSocketSignalingServer::stop()
         std::lock_guard<std::mutex> lock(connectionsMutex_);
         for (auto &pair : connections_)
         {
-            if (pair.second)
+            if (pair.second.ws)
             {
-                pair.second->close();
+                pair.second.ws->close();
             }
         }
         connections_.clear();
@@ -99,9 +118,9 @@ void WebSocketSignalingServer::sendMessage(const std::string &clientId, const st
         {
             std::lock_guard<std::mutex> lock(connectionsMutex_);
             auto it = connections_.find(clientId);
-            if (it != connections_.end() && it->second)
+            if (it != connections_.end() && it->second.ws)
             {
-                ws = it->second;
+                ws = it->second.ws;
             }
         }
 
@@ -125,13 +144,22 @@ void WebSocketSignalingServer::closeConnection(const std::string &clientId)
     auto it = connections_.find(clientId);
     if (it != connections_.end())
     {
-        if (it->second)
+        if (it->second.ws)
         {
-            std::cout << "Closing WebSocket for client: " << clientId << std::endl;
-            it->second->close();
-            std::cout << "Closed WebSocket for client: " << clientId << std::endl;
+            it->second.ws->close();
         }
     }
+}
+
+bool WebSocketSignalingServer::isConnected(const std::string &clientId)
+{
+    std::lock_guard<std::mutex> lock(connectionsMutex_);
+    auto it = connections_.find(clientId);
+    if (it != connections_.end())
+    {
+        return true;
+    }
+    return false;
 }
 
 void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
@@ -143,30 +171,34 @@ void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket>
         logger_->info("New WebSocket connection: {}", clientId);
     }
 
-    std::cout << "New WebSocket connection: " << clientId << " threadId: " << std::this_thread::get_id() << std::endl;
 
     {
         std::lock_guard<std::mutex> lock(connectionsMutex_);
-        connections_[clientId] = ws;
+        connections_[clientId] = {ws, {}};
     }
 
     ws->onOpen([this, clientId]()
                {
+                
         if (logger_) {
             logger_->info("WebSocket fully opened for: {}", clientId);
         } });
 
     ws->onClosed([this, clientId]()
-                 { onClosed(clientId); });
+                 { std::thread([this, clientId]()
+                               { onClosed(clientId); })
+                       .detach(); });
 
     ws->onError([this, clientId](std::string error)
                 { onError(clientId, error); });
 
     ws->onMessage([this, clientId](std::variant<rtc::binary, std::string> data)
                   {
-                    std::cout << "on WebSocket message: " << clientId << " threadId: " << std::this_thread::get_id() << std::endl;
         if (std::holds_alternative<std::string>(data)) {
-            onMessage(clientId, std::get<std::string>(data));
+            std::string message = std::get<std::string>(data);
+            std::thread([this, clientId, message = std::move(message)]() {
+                onMessage(clientId, message);
+            }).detach();
         } });
 }
 
@@ -197,8 +229,16 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
 
         if (type == "request")
         {
-            std::string query = root.get("query", "").asString();
-            rtcWrapper_->handleRequest(clientId, query);
+            Json::Value query = root["query"];
+            {
+                std::lock_guard<std::mutex> lock(connectionsMutex_);
+                auto it = connections_.find(clientId);
+                if (it != connections_.end())
+                {
+                    it->second.requestQuery = query;
+                }
+            }
+            rtcWrapper_->handleRequest(clientId);
         }
         else if (type == "answer")
         {
@@ -231,7 +271,6 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
 
 void WebSocketSignalingServer::onClosed(const std::string &clientId)
 {
-    std::cout << "WebSocket closed for client: " << clientId << std::endl;
     if (logger_)
     {
         logger_->info("WebSocket closed for client: {}", clientId);
@@ -241,6 +280,8 @@ void WebSocketSignalingServer::onClosed(const std::string &clientId)
         std::lock_guard<std::mutex> lock(connectionsMutex_);
         connections_.erase(clientId);
     }
+
+    rtcWrapper_->closePeerConnectionIfNotConnected(clientId);
 }
 
 void WebSocketSignalingServer::onError(const std::string &clientId, const std::string &error)
@@ -249,4 +290,15 @@ void WebSocketSignalingServer::onError(const std::string &clientId, const std::s
     {
         logger_->error("WebSocket error for client {}: {}", clientId, error);
     }
+}
+
+Json::Value WebSocketSignalingServer::getClientQuery(const std::string &clientId)
+{
+    std::lock_guard<std::mutex> lock(connectionsMutex_);
+    auto it = connections_.find(clientId);
+    if (it != connections_.end())
+    {
+        return it->second.requestQuery;
+    }
+    throw std::runtime_error("No query found for client: " + clientId);
 }

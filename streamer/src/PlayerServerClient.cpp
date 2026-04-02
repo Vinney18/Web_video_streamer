@@ -1,4 +1,5 @@
 #include "PlayerServerClient.h"
+#include "AppConfig.h"
 #include <cpr/cpr.h>
 #include <json/json.h>
 #include <boost/algorithm/string.hpp>
@@ -20,99 +21,74 @@ int PlayerServerClient::count = 0;
 std::string PlayerServerClient::vmsUser_;
 std::string PlayerServerClient::vmsPassword_;
 
-void PlayerServerClient::init(const std::string &serverIp, int serverPort,
-                              std::shared_ptr<spdlog::logger> logger,
-                              bool isVMS,
-                              const std::string &vmsUser,
-                              const std::string &vmsPassword)
+void PlayerServerClient::init()
 {
-    serverIp_ = serverIp;
-    serverPort_ = serverPort;
-    logger_ = logger;
-    isVMS_ = isVMS;
-    vmsUser_ = vmsUser;
-    vmsPassword_ = vmsPassword;
+    auto& cfg = AppConfig::instance();
+    serverIp_ = cfg.get("playerServerIp");
+    serverPort_ = cfg.getInt("playerServerPort");
+    logger_ = cfg.logger();
+    isVMS_ = cfg.getBool("isVMS");
+    vmsUser_ = cfg.get("vmsStreamUserName");
+    vmsPassword_ = cfg.get("vmsStreamPassword");
 }
 
-std::string PlayerServerClient::resolveStreamUrl(const std::string &query)
+Json::Value PlayerServerClient::resolveStreamUrl(const Json::Value &query)
 {
     count++;
-    std::string cameraId;
-    std::string mode = "Live";
-    int streamtype = 0;
-    int start_time_ofplaybackfile = 0;
-    int end_time_ofplaybackfile = 0;
-    std::string analyticType = "";
-    std::string vaServerId = "";
-    std::string vaServerPipeId = "";
+    std::string cameraId = query.get("cameraId", "").asString();
+    std::string mode = query.get("mode", "Live").asString();
+    int streamtype = query.get("streamType", 0).asInt();
+    int start_time_ofplaybackfile = query.get("startTime", 0).asInt();
+    int end_time_ofplaybackfile = query.get("endTime", 0).asInt();
+    std::string analyticType = query.get("analyticType", "").asString();
+    std::string vaServerId = query.get("vaServerId", "").asString();
+    std::string vaServerPipeId = query.get("vaServerPipeId", "").asString();
 
-    // Parse query parameters
-    std::vector<std::string> props;
-    boost::algorithm::split_regex(props, query, boost::regex("&&"));
+    Json::Value result;
 
-    for (auto const &prop : props)
+    if (mode == "Live")
     {
-        std::vector<std::string> keyValue;
-        boost::algorithm::split_regex(keyValue, prop, boost::regex("~~"));
-        if (keyValue.size() < 2)
-            continue;
-
-        auto &key = keyValue[0];
-        auto &value = keyValue[1];
-
-        if (key == "cameraId")
-            cameraId = value;
-        else if (key == "mode")
-        {
-            if (count % 2 == 0)
-            {
-                mode = value;
-            }
-            else
-            {
-                mode = "Live";
-            }
-        }
-        else if (key == "streamType" || key == "streamtype")
-            streamtype = std::stoi(value);
-        else if (key == "startTime")
-            start_time_ofplaybackfile = std::stoi(value);
-        else if (key == "endTime")
-            end_time_ofplaybackfile = std::stoi(value);
-        else if (key == "analyticType")
-            analyticType = value;
-        else if (key == "vaServerId" && !value.empty())
-            vaServerId = value;
-        else if (key == "vaServerPipeId" && !value.empty())
-            vaServerPipeId = value;
-    }
-
-    // Get URL based on mode
-    // if (mode == "Live")
-    // {
-    //     return GetLiveUrl(cameraId, streamtype, analyticType, vaServerId, vaServerPipeId);
-    // }
-    // else
-    // {
-    //     int seekTime = 0;
-    //     float duration = 0;
-    //     if (end_time_ofplaybackfile == 0)
-    //     {
-    //         return GetPlayBackUrl(cameraId, start_time_ofplaybackfile, &seekTime, &duration);
-    //     }
-    //     else
-    //     {
-    //         return GetPlayBackUrl(cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile);
-    //     }
-    // }
-
-    if (count % 2 == 0)
-    {
-        return "/webwork/12-12-31.ts"; // For testing only, remove this line in production
+        result["url"] = GetLiveUrl(cameraId, streamtype, analyticType, vaServerId, vaServerPipeId);
     }
     else
     {
-        return "rtsp://192.168.4.114:554/cial.ts"; // For testing only, remove this line in production
+        int seekTime = 0;
+        float duration = 0;
+        if (end_time_ofplaybackfile == 0)
+        {
+            result["url"] = GetPlayBackUrl(cameraId, start_time_ofplaybackfile, &seekTime, &duration);
+            result["seekTime"] = seekTime;
+            result["durationMinutes"] = duration;
+        }
+        else
+        {
+            result["url"] = GetPlayBackUrl(cameraId, start_time_ofplaybackfile, end_time_ofplaybackfile);
+        }
+    }
+
+    return result;
+
+    // if (count % 2 == 0)
+    // {
+    //     return "/webwork/12-12-31.ts"; // For testing only, remove this line in production
+    // }
+    // else
+    // {
+    //     return "rtsp://localhost:554/cial.ts"; // For testing only, remove this line in production
+    // }
+    if (mode == "Live")
+    {
+// return "rtsp://localhost:554/12-12-31.ts";
+return "rtsp://admin:tcil@132@103.44.119.74/Streaming/Channels/101";
+    }
+    // return "/webwork/12-12-31.ts";
+    if(count % 2 == 0)
+    {
+        return "/webwork/cial.ts";
+    }
+    else
+    {
+    return "/webwork/12-12-31.ts";
     }
 }
 
@@ -241,6 +217,9 @@ std::string PlayerServerClient::GetPlayBackUrl(const std::string &cameraId, int 
 
                 *seekTime = std::stoi(resultValue1.asString());
 
+                auto x=resultValue.asString();
+                auto y= resultValue1.asString();
+                std::cout << "Playback URL: " << x << ", Seek Time: " << y << std::endl;
                 if (duration != nullptr)
                 {
                     *duration = duration_in_Minutes_value;

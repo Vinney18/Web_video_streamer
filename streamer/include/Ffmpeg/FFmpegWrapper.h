@@ -26,6 +26,8 @@ extern "C"
 }
 
 #include <spdlog/spdlog.h>
+#include <json/json.h>
+#include "AppConfig.h"
 
 #ifndef FFMPEGWRAPPER_H
 #define FFMPEGWRAPPER_H
@@ -64,8 +66,6 @@ protected:
 	string cameraId;
 	string url;
 	string connectionmode;
-	string serverIp;
-	int port = 8890;
 
 	WebsocketDataCallback websocketCallback;
 	WebsocketSDataCallback websocketSCallback;
@@ -83,23 +83,20 @@ protected:
 
 	bool isVideoStartedEventsent = false;
 	InterruptParams params;
+	double interruptTimeoutMs = 20000.0;  // default 20s, overridden by subclasses
 
 	std::shared_ptr<spdlog::logger> logger;
 
 public:
-	FFmpegWrapper(string _cameraId, string _url,
+	FFmpegWrapper(const Json::Value& streamInfo,
 			WebsocketDataCallback _websocketCallback,
-			WebsocketSDataCallback _websocketSCallback,
-			string _connectionmode, string _serverIp, int _port,
-			std::shared_ptr<spdlog::logger> _logger) : Thread(), logger(std::move(_logger)) {
-		cameraId = _cameraId;
-		url = std::move(_url);
+			WebsocketSDataCallback _websocketSCallback) : Thread(), logger(AppConfig::instance().logger()) {
+		url = streamInfo.get("url", "").asString();
+		cameraId = streamInfo.get("cameraId", "").asString();
+		connectionmode = streamInfo.get("connectionMode", "tcp").asString();
 		websocketCallback = _websocketCallback;
 		websocketSCallback = _websocketSCallback;
-		connectionmode = _connectionmode;
 		outputType = mp4;
-		serverIp = _serverIp;
-		port = _port;
 	}
 
 	virtual ~FFmpegWrapper();
@@ -108,10 +105,8 @@ public:
 	void Pause_video();
 	void SendVideoStartedEvent();
 
-	// Playback-specific — no-op defaults so callers don't need dynamic_cast
-	virtual void seek_video(int offset_time) { (void)offset_time; }
-	virtual void FastForward_video(float factor) { (void)factor; }
-	virtual int getNextPlaybackTime() { return 0; }
+	// Handle datachannel commands (JSON key-value). Subclasses override for mode-specific behavior.
+	virtual void handleClientCommand(const std::string& jsonMessage) { (void)jsonMessage; }
 
 	// Lightweight probe: opens stream, detects video codec, closes. Returns AV_CODEC_ID_NONE on failure.
 	static AVCodecID probeCodec(const std::string& url);
@@ -159,8 +154,8 @@ public:
 		}
 		auto tickCount = GetTickCount();
 
-		//timeout after 2 seconds of no activity
-		if (thisObj->params.isRunning && (tickCount - thisObj->params.lastStopped > 2000.0))
+		//timeout after no activity
+		if (thisObj->params.isRunning && (tickCount - thisObj->params.lastStopped > thisObj->interruptTimeoutMs))
 			return 1;
 
 
