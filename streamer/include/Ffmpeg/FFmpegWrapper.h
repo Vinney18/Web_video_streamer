@@ -107,8 +107,14 @@ public:
 	// Handle datachannel commands (JSON key-value). Subclasses override for mode-specific behavior.
 	virtual void handleClientCommand(const std::string& jsonMessage) { (void)jsonMessage; }
 
-	// Lightweight probe: opens stream, detects video codec, closes. Returns AV_CODEC_ID_NONE on failure.
-	static AVCodecID probeCodec(const std::string& url);
+	// Result of probing a stream's video codec
+	struct ProbeResult {
+		bool opened = false;       // true if the stream could be opened
+		AVCodecID codecId = AV_CODEC_ID_NONE;
+	};
+
+	// Lightweight probe: opens stream, detects video codec, closes.
+	static ProbeResult probeCodec(const std::string& url);
 
 protected:
 	int run() override;

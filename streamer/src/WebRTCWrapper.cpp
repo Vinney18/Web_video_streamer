@@ -352,14 +352,36 @@ void WebRTCWrapper::handleRequest(const std::string &clientId)
 
         // 3. Probe actual codec from stream before creating peer connection
         signalingTransport_.sendMessage(clientId, buildJsonMessage("status", "fetching codec Information"));
-        AVCodecID codecId = FFmpegWrapper::probeCodec(url);
+        FFmpegWrapper::ProbeResult probeResult = FFmpegWrapper::probeCodec(url);
+
+        // 4. Handle probe failures and unsupported codecs
+        if (!probeResult.opened)
+        {
+            if (mainLogger)
+            {
+                mainLogger->error("Unable to locate video for client {}: {}", clientId, url);
+            }
+            signalingTransport_.sendMessage(clientId, buildJsonMessage("error", "Unable to locate video: " + url));
+            return;
+        }
+
+        AVCodecID codecId = probeResult.codecId;
         if (mainLogger)
         {
             mainLogger->info("Probed codec for client {}: {} ({})", clientId,
                              avcodec_get_name(codecId), (int)codecId);
         }
 
-        // 4. Reject unsupported codecs
+        if (codecId == AV_CODEC_ID_NONE)
+        {
+            if (mainLogger)
+            {
+                mainLogger->error("Unable to fetch codec for client {}: {}", clientId, url);
+            }
+            signalingTransport_.sendMessage(clientId, buildJsonMessage("error", "Unable to fetch codec from video: " + url));
+            return;
+        }
+
         if (codecId != AV_CODEC_ID_H264 && codecId != AV_CODEC_ID_H265)
         {
             if (mainLogger)

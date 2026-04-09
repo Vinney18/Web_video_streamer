@@ -323,13 +323,13 @@ void FFmpegWrapper::Pause_video()
 	}
 }
 
-AVCodecID FFmpegWrapper::probeCodec(const std::string &url)
+FFmpegWrapper::ProbeResult FFmpegWrapper::probeCodec(const std::string &url)
 {
-	AVFormatContext *fmtCtx = avformat_alloc_context();
-	
+	ProbeResult result;
 
+	AVFormatContext *fmtCtx = avformat_alloc_context();
 	if (!fmtCtx)
-		return AV_CODEC_ID_NONE;
+		return result;
 
 	AVDictionary *options = nullptr;
 	av_dict_set(&options, "rtsp_transport", "tcp", 0);
@@ -341,25 +341,27 @@ AVCodecID FFmpegWrapper::probeCodec(const std::string &url)
 
 	if (avformat_open_input(&fmtCtx, url.c_str(), NULL, &options) != 0)
 	{
-		return AV_CODEC_ID_NONE;
+		return result; // opened = false
 	}
+
+	result.opened = true;
 
 	if (avformat_find_stream_info(fmtCtx, NULL) < 0)
 	{
 		avformat_close_input(&fmtCtx);
-		return AV_CODEC_ID_NONE;
+		return result; // opened = true, codecId = NONE
 	}
-	AVCodecID codecId = AV_CODEC_ID_NONE;
+
 	for (unsigned int i = 0; i < fmtCtx->nb_streams; i++)
 	{
 		if (fmtCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
 		{
-			codecId = fmtCtx->streams[i]->codecpar->codec_id;
+			result.codecId = fmtCtx->streams[i]->codecpar->codec_id;
 			break;
 		}
 	}
 
 	avformat_close_input(&fmtCtx);
-	return codecId;
+	return result;
 }
 
