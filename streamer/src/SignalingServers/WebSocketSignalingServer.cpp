@@ -1,5 +1,6 @@
 #include "SignalingServers/WebSocketSignalingServer.h"
 #include "WebRTCWrapper.h"
+#include "AppConfig.h"
 #include "json/json.h"
 #include <iostream>
 #include <atomic>
@@ -39,7 +40,13 @@ void WebSocketSignalingServer::run()
 
         rtc::WebSocketServer::Configuration config;
         config.port = static_cast<uint16_t>(port_);
-        config.enableTls = false;
+
+        auto& appCfg = AppConfig::instance();
+            config.keyPemFile = appCfg.get("tlsKeyPath");
+        if (config.enableTls) {
+            config.certificatePemFile = appCfg.get("tlsCertPath");
+            config.keyPemFile = appCfg.get("tlsKeyPath");
+        }
 
         server_ = std::make_shared<rtc::WebSocketServer>(config);
 

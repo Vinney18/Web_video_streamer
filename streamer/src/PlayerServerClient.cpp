@@ -171,7 +171,7 @@ std::string PlayerServerClient::GetPlayBackUrl(const std::string &cameraId, int 
     string response;
     string cameraId_instring = cameraId;
 
-     return "/webwork/forest.ts";
+     return "/webwork/cial.ts";
     std::string endpoint = "/url/GetPlaybackUrl?cameraId=" + cameraId_instring + "&time=" + std::to_string(startTime);
     if (cameraId == "")
     {

@@ -2,6 +2,7 @@
 #include "Util.h"
 #include <spdlog/spdlog.h>
 #include <spdlog/async.h>
+#include <boost/filesystem.hpp>
 #include "AppConfig.h"
 #include "SignalingServers/WebSocketSignalingServer.h"
 
@@ -45,6 +46,31 @@ int main(int argc, char* argv[])
 		auto& cfg = AppConfig::instance();
 		if (cfg.logger()) { cfg.logger()->info("Starting signaling server on port: {}", cfg.getInt("websocket_server_port")); }
 		if (cfg.logger()) { cfg.logger()->info("Player server IP is: {0} and port is: {1}", cfg.get("playerServerIp"), cfg.getInt("playerServerPort")); }
+
+		// Validate TLS configuration
+		if (cfg.getBool("enableTls")) {
+			std::string certPath = cfg.get("tlsCertPath");
+			std::string keyPath = cfg.get("tlsKeyPath");
+			if (certPath.empty() || keyPath.empty()) {
+				std::string msg = "enableTls is true but tlsCertPath or tlsKeyPath is not provided in config";
+				if (cfg.logger()) { cfg.logger()->error(msg); }
+				else { std::cout << msg << std::endl; }
+				return 1;
+			}
+			if (!boost::filesystem::exists(certPath)) {
+				std::string msg = "TLS certificate file not found: " + certPath;
+				if (cfg.logger()) { cfg.logger()->error(msg); }
+				else { std::cout << msg << std::endl; }
+				return 1;
+			}
+			if (!boost::filesystem::exists(keyPath)) {
+				std::string msg = "TLS key file not found: " + keyPath;
+				if (cfg.logger()) { cfg.logger()->error(msg); }
+				else { std::cout << msg << std::endl; }
+				return 1;
+			}
+			if (cfg.logger()) { cfg.logger()->info("TLS enabled — cert: {}, key: {}", certPath, keyPath); }
+		}
 
 		WebSocketSignalingServer server(cfg.getInt("websocket_server_port"), cfg.logger());
 		server.run();

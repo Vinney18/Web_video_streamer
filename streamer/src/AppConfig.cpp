@@ -21,6 +21,10 @@ void AppConfig::load(const std::string& configFilePath) {
         config_["vmsStreamUserName"] = configoptions.get<std::string>("vmsStreamUserName", i2v::VMS_STREAM_USERNAME);
         config_["vmsStreamPassword"] = configoptions.get<std::string>("vmsStreamPassword", i2v::VMS_STREAM_PASSWORD);
 
+        config_["enableTls"] = configoptions.get<bool>("enableTls", false) ? "true" : "false";
+        config_["tlsCertPath"] = configoptions.get<std::string>("tlsCertPath", "");
+        config_["tlsKeyPath"] = configoptions.get<std::string>("tlsKeyPath", "");
+
         int level = configoptions.get<int>("logLevel", -1);
         if (level < 0 || level > 6) {
             level = static_cast<int>(spdlog::level::info);
@@ -35,6 +39,9 @@ void AppConfig::load(const std::string& configFilePath) {
         config_["isVMS"] = "false";
         config_["vmsStreamUserName"] = i2v::VMS_STREAM_USERNAME;
         config_["vmsStreamPassword"] = i2v::VMS_STREAM_PASSWORD;
+        config_["enableTls"] = "false";
+        config_["tlsCertPath"] = "";
+        config_["tlsKeyPath"] = "";
 
         configoptions.add("websocket_server_port", static_cast<int>(i2v::WEBSOCKET_SERVER_PORT));
         configoptions.add("playerServerIp", i2v::PLAYER_SERVER_IP);
@@ -43,6 +50,9 @@ void AppConfig::load(const std::string& configFilePath) {
         configoptions.add("isVMS", false);
         configoptions.add("vmsStreamUserName", i2v::VMS_STREAM_USERNAME);
         configoptions.add("vmsStreamPassword", i2v::VMS_STREAM_PASSWORD);
+        configoptions.add("enableTls", false);
+        configoptions.add("tlsCertPath", std::string(""));
+        configoptions.add("tlsKeyPath", std::string(""));
         configoptions.writeFile(configFilePath, true);
     }
 }
