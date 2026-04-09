@@ -34,6 +34,14 @@ int FFmpegWrapper::run()
 					sendVideoInformation(connHdl);
 				}
 
+				onBeforeReadInput();
+				if (mStop) { closeInput(); continue; }
+
+				{
+					auto now = std::chrono::system_clock::now();
+					auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+					std::cout << "[" << cameraId << "] readInput starting at " << ms << " ms" << std::endl;
+				}
 				readInput();
 				closeInput();
 			}
@@ -354,5 +362,4 @@ AVCodecID FFmpegWrapper::probeCodec(const std::string &url)
 	avformat_close_input(&fmtCtx);
 	return codecId;
 }
-
 

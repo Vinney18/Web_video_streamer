@@ -4,6 +4,8 @@
 
 #include "FFmpegWrapper.h"
 
+class SyncHandler;
+
 class PlaybackFFmpegWrapper : public FFmpegWrapper
 {
 private:
@@ -21,6 +23,9 @@ private:
 	void FastForward_video(float factor);
 	int getNextPlaybackTime();
 
+	SyncHandler* syncHandler_ = nullptr;
+	std::string syncGroupId_;
+
 
 	// todovineet no need to make this static
 	static double getVideoDuration(const std::string& url);
@@ -32,11 +37,13 @@ public:
 
 	~PlaybackFFmpegWrapper() override = default;
 
+	void setSyncInfo(SyncHandler* handler, const std::string& groupId);
 	void handleClientCommand(const std::string& jsonMessage) override;
 
 protected:
 	ProcessedPacket processPacket(AVPacket& packet, int64_t firstDts, int64_t frameCount) override;
 	void onReadLoopFinished() override;
+	void onBeforeReadInput() override;
 };
 
 #endif

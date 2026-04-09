@@ -62,3 +62,5 @@ int main(int argc, char* argv[])
 
 // # Check if NO_MEDIA was defined during the build
 // find /vcpkg -path "*/libdatachannel/portfile.cmake" -exec cat {} \;
+
+//[rtsp @ 000002544826b380] Multi-layer HEVC coding is not implemented. Update your FFmpeg version to the newest one from Git. If the problem still occurs, it means that your file has a feature which has not been implemented.

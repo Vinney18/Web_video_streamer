@@ -1,4 +1,5 @@
 #include "Ffmpeg/PlaybackFFmpegWrapper.h"
+#include "SyncHandler.h"
 #include "json/json.h"
 
 PlaybackFFmpegWrapper::PlaybackFFmpegWrapper(const Json::Value &streamInfo,
@@ -220,6 +221,20 @@ void PlaybackFFmpegWrapper::handleClientCommand(const std::string &jsonMessage)
 	else if (root.isMember("Pause"))
 	{
 		Pause_video();
+	}
+}
+
+void PlaybackFFmpegWrapper::setSyncInfo(SyncHandler* handler, const std::string& groupId)
+{
+	syncHandler_ = handler;
+	syncGroupId_ = groupId;
+}
+
+void PlaybackFFmpegWrapper::onBeforeReadInput()
+{
+	if (syncHandler_ && !syncGroupId_.empty())
+	{
+		syncHandler_->waitForReady(syncGroupId_, this);
 	}
 }
 

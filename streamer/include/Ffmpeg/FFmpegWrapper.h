@@ -35,7 +35,6 @@ extern "C"
 
 using namespace std;
 
-// Forward declaration for WebRTC
 namespace rtc {
 	class PeerConnection;
 }
@@ -114,9 +113,10 @@ public:
 protected:
 	int run() override;
 
-	// Virtual hooks called by readInput() — subclasses implement mode-specific behavior
+	// Virtual hooks — subclasses implement mode-specific behavior
 	virtual ProcessedPacket processPacket(AVPacket& packet, int64_t firstDts, int64_t frameCount) = 0;
 	virtual void onReadLoopFinished() = 0;
+	virtual void onBeforeReadInput() {}
 
 public:
 	void addConnToList(webConnHdl &hdl);

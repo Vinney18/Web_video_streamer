@@ -134,6 +134,13 @@
                 <option value="Live">Live</option>
             </select>
         </div>
+        <div class="setup-row" style="margin-bottom: 12px;">
+            <label for="syncPlayback">Sync Playback:</label>
+            <select id="syncPlayback">
+                <option value="true">Yes (same group)</option>
+                <option value="false">No (independent)</option>
+            </select>
+        </div>
         <div class="setup-row">
             <label for="streamCount">Streams:</label>
             <input type="number" id="streamCount" value="8" min="1" max="120">
@@ -177,6 +184,10 @@
     async function startTest() {
         const count = Math.min(120, Math.max(1, parseInt(document.getElementById('streamCount').value) || 1));
         const serverUrl = document.getElementById('serverUrl').value.trim();
+        const syncEnabled = document.getElementById('syncPlayback').value === 'true';
+
+        // One shared group ID if sync is enabled, otherwise each stream gets its own (no sync)
+        const sharedGroupId = syncEnabled ? crypto.randomUUID() : null;
 
         document.getElementById('startBtn').disabled = true;
         document.getElementById('stopBtn').disabled = false;
@@ -185,7 +196,10 @@
         const grid = document.getElementById('videoGrid');
         grid.innerHTML = '';
 
-        log(`Starting ${count} streams to ${serverUrl}...`, 'info');
+        log(`Starting ${count} streams to ${serverUrl} (sync: ${syncEnabled})...`, 'info');
+        if (syncEnabled) {
+            log(`Sync group ID: ${sharedGroupId}`, 'info');
+        }
 
         for (let i = 0; i < count; i++) {
             // Create video card
@@ -206,6 +220,7 @@
             const stream = {
                 index: i,
                 clientId: generateClientId(),
+                syncGroupId: sharedGroupId || crypto.randomUUID(),
                 ws: null,
                 pc: null,
                 dc: null,
@@ -239,15 +254,19 @@
 
     function sendRequest(s) {
         const mode = document.getElementById('streamMode').value;
+        const query = {
+            cameraId: 'cam1',
+            mode: mode,
+            streamType: 0,
+            startTime: 0
+        };
+        if (s.syncGroupId) {
+            query.syncGroup = s.syncGroupId;
+        }
         s.ws.send(JSON.stringify({
             type: 'request',
             clientId: s.clientId,
-            query: {
-                cameraId: 'cam1',
-                mode: mode,
-                streamType: 0,
-                startTime: 0
-            }
+            query: query
         }));
     }
 

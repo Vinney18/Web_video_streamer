@@ -41,6 +41,7 @@ WebRTCWrapper::WebRTCWrapper()
 WebRTCWrapper::~WebRTCWrapper()
 {
     // Clean up all WebRTC connections
+    // SyncHandler's own destructor releases any pending sync groups
     std::lock_guard<std::mutex> lock(connectionsMutex);
     connections.clear();
 
@@ -79,6 +80,20 @@ void WebRTCWrapper::logStats()
         if (conn->packetsSent == 0)
         {
             std::cout << "  " << id << " | packets: " << conn->packetsSent << std::endl;
+        }
+    }
+
+    // Log sync groups
+    {
+        std::lock_guard<std::mutex> sgLock(syncHandler_.groupsMutex_);
+        std::cout << "[Stats] Sync groups: " << syncHandler_.groups_.size() << std::endl;
+        for (const auto &[groupId, info] : syncHandler_.groups_)
+        {
+            std::lock_guard<std::mutex> infoLock(info->mutex);
+            std::cout << "  group=" << groupId
+                      << " | clients=" << info->clientIds.size()
+                      << " | ffmpegRefs=" << info->ffmpegRefs.size()
+                      << " | released=" << (info->released ? "yes" : "no") << std::endl;
         }
     }
 }
@@ -245,6 +260,7 @@ removeConnection(clientId);
             std::lock_guard<std::mutex> lock(connectionsMutex);
             connections[clientId] = connInfo;
         }
+
         if (!signalingTransport_.isConnected(clientId))
         {
             connInfo->peerConnection->close();
@@ -278,6 +294,16 @@ removeConnection(clientId);
             connInfo->peerConnection->close();
             std::lock_guard<std::mutex> lock(connectionsMutex);
             connections.erase(clientId);
+        }
+        else
+        {
+            // Register with sync handler if this connection belongs to a sync group
+            std::string syncGroupId = connInfo->query.get("syncGroup", "").asString();
+            if (!syncGroupId.empty())
+            {
+                syncHandler_.incrementExpectedCount(syncGroupId, clientId);
+                connInfo->syncGroupId = syncGroupId;
+            }
         }
         if (mainLogger)
         {
@@ -453,6 +479,12 @@ void WebRTCWrapper::removeConnection(const std::string &clientId)
                 connInfo = it->second;
                 connections.erase(it);
             }
+        }
+
+        // Remove this member from sync group (group stays alive for remaining members)
+        if (connInfo && !connInfo->syncGroupId.empty())
+        {
+            syncHandler_.removeMember(connInfo->syncGroupId, connInfo->clientId, connInfo->ffmpegWrapper.get());
         }
 
         // Remove from FFmpeg wrapper
@@ -715,6 +747,7 @@ void WebRTCWrapper::SendStringData(rtcConnHdl &conn, std::string sdata)
 void WebRTCWrapper::closePeerConnectionIfNotConnected(const std::string &clientId)
 {
     std::shared_ptr<rtc::PeerConnection> pc;
+    std::string syncGroupId;
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
         auto it = connections.find(clientId);
@@ -723,8 +756,14 @@ void WebRTCWrapper::closePeerConnectionIfNotConnected(const std::string &clientI
             if (it->second->peerConnection->state() != rtc::PeerConnection::State::Connected && it->second->peerConnection->state() != rtc::PeerConnection::State::Disconnected)
             {
                 pc = it->second->peerConnection;
+                syncGroupId = it->second->syncGroupId;
             }
         }
+    }
+    // Remove clientId from sync group before closing — FFmpeg doesn't exist yet at this point
+    if (!syncGroupId.empty())
+    {
+        syncHandler_.removeClient(syncGroupId, clientId);
     }
     // close() outside the lock — its synchronous callbacks can safely lock connectionsMutex
     if (pc)
@@ -810,9 +849,13 @@ void WebRTCWrapper::processRequest(const std::string &clientId)
             auto ffmpeg = std::make_shared<PlaybackFFmpegWrapper>(streamInfo,
                                                                   sendDataFunc, sendStringDataFunc);
 
+            if (!connInfo->syncGroupId.empty())
+            {
+                ffmpeg->setSyncInfo(&syncHandler_, connInfo->syncGroupId);
+            }
+
             ffmpeg->startThread();
             ffmpeg->addConnToList(peerConn);
-
             connInfo->ffmpegWrapper = ffmpeg;
         }
 
@@ -827,6 +870,11 @@ void WebRTCWrapper::processRequest(const std::string &clientId)
         {
             // Connection was removed — clean up FFmpeg outside any lock
             bool canStop = connInfo->ffmpegWrapper->removeConnection(peerConn);
+            // Remove this member from sync group (group stays alive for remaining members)
+            if (connInfo && !connInfo->syncGroupId.empty())
+            {
+                syncHandler_.removeMember(connInfo->syncGroupId, connInfo->clientId, connInfo->ffmpegWrapper.get());
+            }
             if (canStop)
             {
                 connInfo->ffmpegWrapper->stopThread();

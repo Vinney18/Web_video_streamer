@@ -11,6 +11,7 @@
 #include <spdlog/spdlog.h>
 #include "Ffmpeg/FFmpegWrapper.h"
 #include "PlayerServerClient.h"
+#include "SyncHandler.h"
 #include "common.h"
 
 // Forward declarations
@@ -42,6 +43,7 @@ struct WebRTCConnectionInfo {
     Json::Value streamInfo;
     std::shared_ptr<FFmpegWrapper> ffmpegWrapper;  // direct ref to this client's FFmpeg
     std::string ffmpegKey;                          // key in liveStreams map (empty for playback)
+    std::string syncGroupId;                        // sync group ID (empty if not part of a group)
     bool isConnected = false;
     bool iceConnected = false;
     bool gatheringComplete = false;
@@ -108,4 +110,7 @@ private:
     // Live stream sharing: URL → shared FFmpegWrapper (only for live mode)
     std::map<std::string, std::shared_ptr<FFmpegWrapper>> liveStreams;
     std::mutex liveStreamsMutex;
+
+    // Sync handler for coordinated playback start
+    SyncHandler syncHandler_;
 };
