@@ -42,7 +42,7 @@ void WebSocketSignalingServer::run()
         config.port = static_cast<uint16_t>(port_);
 
         auto& appCfg = AppConfig::instance();
-            config.keyPemFile = appCfg.get("tlsKeyPath");
+        config.enableTls = appCfg.getBool("enableTls");
         if (config.enableTls) {
             config.certificatePemFile = appCfg.get("tlsCertPath");
             config.keyPemFile = appCfg.get("tlsKeyPath");
