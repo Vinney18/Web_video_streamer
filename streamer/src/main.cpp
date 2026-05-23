@@ -90,3 +90,6 @@ int main(int argc, char* argv[])
 // find /vcpkg -path "*/libdatachannel/portfile.cmake" -exec cat {} \;
 
 //[rtsp @ 000002544826b380] Multi-layer HEVC coding is not implemented. Update your FFmpeg version to the newest one from Git. If the problem still occurs, it means that your file has a feature which has not been implemented.
+
+
+//openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"

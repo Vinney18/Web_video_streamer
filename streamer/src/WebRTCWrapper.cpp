@@ -714,6 +714,20 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
         {
             connInfo->rtpConfig->timestamp = rtpTimestamp;
         }
+        std::cout<<rtpTimestamp<<std::endl;
+
+        // Test plumbing: fabricate a JSON and send on data channel keyed by rtpTs
+        if (connInfo->dataChannel && connInfo->dataChannel->isOpen())
+        {
+            Json::Value meta;
+            meta["type"] = "frameMeta";
+            meta["rtpTs"] = rtpTimestamp;
+            meta["seq"] = (Json::UInt64)connInfo->packetsSent;
+            meta["random"] = std::rand() % 100000;
+            meta["serverTimeUs"] = (Json::Int64)elapsed_us;
+            Json::StreamWriterBuilder w;
+            connInfo->dataChannel->send(Json::writeString(w, meta));
+        }
 
         rtc::binary rtpPayload(reinterpret_cast<const std::byte *>(frameStart),
                                reinterpret_cast<const std::byte *>(frameStart + frameSize));

@@ -225,7 +225,8 @@
                 pc: null,
                 dc: null,
                 remoteDescSet: false,
-                pendingCandidates: []
+                pendingCandidates: [],
+                metadataByRtpTs: new Map()
             };
             streams.push(stream);
 
@@ -365,10 +366,30 @@
                     const video = document.getElementById(`video-${s.index}`);
                     if (event.streams && event.streams[0]) {
                         video.srcObject = event.streams[0];
-                    } 
+                    }
                     else {
                     console.log(`[#${s.index + 1}] ---------------- No stream on track event, creating new stream`);
                         video.srcObject = new MediaStream([event.track]);
+                    }
+
+                    // Log RTP timestamp per frame + look up matching metadata
+                    if ('requestVideoFrameCallback' in video) {
+                        const onFrame = (now, metadata) => {
+                            const meta = s.metadataByRtpTs.get(metadata.rtpTimestamp);
+                            if (meta) {
+                                console.log(
+                                    `[#${s.index + 1}] frame#${metadata.presentedFrames} rtpTs=${metadata.rtpTimestamp} matched meta:`,
+                                    meta
+                                );
+                                s.metadataByRtpTs.delete(metadata.rtpTimestamp);
+                            } else {
+                                console.log(
+                                    `[#${s.index + 1}] frame#${metadata.presentedFrames} rtpTs=${metadata.rtpTimestamp} (no meta)`
+                                );
+                            }
+                            video.requestVideoFrameCallback(onFrame);
+                        };
+                        video.requestVideoFrameCallback(onFrame);
                     }
                     // Poll frame stats every 2s + detect codec change
                     s.lastDecoded = 0;
@@ -422,7 +443,20 @@
             s.pc.ondatachannel = (event) => {
                 s.dc = event.channel;
                 s.dc.onopen = () => log(`[#${s.index + 1}] Data channel open`, 'success');
-                s.dc.onmessage = (e) => log(`[#${s.index + 1}] DC msg: ${e.data}`, 'info');
+                s.dc.onmessage = (e) => {
+                    try {
+                        const msg = JSON.parse(e.data);
+                        if (msg && msg.type === 'frameMeta') {
+                            s.metadataByRtpTs.set(msg.rtpTs, msg);
+                            if (s.metadataByRtpTs.size > 100) {
+                                const oldestKey = s.metadataByRtpTs.keys().next().value;
+                                s.metadataByRtpTs.delete(oldestKey);
+                            }
+                            return;
+                        }
+                    } catch (_) {}
+                    log(`[#${s.index + 1}] DC msg: ${e.data}`, 'info');
+                };
             };
 
             await s.pc.setRemoteDescription({ type: 'offer', sdp: msg.sdp });
