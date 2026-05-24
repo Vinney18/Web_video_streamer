@@ -27,6 +27,7 @@ using rtcConnHdl = std::shared_ptr<rtc::PeerConnection>;
 // Transport callbacks provided by signaling to WebRTC
 struct SignalingTransport {
     std::function<void(const std::string& clientId, const std::string& message)> sendMessage;
+    std::function<void(const std::string& clientId, const uint8_t* data, size_t size)> sendBinary;
     std::function<void(const std::string& clientId)> closeConnection;
     std::function<bool(const std::string& clientId)> isConnected;
     std::function<Json::Value(const std::string& clientId)> getQuery;
@@ -62,14 +63,15 @@ public:
     void setSignalingTransport(SignalingTransport transport);
 
     // Called by signaling when messages arrive from clients
-    void handleRequest(const std::string& clientId);
+    void startStream(const std::string& clientId, const std::string& url,
+                     AVCodecID codecId, const Json::Value& streamInfo);
     void handleAnswer(const std::string& clientId, const std::string& sdp);
     void handleIceCandidate(const std::string& clientId, const std::string& candidate,
                            const std::string& sdpMid, int sdpMLineIndex);
 
     // Callbacks for FFmpegWrapper
-    void SendData(rtcConnHdl& conn, std::vector<uint8_t>& data, int64_t timestamp);
-    void SendStringData(rtcConnHdl& conn, std::string sdata);
+    void SendData(webConnHdl& clientId, std::vector<uint8_t>& data, int64_t timestamp);
+    void SendStringData(webConnHdl& clientId, std::string sdata);
 
     // Close peer connection (triggers onStateChange → removeConnection)
     void closePeerConnectionIfNotConnected(const std::string& clientId);

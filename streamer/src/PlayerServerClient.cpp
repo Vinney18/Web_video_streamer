@@ -96,6 +96,7 @@ std::string PlayerServerClient::GetLiveUrl(const std::string &cameraId, int stre
                                            const std::string &analyticType, const std::string &vaServerId,
                                            const std::string &vaServerPipeId)
 {
+    return "http://localhost:8093/100_videodevice_FACE1";
     string response;
     string cameraId_instring = cameraId;
     std::string endpoint = "";
@@ -171,7 +172,7 @@ std::string PlayerServerClient::GetPlayBackUrl(const std::string &cameraId, int 
     string response;
     string cameraId_instring = cameraId;
 
-     return "/webwork/cial.ts";
+     return "/webwork/outupt.ts";
     std::string endpoint = "/url/GetPlaybackUrl?cameraId=" + cameraId_instring + "&time=" + std::to_string(startTime);
     if (cameraId == "")
     {

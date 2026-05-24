@@ -1,0 +1,201 @@
+#include "MjpegWebSocketWrapper.h"
+#include "AppConfig.h"
+#include "Ffmpeg/LiveFFmpegWrapper.h"
+
+#include <json/json.h>
+
+MjpegWebSocketWrapper::MjpegWebSocketWrapper()
+    : mainLogger(AppConfig::instance().logger())
+{
+    if (mainLogger)
+    {
+        mainLogger->info("MjpegWebSocketWrapper initialized");
+    }
+}
+
+MjpegWebSocketWrapper::~MjpegWebSocketWrapper()
+{
+    std::lock_guard<std::mutex> lock(liveStreamsMutex_);
+    liveStreams_.clear();
+    if (mainLogger)
+    {
+        mainLogger->info("MjpegWebSocketWrapper destroyed");
+    }
+}
+
+void MjpegWebSocketWrapper::setSignalingTransport(SignalingTransport transport)
+{
+    signalingTransport_ = std::move(transport);
+}
+
+void MjpegWebSocketWrapper::SendData(webConnHdl &clientId, std::vector<uint8_t> &jpeg, int64_t /*timestamp*/)
+{
+    try
+    {
+        if (jpeg.empty()) return;
+        if (!signalingTransport_.isConnected(clientId)) return;
+        signalingTransport_.sendBinary(clientId, jpeg.data(), jpeg.size());
+    }
+    catch (const std::exception &ex)
+    {
+        if (mainLogger)
+        {
+            mainLogger->error("MjpegWebSocketWrapper::SendData error for {}: {}", clientId, ex.what());
+        }
+    }
+}
+
+void MjpegWebSocketWrapper::SendStringData(webConnHdl &clientId, std::string sdata)
+{
+    try
+    {
+        if (!signalingTransport_.isConnected(clientId)) return;
+        Json::Value msg;
+        msg["type"] = "mjpegInfo";
+        msg["message"] = sdata;
+        Json::StreamWriterBuilder w;
+        signalingTransport_.sendMessage(clientId, Json::writeString(w, msg));
+    }
+    catch (const std::exception &ex)
+    {
+        if (mainLogger)
+        {
+            mainLogger->error("MjpegWebSocketWrapper::SendStringData error for {}: {}", clientId, ex.what());
+        }
+    }
+}
+
+void MjpegWebSocketWrapper::startStream(const std::string &clientId, const std::string &url,
+                                       const Json::Value &streamInfo)
+{
+    try
+    {
+        if (mainLogger)
+        {
+            mainLogger->info("Starting MJPEG stream for client: {} url={}", clientId, url);
+        }
+
+        // Tell the client to switch to MJPEG mode BEFORE attaching to FFmpeg.
+        Json::Value status;
+        status["type"] = "mjpegStream";
+        status["url"] = url;
+        status["cameraId"] = streamInfo.get("cameraId", "").asString();
+        Json::StreamWriterBuilder w;
+        signalingTransport_.sendMessage(clientId, Json::writeString(w, status));
+
+        auto bindSendData = std::bind(&MjpegWebSocketWrapper::SendData, this,
+                                      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+        auto bindSendStringData = std::bind(&MjpegWebSocketWrapper::SendStringData, this,
+                                            std::placeholders::_1, std::placeholders::_2);
+
+        std::function<void(webConnHdl &, std::vector<uint8_t> &, int64_t)> sendDataFunc = bindSendData;
+        std::function<void(webConnHdl &, std::string)> sendStringDataFunc = bindSendStringData;
+
+        Json::Value enrichedInfo = streamInfo;
+        enrichedInfo["url"] = url;
+        if (!enrichedInfo.isMember("cameraId"))
+            enrichedInfo["cameraId"] = streamInfo.get("cameraId", "").asString();
+        if (!enrichedInfo.isMember("connectionMode"))
+            enrichedInfo["connectionMode"] = streamInfo.get("connectionMode", "tcp").asString();
+
+        std::shared_ptr<FFmpegWrapper> ffmpeg;
+        {
+            std::lock_guard<std::mutex> lock(liveStreamsMutex_);
+            auto it = liveStreams_.find(url);
+            if (it == liveStreams_.end())
+            {
+                ffmpeg = std::make_shared<LiveFFmpegWrapper>(enrichedInfo, sendDataFunc, sendStringDataFunc);
+                liveStreams_[url] = ffmpeg;
+                ffmpeg->startThread();
+                if (mainLogger)
+                {
+                    mainLogger->info("MJPEG: started upstream FFmpeg for {}", url);
+                }
+            }
+            else
+            {
+                ffmpeg = it->second;
+            }
+        }
+
+        webConnHdl handle = clientId;
+        ffmpeg->addConnToList(handle);
+
+        {
+            std::lock_guard<std::mutex> lock(clientMapMutex_);
+            clientToUrl_[clientId] = url;
+        }
+    }
+    catch (const std::exception &ex)
+    {
+        if (mainLogger)
+        {
+            mainLogger->error("MJPEG startStream error for {}: {}", clientId, ex.what());
+        }
+        Json::Value err;
+        err["type"] = "error";
+        err["message"] = ex.what();
+        Json::StreamWriterBuilder w;
+        signalingTransport_.sendMessage(clientId, Json::writeString(w, err));
+    }
+}
+
+void MjpegWebSocketWrapper::removeClient(const std::string &clientId)
+{
+    std::string url;
+    {
+        std::lock_guard<std::mutex> lock(clientMapMutex_);
+        auto it = clientToUrl_.find(clientId);
+        if (it == clientToUrl_.end()) return;  // not an MJPEG client
+        url = it->second;
+        clientToUrl_.erase(it);
+    }
+
+    std::shared_ptr<FFmpegWrapper> ffmpeg;
+    {
+        std::lock_guard<std::mutex> lock(liveStreamsMutex_);
+        auto it = liveStreams_.find(url);
+        if (it == liveStreams_.end()) return;
+        ffmpeg = it->second;
+    }
+
+    bool canStop = ffmpeg->removeConnection(clientId);
+
+    if (canStop)
+    {
+        ffmpeg->stopThread();
+        {
+            std::lock_guard<std::mutex> lock(liveStreamsMutex_);
+            liveStreams_.erase(url);
+        }
+        if (mainLogger)
+        {
+            mainLogger->info("MJPEG: torn down upstream FFmpeg for {}", url);
+        }
+    }
+    else
+    {
+        if (mainLogger)
+        {
+            mainLogger->info("MJPEG: client {} unsubscribed from {} (other subs remain)", clientId, url);
+        }
+    }
+}
+
+void MjpegWebSocketWrapper::logStats()
+{
+    size_t streamCount = 0;
+    size_t clientCount = 0;
+    {
+        std::lock_guard<std::mutex> lock(liveStreamsMutex_);
+        streamCount = liveStreams_.size();
+    }
+    {
+        std::lock_guard<std::mutex> lock(clientMapMutex_);
+        clientCount = clientToUrl_.size();
+    }
+    if (mainLogger)
+    {
+        mainLogger->info("[Stats] MJPEG: streams={}, subscribers={}", streamCount, clientCount);
+    }
+}

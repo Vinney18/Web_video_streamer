@@ -268,18 +268,14 @@ void FFmpegWrapper::sendVideoInformation(webConnHdl &connHdl)
 
 bool FFmpegWrapper::removeConnection(webConnHdl connHdl)
 {
-
-	std::lock_guard<std::mutex> lock(connectionsMutex); // Protect shared resources
+	std::lock_guard<std::mutex> lock(connectionsMutex);
 
 	if (connections.empty())
 	{
 		return true;
 	}
 
-	// Remove from connections list
-	auto it = std::find_if(connections.begin(), connections.end(),
-						   [&](const webConnHdl &conn)
-						   { return conn.get() == connHdl.get(); });
+	auto it = connections.find(connHdl);
 	if (it != connections.end())
 	{
 		connections.erase(it);

@@ -35,11 +35,7 @@ extern "C"
 
 using namespace std;
 
-namespace rtc {
-	class PeerConnection;
-}
-
-typedef std::shared_ptr<rtc::PeerConnection> webConnHdl;
+typedef std::string webConnHdl;
 typedef std::set<webConnHdl> con_list;
 typedef std::function<void(webConnHdl& con_hndl, vector<uint8_t>& data, int64_t timestamp)> WebsocketDataCallback;
 typedef std::function<void(webConnHdl& con_hndl, string sdata)> WebsocketSDataCallback;

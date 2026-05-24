@@ -11,6 +11,7 @@
 #include <json/json.h>
 
 class WebRTCWrapper;
+class MjpegWebSocketWrapper;
 
 struct WsClientData {
     std::shared_ptr<rtc::WebSocket> ws;
@@ -26,6 +27,7 @@ public:
     void stop() override;
 
     void sendMessage(const std::string& clientId, const std::string& message) override;
+    void sendBinary(const std::string& clientId, const uint8_t* data, size_t size);
     void closeConnection(const std::string& clientId) override;
     Json::Value getClientQuery(const std::string& clientId) override;
     bool isConnected(const std::string& clientId);
@@ -44,4 +46,5 @@ private:
     std::atomic<bool> running_{false};
 
     std::unique_ptr<WebRTCWrapper> rtcWrapper_;
+    std::unique_ptr<MjpegWebSocketWrapper> mjpegWsWrapper_;
 };

@@ -212,7 +212,7 @@
                     <span id="state-${i}">Connecting...</span>
                 </div>
                 <div class="video-stats" id="stats-${i}">Frames: waiting...</div>
-                <video id="video-${i}" autoplay playsinline muted></video>
+                <div id="media-${i}" style="width:100%;display:block;min-height:220px;background:#000;"></div>
             `;
             grid.appendChild(card);
 
@@ -279,6 +279,7 @@
 
         log(`[#${s.index + 1}] Connecting WS to ${wsUrl}`, 'info');
         s.ws = new WebSocket(wsUrl);
+        s.ws.binaryType = 'blob';
 
         // 5s connection timeout — retry if not connected
         const connectTimeout = setTimeout(() => {
@@ -296,6 +297,10 @@
         };
 
         s.ws.onmessage = (event) => {
+            if (event.data instanceof Blob) {
+                handleMjpegFrame(s, event.data);
+                return;
+            }
             try {
                 const msg = JSON.parse(event.data);
                 handleSignaling(s, msg, serverUrl);
@@ -319,8 +324,21 @@
 
     function handleSignaling(s, msg, serverUrl) {
         switch (msg.type) {
+            case 'codec':
+                handleCodec(s, msg.codec);
+                break;
             case 'offer': handleOffer(s, msg); break;
             case 'candidate': handleCandidate(s, msg); break;
+            case 'mjpegStream':
+                log(`[#${s.index + 1}] MJPEG stream ready`, 'success');
+                updateStreamState(s, 'connected');
+                break;
+            case 'status':
+                log(`[#${s.index + 1}] status: ${msg.message}`, 'info');
+                break;
+            case 'mjpegInfo':
+                log(`[#${s.index + 1}] mjpeg-info: ${msg.message}`, 'info');
+                break;
             case 'error':
                 log(`[#${s.index + 1}] Server error: ${msg.message}`, 'error');
                 if (msg.message && msg.message.toLowerCase().includes('unsupported codec')) {
@@ -329,6 +347,61 @@
                 }
                 break;
         }
+    }
+
+    function handleCodec(s, codec) {
+        log(`[#${s.index + 1}] Codec: ${codec}`, 'info');
+        s.codec = codec;
+        const slot = document.getElementById(`media-${s.index}`);
+        if (!slot) return;
+
+        if (codec === 'mjpeg') {
+            s.mjpegMode = true;
+            const img = document.createElement('img');
+            img.id = `img-${s.index}`;
+            img.style.cssText = 'width:100%;display:block;min-height:220px;background:#000;object-fit:contain;';
+            slot.replaceWith(img);
+            s.imgEl = img;
+            s.lastObjectUrl = null;
+
+            if (s.statsInterval) clearInterval(s.statsInterval);
+            s.framesReceived = 0;
+            s.bytesReceived = 0;
+            s.lastFrameMs = Date.now();
+            s.statsInterval = setInterval(() => {
+                const statsEl = document.getElementById(`stats-${s.index}`);
+                if (statsEl) {
+                    statsEl.innerHTML = `MJPEG | Frames: ${s.framesReceived} | Bytes: ${s.bytesReceived}`;
+                }
+                if (Date.now() - s.lastFrameMs > 6000) {
+                    log(`[#${s.index + 1}] MJPEG stale (>6s), reconnecting...`, 'error');
+                    clearInterval(s.statsInterval);
+                    try { s.ws.close(); } catch (_) {}
+                }
+            }, 2000);
+        } else {
+            // h264, hevc, or any other video codec -> create <video>
+            const video = document.createElement('video');
+            video.id = `video-${s.index}`;
+            video.autoplay = true;
+            video.playsInline = true;
+            video.muted = true;
+            video.style.cssText = 'width:100%;display:block;min-height:220px;background:#000;';
+            slot.replaceWith(video);
+            s.videoEl = video;
+        }
+    }
+
+    function handleMjpegFrame(s, blob) {
+        if (!s.imgEl) return;
+        const url = URL.createObjectURL(blob);
+        const prev = s.lastObjectUrl;
+        s.imgEl.onload = () => { if (prev) URL.revokeObjectURL(prev); };
+        s.imgEl.src = url;
+        s.lastObjectUrl = url;
+        s.framesReceived++;
+        s.bytesReceived += blob.size;
+        s.lastFrameMs = Date.now();
     }
 
     async function handleOffer(s, msg) {
@@ -363,12 +436,16 @@
             s.pc.ontrack = (event) => {
                 log(`[#${s.index + 1}] Got ${event.track.kind} track`, 'success');
                 if (event.track.kind === 'video') {
-                    const video = document.getElementById(`video-${s.index}`);
+                    const video = s.videoEl || document.getElementById(`video-${s.index}`);
+                    if (!video) {
+                        log(`[#${s.index + 1}] No video element to attach track to`, 'error');
+                        return;
+                    }
                     if (event.streams && event.streams[0]) {
                         video.srcObject = event.streams[0];
                     }
                     else {
-                    console.log(`[#${s.index + 1}] ---------------- No stream on track event, creating new stream`);
+                        console.log(`[#${s.index + 1}] No stream on track event, creating new stream`);
                         video.srcObject = new MediaStream([event.track]);
                     }
 

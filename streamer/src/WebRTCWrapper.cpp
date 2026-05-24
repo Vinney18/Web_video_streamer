@@ -320,91 +320,25 @@ removeConnection(clientId);
     }
 }
 
-void WebRTCWrapper::handleRequest(const std::string &clientId)
+void WebRTCWrapper::startStream(const std::string &clientId, const std::string &url,
+                                AVCodecID codecId, const Json::Value &streamInfo)
 {
     try
     {
         if (mainLogger)
         {
-            mainLogger->info("Handling request from client: {}", clientId);
+            mainLogger->info("Starting WebRTC stream for client: {} url={} codec={}",
+                             clientId, url, avcodec_get_name(codecId));
         }
 
-        // Fetch query from signaling transport (stored in websocket dictionary)
-        Json::Value query = signalingTransport_.getQuery(clientId);
-
-        signalingTransport_.sendMessage(clientId, buildJsonMessage("status", "Connecting Player Server"));
-
-        // 1. Resolve stream info (URL + metadata like seekTime, duration)
-        Json::Value streamInfo = PlayerServerClient::resolveStreamUrl(query);
-        std::string url = streamInfo.get("url", "").asString();
-
-        if (url.empty() || boost::starts_with(url, "Player_Server_Not_Connected") ||
-            boost::starts_with(url, "URL_Server_Not_Connected"))
-        {
-            if (mainLogger)
-            {
-                mainLogger->error("Failed to get URL for client {}: {}", clientId, url);
-            }
-
-            signalingTransport_.sendMessage(clientId, buildJsonMessage("error", url.empty() ? "Failed to resolve stream URL" : url));
-            return;
-        }
-
-        // 3. Probe actual codec from stream before creating peer connection
-        signalingTransport_.sendMessage(clientId, buildJsonMessage("status", "fetching codec Information"));
-        FFmpegWrapper::ProbeResult probeResult = FFmpegWrapper::probeCodec(url);
-
-        // 4. Handle probe failures and unsupported codecs
-        if (!probeResult.opened)
-        {
-            if (mainLogger)
-            {
-                mainLogger->error("Unable to locate video for client {}: {}", clientId, url);
-            }
-            signalingTransport_.sendMessage(clientId, buildJsonMessage("error", "Unable to locate video: " + url));
-            return;
-        }
-
-        AVCodecID codecId = probeResult.codecId;
-        if (mainLogger)
-        {
-            mainLogger->info("Probed codec for client {}: {} ({})", clientId,
-                             avcodec_get_name(codecId), (int)codecId);
-        }
-
-        if (codecId == AV_CODEC_ID_NONE)
-        {
-            if (mainLogger)
-            {
-                mainLogger->error("Unable to fetch codec for client {}: {}", clientId, url);
-            }
-            signalingTransport_.sendMessage(clientId, buildJsonMessage("error", "Unable to fetch codec from video: " + url));
-            return;
-        }
-
-        if (codecId != AV_CODEC_ID_H264 && codecId != AV_CODEC_ID_H265)
-        {
-            if (mainLogger)
-            {
-                mainLogger->error("Unsupported codec for client {}: {}", clientId, avcodec_get_name(codecId));
-            }
-
-            signalingTransport_.sendMessage(clientId, buildJsonMessage("error", std::string("Unsupported codec: ") + avcodec_get_name(codecId)));
-            return;
-        }
-
-        signalingTransport_.sendMessage(clientId, buildJsonMessage("status", "creating peer connection"));
-
-        // 5. Create peer connection with correct packetizer based on actual codec
         createPeerConnection(clientId, url, codecId, streamInfo);
     }
     catch (const std::exception &ex)
     {
         if (mainLogger)
         {
-            mainLogger->error("Error handling request from client {}: {}", clientId, ex.what());
+            mainLogger->error("Error starting stream for client {}: {}", clientId, ex.what());
         }
-
         signalingTransport_.sendMessage(clientId, buildJsonMessage("error", ex.what()));
     }
 }
@@ -513,7 +447,7 @@ void WebRTCWrapper::removeConnection(const std::string &clientId)
         if (connInfo && connInfo->ffmpegWrapper)
         {
             // todovineet here race condition should occur
-            bool canStop = connInfo->ffmpegWrapper->removeConnection(connInfo->peerConnection);
+            bool canStop = connInfo->ffmpegWrapper->removeConnection(connInfo->clientId);
             if (canStop)
             {
                 connInfo->ffmpegWrapper->stopThread();
@@ -594,24 +528,12 @@ void WebRTCWrapper::handleDataChannelMessage(const std::string &clientId, std::v
         // Non-FFmpeg messages handled here; everything else passed as JSON to FFmpeg
         if (message == "Version")
         {
-            rtcConnHdl pc;
-            {
-                std::lock_guard<std::mutex> lock(connectionsMutex);
-                auto it = connections.find(clientId);
-                if (it != connections.end())
-                {
-                    pc = it->second->peerConnection;
-                }
-            }
-            if (pc)
-            {
-                SendStringData(pc, "--version " + i2v::VERSION);
-            }
+            webConnHdl id = clientId;
+            SendStringData(id, "--version " + i2v::VERSION);
         }
         else if (message == "Server Status")
         {
             std::string servData;
-            rtcConnHdl pc;
             {
                 std::lock_guard<std::mutex> lock2(liveStreamsMutex);
                 servData = "liveStreams.count: " + std::to_string(liveStreams.size()) + "\n";
@@ -623,16 +545,9 @@ void WebRTCWrapper::handleDataChannelMessage(const std::string &clientId, std::v
             {
                 std::lock_guard<std::mutex> lock(connectionsMutex);
                 servData += "\nconnections: " + std::to_string(connections.size()) + "\n";
-                auto it = connections.find(clientId);
-                if (it != connections.end())
-                {
-                    pc = it->second->peerConnection;
-                }
             }
-            if (pc)
-            {
-                SendStringData(pc, "--servStatus " + servData);
-            }
+            webConnHdl id = clientId;
+            SendStringData(id, "--servStatus " + servData);
         }
         else
         {
@@ -649,7 +564,7 @@ void WebRTCWrapper::handleDataChannelMessage(const std::string &clientId, std::v
     }
 }
 
-void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64_t timestamp)
+void WebRTCWrapper::SendData(webConnHdl &clientId, std::vector<uint8_t> &data, int64_t timestamp)
 {
     try
     {
@@ -661,14 +576,7 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
         std::shared_ptr<WebRTCConnectionInfo> connInfo;
         {
             std::lock_guard<std::mutex> lock(connectionsMutex);
-
-            // Find connection by PeerConnection pointer
-            auto it = std::find_if(connections.begin(), connections.end(),
-                                   [&conn](const auto &pair)
-                                   {
-                                       return pair.second->peerConnection.get() == conn.get();
-                                   });
-
+            auto it = connections.find(clientId);
             if (it == connections.end())
             {
                 return;
@@ -698,12 +606,10 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
 
             connInfo = it->second;
         }
-        // Lock released — do the actual send work outside the lock
 
         const uint8_t *frameStart = data.data();
         size_t frameSize = data.size();
 
-        // Generate RTP timestamp from wall clock (90kHz RTP clock)
         auto now = std::chrono::steady_clock::now();
         auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(
                               now - connInfo->createdAt)
@@ -714,9 +620,7 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
         {
             connInfo->rtpConfig->timestamp = rtpTimestamp;
         }
-        std::cout<<rtpTimestamp<<std::endl;
 
-        // Test plumbing: fabricate a JSON and send on data channel keyed by rtpTs
         if (connInfo->dataChannel && connInfo->dataChannel->isOpen())
         {
             Json::Value meta;
@@ -743,29 +647,20 @@ void WebRTCWrapper::SendData(rtcConnHdl &conn, std::vector<uint8_t> &data, int64
     }
 }
 
-void WebRTCWrapper::SendStringData(rtcConnHdl &conn, std::string sdata)
+void WebRTCWrapper::SendStringData(webConnHdl &clientId, std::string sdata)
 {
     try
     {
         std::shared_ptr<rtc::DataChannel> dc;
         {
             std::lock_guard<std::mutex> lock(connectionsMutex);
-
-            // Find connection by PeerConnection pointer
-            auto it = std::find_if(connections.begin(), connections.end(),
-                                   [&conn](const auto &pair)
-                                   {
-                                       return pair.second->peerConnection.get() == conn.get();
-                                   });
-
+            auto it = connections.find(clientId);
             if (it == connections.end() || !it->second->dataChannel)
             {
                 return;
             }
-
             dc = it->second->dataChannel;
         }
-        // Lock released — do the send outside the lock
         if (dc->isOpen())
         {
             dc->send(sdata);
@@ -822,9 +717,7 @@ void WebRTCWrapper::processRequest(const std::string &clientId)
 {
     try
     {
-        // Look up connection info first (has query and url stored from createPeerConnection)
         std::shared_ptr<WebRTCConnectionInfo> connInfo;
-        rtcConnHdl peerConn;
         {
             std::lock_guard<std::mutex> lock(connectionsMutex);
             auto connIt = connections.find(clientId);
@@ -833,14 +726,12 @@ void WebRTCWrapper::processRequest(const std::string &clientId)
                 return;
             }
             connInfo = connIt->second;
-            peerConn = connInfo->peerConnection;
         }
 
         const Json::Value &query = connInfo->query;
         std::string url = connInfo->streamInfo.get("url", "").asString();
         std::string mode = query.get("mode", "Live").asString();
 
-        // Enrich streamInfo with query-derived values for FFmpeg wrapper constructors
         Json::Value streamInfo = connInfo->streamInfo;
         streamInfo["cameraId"] = query.get("cameraId", "").asString();
         streamInfo["connectionMode"] = query.get("connectionMode", "tcp").asString();
@@ -852,6 +743,8 @@ void WebRTCWrapper::processRequest(const std::string &clientId)
 
         std::function<void(webConnHdl &, std::vector<uint8_t> &, int64_t)> sendDataFunc = bindSendData;
         std::function<void(webConnHdl &, std::string)> sendStringDataFunc = bindSendStringData;
+
+        webConnHdl handle = clientId;
 
         if (mode == "Live")
         {
@@ -869,7 +762,7 @@ void WebRTCWrapper::processRequest(const std::string &clientId)
             auto ffmpeg = liveStreams[url];
             if (ffmpeg != nullptr)
             {
-                ffmpeg->addConnToList(peerConn);
+                ffmpeg->addConnToList(handle);
             }
 
             connInfo->ffmpegWrapper = ffmpeg;
@@ -891,11 +784,10 @@ void WebRTCWrapper::processRequest(const std::string &clientId)
             }
 
             ffmpeg->startThread();
-            ffmpeg->addConnToList(peerConn);
+            ffmpeg->addConnToList(handle);
             connInfo->ffmpegWrapper = ffmpeg;
         }
 
-        // Check if connection was removed while we were setting up FFmpeg
         bool connectionStillExists;
         {
             std::lock_guard<std::mutex> lock(connectionsMutex);
@@ -904,9 +796,7 @@ void WebRTCWrapper::processRequest(const std::string &clientId)
 
         if (!connectionStillExists)
         {
-            // Connection was removed — clean up FFmpeg outside any lock
-            bool canStop = connInfo->ffmpegWrapper->removeConnection(peerConn);
-            // Remove this member from sync group (group stays alive for remaining members)
+            bool canStop = connInfo->ffmpegWrapper->removeConnection(clientId);
             if (connInfo && !connInfo->syncGroupId.empty())
             {
                 syncHandler_.removeMember(connInfo->syncGroupId, connInfo->clientId, connInfo->ffmpegWrapper.get());
@@ -915,7 +805,6 @@ void WebRTCWrapper::processRequest(const std::string &clientId)
             {
                 connInfo->ffmpegWrapper->stopThread();
 
-                // Remove from liveStreams if it's a live stream
                 if (!connInfo->ffmpegKey.empty())
                 {
                     std::lock_guard<std::mutex> lock2(liveStreamsMutex);
