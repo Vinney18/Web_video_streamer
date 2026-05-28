@@ -271,32 +271,68 @@
         }));
     }
 
+    const MAX_RETRIES = 5;
+    const CONNECT_TIMEOUT_MS = 10000;
+    const RETRY_DELAY_MS = 2000;
+
     function connectStream(s, serverUrl) {
         let wsUrl = serverUrl.replace(/^http/, 'ws');
         if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
             wsUrl = 'ws://' + wsUrl;
         }
 
-        log(`[#${s.index + 1}] Connecting WS to ${wsUrl}`, 'info');
-        s.ws = new WebSocket(wsUrl);
-        s.ws.binaryType = 'blob';
-
-        // 5s connection timeout — retry if not connected
-        const connectTimeout = setTimeout(() => {
-            if (s.ws && s.ws.readyState !== WebSocket.OPEN) {
-                log(`[#${s.index + 1}] WebSocket connection timeout (5s), retrying...`, 'error');
+        // Tear down any previous WS for this stream before opening a new one.
+        // Null the handlers first so a late-firing onopen/onerror/onclose on the
+        // stale socket doesn't trigger another retry path.
+        if (s.ws) {
+            try {
+                s.ws.onopen = s.ws.onmessage = s.ws.onerror = s.ws.onclose = null;
                 s.ws.close();
-                connectStream(s, serverUrl);
-            }
-        }, 5000);
+            } catch (_) {}
+            s.ws = null;
+        }
 
-        s.ws.onopen = () => {
+        s.retryCount = s.retryCount || 0;
+        if (s.retryCount > MAX_RETRIES) {
+            log(`[#${s.index + 1}] Giving up after ${s.retryCount} retries`, 'error');
+            updateStreamState(s, 'failed');
+            return;
+        }
+
+        log(`[#${s.index + 1}] Connecting WS to ${wsUrl} (attempt ${s.retryCount + 1})`, 'info');
+        const ws = new WebSocket(wsUrl);
+        ws.binaryType = 'blob';
+        s.ws = ws;
+
+        // Single-shot retry guard: error + close + timeout all share this path
+        // so we don't fire multiple reconnects for the same failure.
+        let retryScheduled = false;
+        const scheduleRetry = (reason) => {
+            if (retryScheduled) return;
+            retryScheduled = true;
             clearTimeout(connectTimeout);
+            s.retryCount++;
+            log(`[#${s.index + 1}] ${reason}, retrying in ${RETRY_DELAY_MS}ms...`, 'error');
+            // Drop the dead socket's handlers so they can't fire again.
+            try { ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null; } catch (_) {}
+            try { ws.close(); } catch (_) {}
+            setTimeout(() => connectStream(s, serverUrl), RETRY_DELAY_MS);
+        };
+
+        const connectTimeout = setTimeout(() => {
+            if (ws.readyState !== WebSocket.OPEN) {
+                scheduleRetry(`WebSocket connection timeout (${CONNECT_TIMEOUT_MS}ms)`);
+            }
+        }, CONNECT_TIMEOUT_MS);
+
+        ws.onopen = () => {
+            clearTimeout(connectTimeout);
+            s.retryCount = 0;  // reset on successful open
             log(`[#${s.index + 1}] WebSocket connected, sending request`, 'success');
             sendRequest(s);
         };
 
-        s.ws.onmessage = (event) => {
+        ws.onmessage = (event) => {
             if (event.data instanceof Blob) {
                 handleMjpegFrame(s, event.data);
                 return;
@@ -309,15 +345,15 @@
             }
         };
 
-        s.ws.onerror = () => {
-            clearTimeout(connectTimeout);
-            log(`[#${s.index + 1}] WebSocket error, retrying in 2s...`, 'error');
-            s.ws.close();
-            setTimeout(() => connectStream(s, serverUrl), 2000);
-        };
+        ws.onerror = () => scheduleRetry('WebSocket error');
 
-        s.ws.onclose = () => {
+        ws.onclose = () => {
             clearTimeout(connectTimeout);
+            // If close happened before onopen, treat as a connection failure
+            // and retry. If it happened after we were already running, just log.
+            if (s.retryCount === 0 && ws.readyState !== WebSocket.CLOSED) return;
+            // Avoid retrying on intentional stop (stream removed from s.ws)
+            if (s.ws !== ws) return;
             log(`[#${s.index + 1}] WebSocket closed`, 'info');
         };
     }

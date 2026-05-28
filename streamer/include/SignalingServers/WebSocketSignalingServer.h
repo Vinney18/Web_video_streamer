@@ -28,6 +28,7 @@ public:
 
     void sendMessage(const std::string& clientId, const std::string& message) override;
     void sendBinary(const std::string& clientId, const uint8_t* data, size_t size);
+    size_t bufferedAmount(const std::string& clientId);
     void closeConnection(const std::string& clientId) override;
     Json::Value getClientQuery(const std::string& clientId) override;
     bool isConnected(const std::string& clientId);

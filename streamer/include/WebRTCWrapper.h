@@ -28,6 +28,7 @@ using rtcConnHdl = std::shared_ptr<rtc::PeerConnection>;
 struct SignalingTransport {
     std::function<void(const std::string& clientId, const std::string& message)> sendMessage;
     std::function<void(const std::string& clientId, const uint8_t* data, size_t size)> sendBinary;
+    std::function<size_t(const std::string& clientId)> bufferedAmount;
     std::function<void(const std::string& clientId)> closeConnection;
     std::function<bool(const std::string& clientId)> isConnected;
     std::function<Json::Value(const std::string& clientId)> getQuery;

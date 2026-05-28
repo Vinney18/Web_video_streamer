@@ -29,6 +29,7 @@ WebSocketSignalingServer::WebSocketSignalingServer(int port, std::shared_ptr<spd
     SignalingTransport transport = {
         .sendMessage = [this](const std::string &id, const std::string &msg) { sendMessage(id, msg); },
         .sendBinary = [this](const std::string &id, const uint8_t *data, size_t size) { sendBinary(id, data, size); },
+        .bufferedAmount = [this](const std::string &id) { return bufferedAmount(id); },
         .closeConnection = [this](const std::string &id) { closeConnection(id); },
         .isConnected = [this](const std::string &id) { return isConnected(id); },
         .getQuery = [this](const std::string &id) { return getClientQuery(id); }
@@ -59,10 +60,12 @@ void WebSocketSignalingServer::run()
 
         rtc::WebSocketServer::Configuration config;
         config.port = static_cast<uint16_t>(port_);
-
+        // Allow up to 16 MB per WebSocket message so MJPEG frames at any
+        // realistic resolution (incl. 4K with low compression) won't be rejected.
+        config.maxMessageSize = 16 * 1024 * 1024;
         auto& appCfg = AppConfig::instance();
-        // config.enableTls = false;
-        config.enableTls = appCfg.getBool("enableTls");
+        config.enableTls = false;
+        // config.enableTls = appCfg.getBool("enableTls");
         if (config.enableTls) {
             config.certificatePemFile = appCfg.get("tlsCertPath");
             config.keyPemFile = appCfg.get("tlsKeyPath");
@@ -72,6 +75,7 @@ void WebSocketSignalingServer::run()
 
         server_->onClient([this](std::shared_ptr<rtc::WebSocket> ws)
                           { onClientConnected(ws); });
+
 
         if (logger_)
         {
@@ -196,6 +200,21 @@ void WebSocketSignalingServer::sendBinary(const std::string &clientId, const uin
     }
 }
 
+size_t WebSocketSignalingServer::bufferedAmount(const std::string &clientId)
+{
+    std::shared_ptr<rtc::WebSocket> ws;
+    {
+        std::lock_guard<std::mutex> lock(connectionsMutex_);
+        auto it = connections_.find(clientId);
+        if (it != connections_.end() && it->second.ws)
+        {
+            ws = it->second.ws;
+        }
+    }
+    if (!ws) return 0;
+    return ws->bufferedAmount();
+}
+
 void WebSocketSignalingServer::closeConnection(const std::string &clientId)
 {
     std::lock_guard<std::mutex> lock(connectionsMutex_);
@@ -213,11 +232,8 @@ bool WebSocketSignalingServer::isConnected(const std::string &clientId)
 {
     std::lock_guard<std::mutex> lock(connectionsMutex_);
     auto it = connections_.find(clientId);
-    if (it != connections_.end())
-    {
-        return true;
-    }
-    return false;
+    bool found = (it != connections_.end());
+    return found;
 }
 
 void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket> ws)
@@ -226,18 +242,17 @@ void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket>
 
     if (logger_)
     {
-        logger_->info("New WebSocket connection: {}", clientId);
+        logger_->info("TCP connection accepted, awaiting WS handshake: {}", clientId);
     }
 
-
-    {
-        std::lock_guard<std::mutex> lock(connectionsMutex_);
-        connections_[clientId] = {ws, {}};
-    }
-
-    ws->onOpen([this, clientId]()
+    // Insert into connections_ only after the WS handshake completes.
+    // 'ws' is captured so it stays alive while the handshake is in flight.
+    ws->onOpen([this, clientId, ws]()
                {
-                
+        {
+            std::lock_guard<std::mutex> lock(connectionsMutex_);
+            connections_[clientId] = {ws, {}};
+        }
         if (logger_) {
             logger_->info("WebSocket fully opened for: {}", clientId);
         } });
@@ -431,7 +446,8 @@ Json::Value WebSocketSignalingServer::getClientQuery(const std::string &clientId
     auto it = connections_.find(clientId);
     if (it != connections_.end())
     {
-        return it->second.requestQuery;
+        Json::Value q = it->second.requestQuery;
+        return q;
     }
     throw std::runtime_error("No query found for client: " + clientId);
 }

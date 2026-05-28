@@ -30,10 +30,28 @@ void MjpegWebSocketWrapper::setSignalingTransport(SignalingTransport transport)
 
 void MjpegWebSocketWrapper::SendData(webConnHdl &clientId, std::vector<uint8_t> &jpeg, int64_t /*timestamp*/)
 {
+    // Drop frames when the WS outgoing queue grows past this threshold.
+    // MJPEG is I-frame-only, so dropping is safe — the next frame is fully decodable.
+    // Matches the WS maxMessageSize (16 MB) so a single max-size message can never
+    // trip the threshold against the next frame.
+    constexpr size_t kBackpressureLimitBytes = 16 * 1024 * 1024;  // 16 MB
+
     try
     {
         if (jpeg.empty()) return;
         if (!signalingTransport_.isConnected(clientId)) return;
+
+        const size_t buffered = signalingTransport_.bufferedAmount(clientId);
+        if (buffered > kBackpressureLimitBytes)
+        {
+            if (mainLogger)
+            {
+                mainLogger->warn("MJPEG: data not sent for {} due to buffer overflow (buffered={} bytes, limit={} bytes, frame={} bytes)",
+                                 clientId, buffered, kBackpressureLimitBytes, jpeg.size());
+            }
+            return;
+        }
+
         signalingTransport_.sendBinary(clientId, jpeg.data(), jpeg.size());
     }
     catch (const std::exception &ex)
@@ -142,11 +160,15 @@ void MjpegWebSocketWrapper::startStream(const std::string &clientId, const std::
 
 void MjpegWebSocketWrapper::removeClient(const std::string &clientId)
 {
-    std::string url;
+    try
+    {
+        std::string url;
     {
         std::lock_guard<std::mutex> lock(clientMapMutex_);
         auto it = clientToUrl_.find(clientId);
-        if (it == clientToUrl_.end()) return;  // not an MJPEG client
+        if (it == clientToUrl_.end()) {
+            return;  // not an MJPEG client
+        }
         url = it->second;
         clientToUrl_.erase(it);
     }
@@ -155,7 +177,9 @@ void MjpegWebSocketWrapper::removeClient(const std::string &clientId)
     {
         std::lock_guard<std::mutex> lock(liveStreamsMutex_);
         auto it = liveStreams_.find(url);
-        if (it == liveStreams_.end()) return;
+        if (it == liveStreams_.end()) {
+            return;
+        }
         ffmpeg = it->second;
     }
 
@@ -180,6 +204,13 @@ void MjpegWebSocketWrapper::removeClient(const std::string &clientId)
             mainLogger->info("MJPEG: client {} unsubscribed from {} (other subs remain)", clientId, url);
         }
     }
+    }
+    catch(const std::exception& e)
+    {
+        std::cout << e.what() << '\n';
+    }
+    
+    
 }
 
 void MjpegWebSocketWrapper::logStats()

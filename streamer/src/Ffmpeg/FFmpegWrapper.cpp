@@ -29,18 +29,12 @@ int FFmpegWrapper::run()
 			}
 			else
 			{
-				for (webConnHdl connHdl : connections)
-				{
-					sendVideoInformation(connHdl);
-				}
-
 				onBeforeReadInput();
 				if (mStop) { closeInput(); continue; }
 
 				{
 					auto now = std::chrono::system_clock::now();
 					auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-					std::cout << "[" << cameraId << "] readInput starting at " << ms << " ms" << std::endl;
 				}
 				readInput();
 				closeInput();
@@ -252,19 +246,7 @@ void FFmpegWrapper::closeInput()
 	}
 }
 
-void FFmpegWrapper::sendVideoInformation(webConnHdl &connHdl)
-{
-	if (inputCodecCtx == NULL)
-	{
-		return;
-	}
 
-	string data = to_string(inputCodecCtx->width) + "x" + to_string(inputCodecCtx->height) + "x" + to_string(inputFPS);
-
-	outputType = mp4;
-	websocketSCallback(connHdl, "mp4");
-	websocketSCallback(connHdl, "mp4 " + data);
-}
 
 bool FFmpegWrapper::removeConnection(webConnHdl connHdl)
 {
@@ -289,7 +271,6 @@ void FFmpegWrapper::addConnToList(webConnHdl &connHdl)
 {
 	std::lock_guard<std::mutex> lock(connectionsMutex);
 	connections.insert(connHdl);
-	sendVideoInformation(connHdl);
 }
 
 void FFmpegWrapper::SendVideoStartedEvent()

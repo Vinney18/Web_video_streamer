@@ -96,6 +96,7 @@ std::string PlayerServerClient::GetLiveUrl(const std::string &cameraId, int stre
                                            const std::string &analyticType, const std::string &vaServerId,
                                            const std::string &vaServerPipeId)
 {
+    return "rtsp://localhost:554/cial.ts";
     return "http://localhost:8093/100_videodevice_FACE1";
     string response;
     string cameraId_instring = cameraId;

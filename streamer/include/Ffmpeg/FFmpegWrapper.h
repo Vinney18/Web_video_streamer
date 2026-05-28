@@ -65,7 +65,6 @@ protected:
 	WebsocketDataCallback websocketCallback;
 	WebsocketSDataCallback websocketSCallback;
 
-	OutputType outputType;
 	con_list connections;
 	std::mutex connectionsMutex;
 
@@ -91,7 +90,6 @@ public:
 		connectionmode = streamInfo.get("connectionMode", "tcp").asString();
 		websocketCallback = _websocketCallback;
 		websocketSCallback = _websocketSCallback;
-		outputType = mp4;
 	}
 
 	virtual ~FFmpegWrapper();
@@ -122,7 +120,6 @@ protected:
 
 public:
 	void addConnToList(webConnHdl &hdl);
-	void sendVideoInformation(webConnHdl &connHdl);
 
 	bool openInput();
 

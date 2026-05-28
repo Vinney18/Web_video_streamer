@@ -179,10 +179,10 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
                 }
                 
             } 
-        else if(state == rtc::PeerConnection::State::Closed||state == rtc::PeerConnection::State::Failed)
-    {
-removeConnection(clientId);
-    } });
+            else if(state == rtc::PeerConnection::State::Closed||state == rtc::PeerConnection::State::Failed)
+            {
+                removeConnection(clientId);
+            } });
 
         pc->onIceStateChange([this, clientId](rtc::PeerConnection::IceState state)
                              {
@@ -255,9 +255,25 @@ removeConnection(clientId);
             Json::StreamWriterBuilder writerBuilder;
             signalingTransport_.sendMessage(clientId, Json::writeString(writerBuilder, offerMsg)); });
 
-        // Store connection
+        // // Store connection
+        // {
+        //     std::lock_guard<std::mutex> lock(connectionsMutex);
+        //     auto it = connections.find(clientId);
+        //     if (it == connections.end())
+        //     {
+        //         connections[clientId] = connInfo;
+        //     }
+        //     else{
+        //         std::cout<< "Warning: clientId " << clientId << " already exists in connections map when creating peer connection. Overwriting with new connection info." << std::endl;
+        //     }
+            
+        // }
+
+        std::shared_ptr<WebRTCConnectionInfo> evicted;
         {
             std::lock_guard<std::mutex> lock(connectionsMutex);
+            auto it = connections.find(clientId);
+            if (it != connections.end()) evicted = std::move(it->second);
             connections[clientId] = connInfo;
         }
 
