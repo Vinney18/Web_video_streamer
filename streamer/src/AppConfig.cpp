@@ -25,6 +25,11 @@ void AppConfig::load(const std::string& configFilePath) {
         config_["tlsCertPath"] = configoptions.get<std::string>("tlsCertPath", "");
         config_["tlsKeyPath"] = configoptions.get<std::string>("tlsKeyPath", "");
 
+        config_["enableTurn"] = configoptions.get<bool>("enableTurn", false) ? "true" : "false";
+        config_["turnUrl"] = configoptions.get<std::string>("turnUrl", "");
+        config_["turnUsername"] = configoptions.get<std::string>("turnUsername", "");
+        config_["turnPassword"] = configoptions.get<std::string>("turnPassword", "");
+
         int level = configoptions.get<int>("logLevel", -1);
         if (level < 0 || level > 6) {
             level = static_cast<int>(spdlog::level::info);
@@ -42,6 +47,10 @@ void AppConfig::load(const std::string& configFilePath) {
         config_["enableTls"] = "false";
         config_["tlsCertPath"] = "";
         config_["tlsKeyPath"] = "";
+        config_["enableTurn"] = "false";
+        config_["turnUrl"] = "";
+        config_["turnUsername"] = "";
+        config_["turnPassword"] = "";
 
         configoptions.add("websocket_server_port", static_cast<int>(i2v::WEBSOCKET_SERVER_PORT));
         configoptions.add("playerServerIp", i2v::PLAYER_SERVER_IP);
@@ -53,6 +62,10 @@ void AppConfig::load(const std::string& configFilePath) {
         configoptions.add("enableTls", false);
         configoptions.add("tlsCertPath", std::string(""));
         configoptions.add("tlsKeyPath", std::string(""));
+        configoptions.add("enableTurn", false);
+        configoptions.add("turnUrl", std::string(""));
+        configoptions.add("turnUsername", std::string(""));
+        configoptions.add("turnPassword", std::string(""));
         configoptions.writeFile(configFilePath, true);
     }
 }

@@ -142,6 +142,27 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
         config.iceServers.emplace_back("stun:stun.l.google.com:19302");
         config.iceServers.emplace_back("stun:stun1.l.google.com:19302");
 
+        auto &appCfg = AppConfig::instance();
+        if (appCfg.getBool("enableTurn"))
+        {
+            const std::string turnUrl = appCfg.get("turnUrl");
+            if (!turnUrl.empty())
+            {
+                rtc::IceServer turn(turnUrl);
+                turn.username = appCfg.get("turnUsername");
+                turn.password = appCfg.get("turnPassword");
+                config.iceServers.push_back(std::move(turn));
+                if (mainLogger)
+                {
+                    mainLogger->info("TURN enabled: {}", turnUrl);
+                }
+            }
+            else if (mainLogger)
+            {
+                mainLogger->warn("enableTurn=true but turnUrl is empty; skipping TURN");
+            }
+        }
+
         // Create peer connection
         auto pc = std::make_shared<rtc::PeerConnection>(config);
 
@@ -251,6 +272,26 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
             Json::Value offerMsg;
             offerMsg["type"] = "offer";
             offerMsg["sdp"] = std::string(description);
+
+            // Advertise ICE servers to the client so it uses the same STUN/TURN set
+            Json::Value iceServers(Json::arrayValue);
+            Json::Value stun1; stun1["urls"] = "stun:stun.l.google.com:19302";
+            Json::Value stun2; stun2["urls"] = "stun:stun1.l.google.com:19302";
+            iceServers.append(stun1);
+            iceServers.append(stun2);
+
+            auto &appCfg = AppConfig::instance();
+            if (appCfg.getBool("enableTurn")) {
+                const std::string turnUrl = appCfg.get("turnUrl");
+                if (!turnUrl.empty()) {
+                    Json::Value turn;
+                    turn["urls"] = turnUrl;
+                    turn["username"] = appCfg.get("turnUsername");
+                    turn["credential"] = appCfg.get("turnPassword");
+                    iceServers.append(turn);
+                }
+            }
+            offerMsg["iceServers"] = iceServers;
 
             Json::StreamWriterBuilder writerBuilder;
             signalingTransport_.sendMessage(clientId, Json::writeString(writerBuilder, offerMsg)); });

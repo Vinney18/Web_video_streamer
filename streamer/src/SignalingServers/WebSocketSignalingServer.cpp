@@ -64,8 +64,8 @@ void WebSocketSignalingServer::run()
         // realistic resolution (incl. 4K with low compression) won't be rejected.
         config.maxMessageSize = 16 * 1024 * 1024;
         auto& appCfg = AppConfig::instance();
-        config.enableTls = false;
-        // config.enableTls = appCfg.getBool("enableTls");
+        // config.enableTls = false;
+        config.enableTls = appCfg.getBool("enableTls");
         if (config.enableTls) {
             config.certificatePemFile = appCfg.get("tlsCertPath");
             config.keyPemFile = appCfg.get("tlsKeyPath");

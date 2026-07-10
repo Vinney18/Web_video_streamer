@@ -55,9 +55,7 @@ endif()
 file(GLOB_RECURSE HEADER_FILES include/*.h include/*.hpp)
 file(GLOB_RECURSE SOURCES src/*.c src/*.cpp)
 
-# Exclude WebSocket files (replaced by WebRTC)
-list(FILTER HEADER_FILES EXCLUDE REGEX ".*WebSocketWrapper\\.h$")
-list(FILTER SOURCES EXCLUDE REGEX ".*WebSocketWrapper\\.cpp$")
+
 
 add_executable (${EXE_NAME} ${SOURCES} ${HEADER_FILES})
 

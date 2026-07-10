@@ -322,6 +322,11 @@
                     </div>
                 </div>
 
+                <div class="form-group">
+                    <label for="syncGroup">Sync Group (optional - share ID across players to sync)</label>
+                    <input type="text" id="syncGroup" value="" placeholder="e.g. group-1 or leave blank">
+                </div>
+
                 <div class="form-row">
                     <div class="form-group">
                         <label for="streamMode">Stream Mode</label>
@@ -355,6 +360,7 @@
             <!-- Video Player -->
             <div class="video-container">
                 <video id="videoPlayer" autoplay playsinline controls></video>
+                <img id="mjpegImage" style="display:none;width:100%;min-height:400px;background:#000;object-fit:contain;" />
                 <div class="video-overlay" id="videoOverlay">
                     <div>Waiting for connection...</div>
                 </div>
@@ -400,6 +406,14 @@
                     <div class="stat-item">
                         <div class="stat-label">Video Format</div>
                         <div class="stat-value" id="statVideoFormat">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Codec</div>
+                        <div class="stat-value" id="statCodec">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Frames / Bytes</div>
+                        <div class="stat-value" id="statFrames">-</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">Messages Sent</div>

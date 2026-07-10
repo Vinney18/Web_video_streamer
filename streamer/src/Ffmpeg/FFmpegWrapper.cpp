@@ -32,10 +32,10 @@ int FFmpegWrapper::run()
 				onBeforeReadInput();
 				if (mStop) { closeInput(); continue; }
 
-				{
-					auto now = std::chrono::system_clock::now();
-					auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-				}
+				// {
+				// 	auto now = std::chrono::system_clock::now();
+				// 	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+				// }
 				readInput();
 				closeInput();
 			}
@@ -233,7 +233,7 @@ void FFmpegWrapper::closeInput()
 {
 	try
 	{
-		avcodec_close(inputCodecCtx);
+		// avcodec_close(inputCodecCtx);
 		inputCodecCtx = NULL;
 		// Close the video file
 		avformat_close_input(&this->inputFormatCtx);

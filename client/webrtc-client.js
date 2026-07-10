@@ -15,7 +15,28 @@ let messagesReceived = 0;
 let pendingCandidates = [];  // Buffer ICE candidates until remote description is set
 let remoteDescriptionSet = false;
 
-// WebRTC configuration
+// Codec / MJPEG state
+let currentCodec = null;
+let mjpegMode = false;
+let mjpegImgEl = null;
+let mjpegLastObjectUrl = null;
+let mjpegFrames = 0;
+let mjpegBytes = 0;
+let mjpegLastFrameMs = 0;
+let statsInterval = null;
+
+// Frame metadata delivered over data channel, keyed by RTP timestamp
+const metadataByRtpTs = new Map();
+
+// WS connect retry
+let retryCount = 0;
+let retryScheduled = false;
+let connectTimeoutId = null;
+const MAX_RETRIES = 5;
+const CONNECT_TIMEOUT_MS = 10000;
+const RETRY_DELAY_MS = 2000;
+
+// Default WebRTC configuration - overridden if server supplies iceServers in the offer
 const rtcConfig = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -100,18 +121,27 @@ function updateStats(key, value) {
 }
 
 /**
- * Build query string from form inputs
+ * Build query object from form inputs (server expects JSON object)
  */
-function buildQueryString() {
+function buildQuery() {
     const cameraId = document.getElementById('cameraId').value;
     const mode = document.getElementById('streamMode').value;
     const streamType = document.getElementById('streamType').value;
     const startTime = document.getElementById('startTime').value;
+    const syncGroup = document.getElementById('syncGroup').value.trim();
 
-    let query = `cameraId~~${cameraId}&&mode~~${mode}&&streamType~~${streamType}`;
+    const query = {
+        cameraId: cameraId,
+        mode: mode,
+        streamType: Number(streamType)
+    };
 
     if (mode === 'PlayBack' && startTime) {
-        query += `&&startTime~~${startTime}`;
+        query.startTime = Number(startTime);
+    }
+
+    if (syncGroup) {
+        query.syncGroup = syncGroup;
     }
 
     return query;
@@ -152,18 +182,94 @@ function handleSignalingMessage(message) {
     log(`Signaling received: ${message.type}`, 'info');
 
     switch (message.type) {
+        case 'codec':
+            handleCodec(message.codec);
+            break;
         case 'offer':
             handleServerOffer(message);
             break;
         case 'candidate':
             handleRemoteCandidate(message);
             break;
+        case 'mjpegStream':
+            log('MJPEG stream ready', 'success');
+            updateStatus('Connected', 'connected');
+            break;
+        case 'mjpegInfo':
+            log(`mjpeg-info: ${message.message}`, 'info');
+            break;
+        case 'status':
+            log(`status: ${message.message}`, 'info');
+            break;
         case 'error':
             log(`Server error: ${message.message}`, 'error');
+            if (message.message && message.message.toLowerCase().includes('unsupported codec')) {
+                log('Unsupported codec, retrying request in 2s...', 'info');
+                setTimeout(() => {
+                    sendSignalingMessage({
+                        type: 'request',
+                        clientId: clientId,
+                        query: buildQuery()
+                    });
+                }, 2000);
+            }
             break;
         default:
             log(`Unknown signaling message type: ${message.type}`, 'error');
     }
+}
+
+/**
+ * Handle codec announcement from server. Swaps between <video> (WebRTC) and
+ * <img> (MJPEG-over-WebSocket).
+ */
+function handleCodec(codec) {
+    currentCodec = codec;
+    updateStats('Codec', codec);
+    log(`Codec: ${codec}`, 'info');
+
+    const video = document.getElementById('videoPlayer');
+    const img = document.getElementById('mjpegImage');
+
+    if (codec === 'mjpeg') {
+        mjpegMode = true;
+        video.style.display = 'none';
+        img.style.display = 'block';
+        mjpegImgEl = img;
+        mjpegFrames = 0;
+        mjpegBytes = 0;
+        mjpegLastFrameMs = Date.now();
+
+        if (statsInterval) clearInterval(statsInterval);
+        statsInterval = setInterval(() => {
+            updateStats('Frames', `${mjpegFrames} / ${mjpegBytes}B`);
+            if (Date.now() - mjpegLastFrameMs > 6000) {
+                log('MJPEG stale (>6s), reconnecting...', 'error');
+                clearInterval(statsInterval);
+                statsInterval = null;
+                try { if (signalingWs) signalingWs.close(); } catch (_) {}
+            }
+        }, 2000);
+    } else {
+        mjpegMode = false;
+        img.style.display = 'none';
+        video.style.display = 'block';
+    }
+}
+
+/**
+ * Handle incoming MJPEG frame (Blob over WebSocket).
+ */
+function handleMjpegFrame(blob) {
+    if (!mjpegImgEl) return;
+    const url = URL.createObjectURL(blob);
+    const prev = mjpegLastObjectUrl;
+    mjpegImgEl.onload = () => { if (prev) URL.revokeObjectURL(prev); };
+    mjpegImgEl.src = url;
+    mjpegLastObjectUrl = url;
+    mjpegFrames++;
+    mjpegBytes += blob.size;
+    mjpegLastFrameMs = Date.now();
 }
 
 /**
@@ -174,12 +280,27 @@ async function handleServerOffer(message) {
         log('Received offer from server, creating peer connection...', 'info');
         console.log('=== SDP OFFER FROM SERVER ===\n' + message.sdp);
 
-        // Create peer connection if not already created
-        if (!peerConnection) {
-            if (!await createPeerConnection()) {
-                updateStatus('Failed', 'disconnected');
-                return;
-            }
+        // If the server sent iceServers (e.g. TURN credentials), use them instead
+        // of the default STUN-only config. Required for NAT-to-NAT connections.
+        const cfg = (message.iceServers && message.iceServers.length)
+            ? { ...rtcConfig, iceServers: message.iceServers }
+            : rtcConfig;
+        log(`Using ${cfg.iceServers.length} ICE server(s)${message.iceServers ? ' (from server)' : ' (default STUN)'}`, 'info');
+
+        // Always create a fresh peer connection for each offer. Reusing an
+        // existing PC across offers forces DTLS renegotiation with a new
+        // server fingerprint — SRTP unwrap then silently fails and no
+        // frames decode (bytesReceived climbs, framesDecoded stays 0).
+        if (peerConnection) {
+            try { peerConnection.close(); } catch (_) {}
+            peerConnection = null;
+            dataChannel = null;
+        }
+        remoteDescriptionSet = false;
+        pendingCandidates = [];
+        if (!await createPeerConnection(cfg)) {
+            updateStatus('Failed', 'disconnected');
+            return;
         }
 
         // Set remote description (server's offer)
@@ -244,11 +365,11 @@ async function handleRemoteCandidate(message) {
 /**
  * Create peer connection
  */
-async function createPeerConnection() {
+async function createPeerConnection(cfg) {
     try {
         log('Creating peer connection...', 'info');
 
-        peerConnection = new RTCPeerConnection(rtcConfig);
+        peerConnection = new RTCPeerConnection(cfg || rtcConfig);
 
         // Connection state changes
         peerConnection.onconnectionstatechange = () => {
@@ -326,13 +447,36 @@ async function createPeerConnection() {
                 }
                 log('Video stream connected to player', 'success');
 
+                // Log RTP timestamp per presented frame and match against metadata
+                // delivered via the data channel (keyed by RTP timestamp).
+                if ('requestVideoFrameCallback' in videoPlayer) {
+                    const onFrame = (now, metadata) => {
+                        const meta = metadataByRtpTs.get(metadata.rtpTimestamp);
+                        if (meta) {
+                            console.log(
+                                `frame#${metadata.presentedFrames} rtpTs=${metadata.rtpTimestamp} matched meta:`,
+                                meta
+                            );
+                            metadataByRtpTs.delete(metadata.rtpTimestamp);
+                        } else {
+                            console.log(
+                                `frame#${metadata.presentedFrames} rtpTs=${metadata.rtpTimestamp} (no meta)`
+                            );
+                        }
+                        videoPlayer.requestVideoFrameCallback(onFrame);
+                    };
+                    videoPlayer.requestVideoFrameCallback(onFrame);
+                }
+
                 // Poll WebRTC stats to check if bytes are arriving
-                const statsInterval = setInterval(async () => {
-                    if (!peerConnection) { clearInterval(statsInterval); return; }
+                if (statsInterval) clearInterval(statsInterval);
+                statsInterval = setInterval(async () => {
+                    if (!peerConnection) { clearInterval(statsInterval); statsInterval = null; return; }
                     const stats = await peerConnection.getStats();
                     stats.forEach(report => {
                         if (report.type === 'inbound-rtp' && report.kind === 'video') {
                             console.log(`[VIDEO STATS] bytesReceived=${report.bytesReceived} packetsReceived=${report.packetsReceived} framesDecoded=${report.framesDecoded} framesDropped=${report.framesDropped}`);
+                            updateStats('Frames', `${report.framesDecoded || 0} / ${report.bytesReceived || 0}B`);
                         }
                     });
                 }, 2000);
@@ -361,6 +505,21 @@ async function createPeerConnection() {
             dataChannel.onmessage = (event) => {
                 messagesReceived++;
                 updateStats('MessagesReceived', messagesReceived);
+
+                // Intercept per-frame metadata JSON keyed by RTP timestamp;
+                // it is matched against video frames in requestVideoFrameCallback.
+                try {
+                    const parsed = JSON.parse(event.data);
+                    if (parsed && parsed.type === 'frameMeta') {
+                        metadataByRtpTs.set(parsed.rtpTs, parsed);
+                        if (metadataByRtpTs.size > 100) {
+                            const oldestKey = metadataByRtpTs.keys().next().value;
+                            metadataByRtpTs.delete(oldestKey);
+                        }
+                        return;
+                    }
+                } catch (_) { /* not JSON, fall through to text handler */ }
+
                 log(`Received: ${event.data}`, 'success');
                 handleServerMessage(event.data);
             };
@@ -410,43 +569,96 @@ function handleServerMessage(message) {
  * Connect to server using WebSocket signaling
  */
 async function connect() {
-    try {
-        serverUrl = document.getElementById('serverUrl').value.trim();
-        clientId = generateClientId();
+    // First user-initiated connect: reset retry state.
+    retryCount = 0;
+    serverUrl = document.getElementById('serverUrl').value.trim();
+    clientId = generateClientId();
+    log(`Client ID: ${clientId}`, 'info');
+    openSignalingSocket();
+}
 
+/**
+ * Open (or re-open) the signaling WebSocket. Extracted so retry logic can
+ * reuse it without going through the full connect() setup each attempt.
+ */
+function openSignalingSocket() {
+    try {
         // Convert HTTP URL to WebSocket URL
         let wsUrl = serverUrl.replace(/^http/, 'ws');
         if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
             wsUrl = 'ws://' + wsUrl;
         }
 
-        log(`Connecting to ${wsUrl}...`, 'info');
-        log(`Client ID: ${clientId}`, 'info');
+        // Tear down any previous WS before opening a new one. Null the handlers
+        // first so a late-firing event on the stale socket doesn't trigger
+        // another retry path.
+        if (signalingWs) {
+            try {
+                signalingWs.onopen = signalingWs.onmessage = signalingWs.onerror = signalingWs.onclose = null;
+                signalingWs.close();
+            } catch (_) {}
+            signalingWs = null;
+        }
 
+        if (retryCount > MAX_RETRIES) {
+            log(`Giving up after ${retryCount} retries`, 'error');
+            updateStatus('Failed', 'disconnected');
+            return;
+        }
+
+        log(`Connecting to ${wsUrl} (attempt ${retryCount + 1})`, 'info');
         updateStatus('Connecting...', 'connecting');
 
-        // Create WebSocket connection for signaling
-        signalingWs = new WebSocket(wsUrl);
+        const ws = new WebSocket(wsUrl);
+        ws.binaryType = 'blob';  // required for MJPEG frames
+        signalingWs = ws;
 
-        signalingWs.onopen = () => {
+        // Single-shot retry guard: error and timeout share this path
+        // so we don't fire multiple reconnects for the same failure.
+        // onclose does NOT trigger retry — the server closes the signaling
+        // WS intentionally after "starting video", and retrying on that
+        // close causes DTLS/SRTP renegotiation confusion.
+        retryScheduled = false;
+        let hasOpened = false;
+        const scheduleRetry = (reason) => {
+            if (retryScheduled) return;
+            retryScheduled = true;
+            if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
+            retryCount++;
+            log(`${reason}, retrying in ${RETRY_DELAY_MS}ms...`, 'error');
+            try { ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null; } catch (_) {}
+            try { ws.close(); } catch (_) {}
+            setTimeout(openSignalingSocket, RETRY_DELAY_MS);
+        };
+
+        connectTimeoutId = setTimeout(() => {
+            if (ws.readyState !== WebSocket.OPEN) {
+                scheduleRetry(`WebSocket connection timeout (${CONNECT_TIMEOUT_MS}ms)`);
+            }
+        }, CONNECT_TIMEOUT_MS);
+
+        ws.onopen = () => {
+            if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
+            hasOpened = true;
+            retryCount = 0;  // reset on successful open
             log('WebSocket signaling connected', 'success');
 
-            // Build query string
-            const queryString = buildQueryString();
-            log(`Query: ${queryString}`, 'info');
-
-            // Send request to server (server will create offer)
+            const query = buildQuery();
+            log(`Query: ${JSON.stringify(query)}`, 'info');
             log('Sending request to server...', 'info');
             sendSignalingMessage({
                 type: 'request',
                 clientId: clientId,
-                query: queryString
+                query: query
             });
-
-            // Server will respond with an SDP offer, handled by handleServerOffer()
         };
 
-        signalingWs.onmessage = (event) => {
+        ws.onmessage = (event) => {
+            // Binary frames = MJPEG payload; JSON = signaling.
+            if (event.data instanceof Blob) {
+                handleMjpegFrame(event.data);
+                return;
+            }
             try {
                 const message = JSON.parse(event.data);
                 handleSignalingMessage(message);
@@ -455,18 +667,21 @@ async function connect() {
             }
         };
 
-        signalingWs.onerror = (error) => {
-            log(`WebSocket error: ${error}`, 'error');
-            updateStatus('Failed', 'disconnected');
-        };
+        ws.onerror = () => scheduleRetry('WebSocket error');
 
-        signalingWs.onclose = () => {
-            log('WebSocket signaling closed', 'info');
-            if (isConnected) {
-                updateStatus('Disconnected', 'disconnected');
+        ws.onclose = () => {
+            if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
+            // Close before open means the connection failed — retry.
+            // Close after open is expected: server closes the signaling WS
+            // once "starting video" is sent. Just log; do not retry.
+            if (!hasOpened && !retryScheduled) {
+                scheduleRetry('WebSocket closed before open');
+                return;
             }
+            // Ignore closes for a socket that has been replaced (intentional stop).
+            if (signalingWs !== ws) return;
+            log('WebSocket signaling closed', 'info');
         };
-
     } catch (error) {
         log(`Connection failed: ${error.message}`, 'error');
         updateStatus('Failed', 'disconnected');
@@ -487,6 +702,9 @@ function disconnect() {
  * Cleanup resources
  */
 function cleanup() {
+    if (statsInterval) { clearInterval(statsInterval); statsInterval = null; }
+    if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
+
     if (dataChannel) {
         dataChannel.close();
         dataChannel = null;
@@ -498,12 +716,32 @@ function cleanup() {
     }
 
     if (signalingWs) {
+        // Null handlers first so intentional close doesn't trigger a retry.
+        try { signalingWs.onopen = signalingWs.onmessage = signalingWs.onerror = signalingWs.onclose = null; } catch (_) {}
         signalingWs.close();
         signalingWs = null;
     }
 
+    // Reset video / MJPEG display
     const videoPlayer = document.getElementById('videoPlayer');
     videoPlayer.srcObject = null;
+    const img = document.getElementById('mjpegImage');
+    if (img) {
+        img.src = '';
+        img.style.display = 'none';
+    }
+    videoPlayer.style.display = 'block';
+    if (mjpegLastObjectUrl) { URL.revokeObjectURL(mjpegLastObjectUrl); mjpegLastObjectUrl = null; }
+    mjpegImgEl = null;
+    mjpegMode = false;
+    currentCodec = null;
+    mjpegFrames = 0;
+    mjpegBytes = 0;
+    metadataByRtpTs.clear();
+
+    // Reset retry state so a subsequent user connect starts fresh
+    retryCount = 0;
+    retryScheduled = false;
 
     isConnected = false;
     remoteDescriptionSet = false;
@@ -514,6 +752,8 @@ function cleanup() {
     updateStats('ConnectionState', 'closed');
     updateStats('IceState', 'closed');
     updateStats('DataChannelState', '-');
+    updateStats('Codec', '-');
+    updateStats('Frames', '-');
 }
 
 /**

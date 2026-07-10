@@ -444,7 +444,10 @@
         try {
             log(`[#${s.index + 1}] Received offer, creating PC`, 'info');
 
-            s.pc = new RTCPeerConnection(rtcConfig);
+            const cfg = (msg.iceServers && msg.iceServers.length)
+                ? { ...rtcConfig, iceServers: msg.iceServers }
+                : rtcConfig;
+            s.pc = new RTCPeerConnection(cfg);
 
             s.pc.onconnectionstatechange = () => {
                 const state = s.pc.connectionState;

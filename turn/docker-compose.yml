@@ -1,0 +1,18 @@
+services:
+  coturn:
+    image: coturn/coturn:latest
+    container_name: coturn
+    restart: unless-stopped
+
+    # Host networking avoids Docker NAT for the relay port range.
+    # Without this, Docker creates one iptables rule per relay port,
+    # which is slow to set up and breaks UDP performance.
+    network_mode: host
+
+    volumes:
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+      # Uncomment when you have TLS certs (for TURNS on 5349/tcp)
+      # - ./certs/fullchain.pem:/etc/coturn/cert.pem:ro
+      # - ./certs/privkey.pem:/etc/coturn/pkey.pem:ro
+
+    command: ["-c", "/etc/coturn/turnserver.conf"]

@@ -59,6 +59,7 @@ Json::Value PlayerServerClient::resolveStreamUrl(const Json::Value &query)
             result["url"] = GetPlayBackUrl(cameraId, start_time_ofplaybackfile, &seekTime, &duration);
             result["seekTime"] = seekTime;
             result["durationMinutes"] = duration;
+            // result["url"] = "rtsp://admin:Prama123@192.168.2.248/Streaming/Channels/301";
         }
         else
         {
@@ -66,6 +67,7 @@ Json::Value PlayerServerClient::resolveStreamUrl(const Json::Value &query)
         }
     }
 
+    // std::cout<< "Resolved stream URL for cameraId: " << cameraId << ", mode: " << mode << ", url: " << result["url"].asString() << std::endl;
     return result;
 
     // if (count % 2 == 0)
@@ -96,8 +98,11 @@ std::string PlayerServerClient::GetLiveUrl(const std::string &cameraId, int stre
                                            const std::string &analyticType, const std::string &vaServerId,
                                            const std::string &vaServerPipeId)
 {
-    return "rtsp://localhost:554/cial.ts";
-    return "http://localhost:8093/100_videodevice_FACE1";
+    // return "rtsp://localhost:554/videodevice";
+    // return "rtsp://192.168.5.106:554/stream2.mp4";
+
+    // return "rtsp://localhost:554/cial.ts";
+    // return "http://localhost:8093/100_videodevice_FACE1";
     string response;
     string cameraId_instring = cameraId;
     std::string endpoint = "";
@@ -173,7 +178,7 @@ std::string PlayerServerClient::GetPlayBackUrl(const std::string &cameraId, int 
     string response;
     string cameraId_instring = cameraId;
 
-     return "/webwork/outupt.ts";
+    // return "/webwork/cial.ts";
     std::string endpoint = "/url/GetPlaybackUrl?cameraId=" + cameraId_instring + "&time=" + std::to_string(startTime);
     if (cameraId == "")
     {
