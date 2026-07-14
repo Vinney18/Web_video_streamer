@@ -13,34 +13,43 @@ int FFmpegWrapper::run()
 		if (opened)
 		{
 			params.isRunning = true;
-			GetInputCodecInfo();
-			createRgbaOutput();
 
-			if (!tempConnections.empty()) {
-				for (auto& el : tempConnections)
-				{
-					if (inputCodecID == AV_CODEC_ID_NONE)
-					{
-						//close websocket if not able to play
-						websocketSCallback(el.first, "unable_to_play");
-					}
-					else
-					{
-						addConnection(el.first);
-					}
-				}
-				tempConnections.clear();
-			}
-			if (inputCodecID == AV_CODEC_ID_NONE)
+			if (!GetInputCodecInfo())
 			{
-				mStop = true;
+				closeInput();
+			}
+			else if (!createRgbaOutput())
+			{
 				closeInput();
 			}
 			else
 			{
-				readInput();
-				freeRgbaOutMemory();
-				closeInput();
+				if (!tempConnections.empty()) {
+					for (auto& el : tempConnections)
+					{
+						if (inputCodecID == AV_CODEC_ID_NONE)
+						{
+							websocketSCallback(el.first, "unable_to_play");
+						}
+						else
+						{
+							addConnection(el.first);
+						}
+					}
+					tempConnections.clear();
+				}
+
+				if (inputCodecID == AV_CODEC_ID_NONE)
+				{
+					mStop = true;
+					closeInput();
+				}
+				else
+				{
+					readInput();
+					freeRgbaOutMemory();
+					closeInput();
+				}
 			}
 		}
 
@@ -55,15 +64,13 @@ int FFmpegWrapper::run()
 				{
 					websocketSCallback(connHdl, "retrying");
 				}
-				// wait for some time before retry
-				/*std::unique_lock<std::mutex> lk(mThreadMutex, std::defer_lock);
-				cv.wait_for(lk, std::chrono::seconds(1));*/
 			}
 			this_thread::sleep_for(std::chrono::seconds(1));
 		}
 	}
+
 	{
-		std::lock_guard<std::mutex> lock(connectionsMutex);  // Protect access to the connections map
+		std::lock_guard<std::mutex> lock(connectionsMutex);
 		for (webConnHdl connHdl : connections[rgba]) {
 			websocketSCallback(connHdl, "Stopped");
 		}
@@ -71,7 +78,7 @@ int FFmpegWrapper::run()
 			websocketSCallback(connHdl, "Stopped");
 		}
 	}
-	
+
 	return 0;
 }
 
@@ -313,7 +320,6 @@ void FFmpegWrapper::readInput()
 			thread1.join();
 			cout << "Thread 1 join";
 		}
-		mStop = true;
 	}
 	catch (const exception& ex) {
 		cout << ex.what() << std::endl;
@@ -458,6 +464,7 @@ bool FFmpegWrapper::createRgbaOutput()
 
 void FFmpegWrapper::freeRgbaOutMemory()
 {
+	if (logger) { logger->error("----------In freeRgbaOutMemory on cameraId: {}", cameraId); }
 	// Free the YUV frame
 	av_frame_free(&pFrame);
 
@@ -468,8 +475,7 @@ void FFmpegWrapper::freeRgbaOutMemory()
 
 	// Close the codecs
 	avcodec_close(decoderCodecContext);
-
-	if ( logger ) { logger->debug("In freeRgbaOutMemory"); }
+	if (logger) { logger->error("----------out freeRgbaOutMemory on cameraId: {}", cameraId); }
 }
 
 void FFmpegWrapper::closeInput()
@@ -491,7 +497,7 @@ void FFmpegWrapper::closeInput()
 
 void FFmpegWrapper::addConnection(webConnHdl connHdl)
 {
-	if (inputCodecID == AV_CODEC_ID_NONE)
+	if (inputCodecID == AV_CODEC_ID_NONE || pFrame == nullptr)
 	{
 		tempConnections.push_back(std::make_pair(connHdl, false));
 	}

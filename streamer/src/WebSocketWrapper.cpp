@@ -27,6 +27,7 @@ WebSocketWrapper::WebSocketWrapper(int port, const std::string& playerIp, int pl
 std::string addCredentialsToUrl(const std::string& url, const std::string& username, const std::string& password);
 
 void WebSocketWrapper::run() {
+	std::cout << "###############new patch" << std::endl;
     try {
         if (mainLogger) { mainLogger->info("Starting websocket server on port: {}", websocket_server_port); }
         if (mainLogger) { mainLogger->info("Player server IP is: {} and port is: {}", playerServerIp, playerServerPort); }
