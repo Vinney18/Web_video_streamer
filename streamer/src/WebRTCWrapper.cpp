@@ -180,16 +180,26 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
             }
 
             if (state == rtc::PeerConnection::State::Connected) {
-                bool fullyConnected = false;
+                // PeerConnection::State::Connected means ICE is connected AND DTLS is
+                // established — that is the complete precondition for sending SRTP media.
+                // We deliberately do NOT wait for ICE Completed / gathering Complete:
+                // those are stricter, happen later, and over a TURN relay may never fire,
+                // which would leave a working connection with the stream never started.
+                bool startNow = false;
                 {
                     std::lock_guard<std::mutex> lock(connectionsMutex);
                     auto it = connections.find(clientId);
                     if (it != connections.end()) {
                         it->second->isConnected = true;
-                        fullyConnected = it->second->isConnected && it->second->iceConnected && it->second->gatheringComplete;
+                        // Connected can fire again after a Disconnected->Connected recovery;
+                        // only start the media pipeline the first time.
+                        if (!it->second->streamStarted) {
+                            it->second->streamStarted = true;
+                            startNow = true;
+                        }
                     }
                 }
-                if (fullyConnected) {
+                if (startNow) {
                     onFullyConnected(clientId);
                 }
             }
@@ -207,44 +217,19 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
 
         pc->onIceStateChange([this, clientId](rtc::PeerConnection::IceState state)
                              {
+            // Logging only. Streaming starts on PeerConnection::State::Connected;
+            // ICE Completed is not required (and may never arrive over a relay).
             if (mainLogger) {
                 mainLogger->info("Client {} ICE connection state: {}", clientId, (int)state);
-            }
-
-            if (state == rtc::PeerConnection::IceState::Completed) {
-                bool fullyConnected = false;
-                {
-                    std::lock_guard<std::mutex> lock(connectionsMutex);
-                    auto it = connections.find(clientId);
-                    if (it != connections.end()) {
-                        it->second->iceConnected = true;
-                        fullyConnected = it->second->isConnected && it->second->iceConnected && it->second->gatheringComplete;
-                    }
-                }
-                if (fullyConnected) {
-                    onFullyConnected(clientId);
-                }
             } });
 
         pc->onGatheringStateChange([this, clientId](rtc::PeerConnection::GatheringState state)
                                    {
+            // Logging only. Gathering completion is a local candidate-discovery signal and
+            // is not a prerequisite for sending media (we trickle ICE), so it does not gate
+            // the stream start.
             if (mainLogger) {
                 mainLogger->debug("Client {} ICE gathering state: {}", clientId, (int)state);
-            }
-
-            if (state == rtc::PeerConnection::GatheringState::Complete) {
-                bool fullyConnected = false;
-                {
-                    std::lock_guard<std::mutex> lock(connectionsMutex);
-                    auto it = connections.find(clientId);
-                    if (it != connections.end()) {
-                        it->second->gatheringComplete = true;
-                        fullyConnected = it->second->isConnected && it->second->iceConnected && it->second->gatheringComplete;
-                    }
-                }
-                if (fullyConnected) {
-                    onFullyConnected(clientId);
-                }
             } });
 
         // Trickle ICE: Send candidates as they are discovered

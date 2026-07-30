@@ -47,8 +47,7 @@ struct WebRTCConnectionInfo {
     std::string ffmpegKey;                          // key in liveStreams map (empty for playback)
     std::string syncGroupId;                        // sync group ID (empty if not part of a group)
     bool isConnected = false;
-    bool iceConnected = false;
-    bool gatheringComplete = false;
+    bool streamStarted = false;  // guards against starting the media pipeline more than once
     uint64_t packetsSent = 0;
     std::chrono::steady_clock::time_point createdAt;
 

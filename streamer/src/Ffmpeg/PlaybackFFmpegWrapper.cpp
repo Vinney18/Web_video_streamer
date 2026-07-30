@@ -24,7 +24,6 @@ vector<uint8_t> PlaybackFFmpegWrapper::processPacket(AVPacket &packet, int64_t f
 		{
 			seek_video(this->initial_seek_time);
 		}
-		SendVideoStartedEvent();
 	}
 
 	// Frame timing — skip for first frame

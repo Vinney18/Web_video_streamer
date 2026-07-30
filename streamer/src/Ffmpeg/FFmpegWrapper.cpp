@@ -94,13 +94,13 @@ void FFmpegWrapper::readInput()
 			{
 				frameCount++;
 
-				vector<uint8_t> processed = processPacket(packet, frameCount);
+				vector<uint8_t> processedPacket = processPacket(packet, frameCount);
 
 				{
 					std::lock_guard<std::mutex> lock(connectionsMutex);
 					for (webConnHdl hndl : connections)
 					{
-						websocketCallback(hndl, processed);
+						websocketCallback(hndl, processedPacket);
 					}
 				}
 			}
@@ -251,19 +251,6 @@ void FFmpegWrapper::addConnToList(webConnHdl &connHdl)
 	connections.insert(connHdl);
 }
 
-void FFmpegWrapper::SendVideoStartedEvent()
-{
-	if (isVideoStartedEventsent)
-	{
-		return;
-	}
-	isVideoStartedEventsent = true;
-
-	for (webConnHdl connHdl : connections)
-	{
-		websocketSCallback(connHdl, "Video_Started");
-	}
-}
 
 void FFmpegWrapper::Pause_video()
 {
@@ -282,41 +269,46 @@ FFmpegWrapper::ProbeResult FFmpegWrapper::probeCodec(const std::string &url)
 {
 	ProbeResult result;
 
-	AVFormatContext *fmtCtx = avformat_alloc_context();
-	if (!fmtCtx)
-		return result;
-
-	AVDictionary *options = nullptr;
-	av_dict_set(&options, "rtsp_transport", "tcp", 0);
-
-	av_dict_set(&options, "max_delay", "2000000", 0);
-	av_dict_set(&options, "stimeout", "5000000", 0);
-	av_dict_set(&options, "analyzeduration", "300000", 0);
-	av_dict_set(&options, "probesize", "7000000", 0);
-
-	if (avformat_open_input(&fmtCtx, url.c_str(), NULL, &options) != 0)
+	// Mirror openInput(): most cameras stream over TCP, fall back to UDP.
+	auto tryProbe = [&](const char *transport) -> bool
 	{
-		return result; // opened = false
-	}
+		AVFormatContext *fmtCtx = avformat_alloc_context();
+		if (!fmtCtx)
+			return false;
 
-	result.opened = true;
+		AVDictionary *options = nullptr;
+		av_dict_set(&options, "rtsp_transport", transport, 0);
+		av_dict_set(&options, "max_delay", "2000000", 0);
+		av_dict_set(&options, "stimeout", "5000000", 0);
+		av_dict_set(&options, "analyzeduration", "300000", 0);
+		av_dict_set(&options, "probesize", "7000000", 0);
 
-	if (avformat_find_stream_info(fmtCtx, NULL) < 0)
-	{
-		avformat_close_input(&fmtCtx);
-		return result; // opened = true, codecId = NONE
-	}
+		int ret = avformat_open_input(&fmtCtx, url.c_str(), NULL, &options);
+		av_dict_free(&options);
+		if (ret != 0)
+			return false; // could not open with this transport
 
-	for (unsigned int i = 0; i < fmtCtx->nb_streams; i++)
-	{
-		if (fmtCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
+		result.opened = true;
+
+		if (avformat_find_stream_info(fmtCtx, NULL) >= 0)
 		{
-			result.codecId = fmtCtx->streams[i]->codecpar->codec_id;
-			break;
+			for (unsigned int i = 0; i < fmtCtx->nb_streams; i++)
+			{
+				if (fmtCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
+				{
+					result.codecId = fmtCtx->streams[i]->codecpar->codec_id;
+					break;
+				}
+			}
 		}
-	}
 
-	avformat_close_input(&fmtCtx);
+		avformat_close_input(&fmtCtx);
+		return result.codecId != AV_CODEC_ID_NONE;
+	};
+
+	if (!tryProbe("tcp"))
+		tryProbe("udp");
+
 	return result;
 }
 

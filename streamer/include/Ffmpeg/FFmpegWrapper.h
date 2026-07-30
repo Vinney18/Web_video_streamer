@@ -71,7 +71,6 @@ protected:
 	int inputFPS = 0;
 	int videoStream = -1;
 
-	bool isVideoStartedEventsent = false;
 	InterruptParams params;
 	double interruptTimeoutMs = 20000.0;  // default 20s, overridden by subclasses
 
@@ -92,7 +91,6 @@ public:
 
 	bool removeConnection(webConnHdl connHdl);
 	void Pause_video();
-	void SendVideoStartedEvent();
 
 	// Handle datachannel commands (JSON key-value). Subclasses override for mode-specific behavior.
 	virtual void handleClientCommand(const std::string& jsonMessage) { (void)jsonMessage; }

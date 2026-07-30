@@ -10,11 +10,6 @@ LiveFFmpegWrapper::LiveFFmpegWrapper(const Json::Value& streamInfo,
 
 vector<uint8_t> LiveFFmpegWrapper::processPacket(AVPacket& packet, int64_t frameCount)
 {
-	if (frameCount == 1)
-	{
-		SendVideoStartedEvent();
-	}
-
 	return vector<uint8_t>(packet.data, packet.data + packet.size);
 }
 
