@@ -13,10 +13,8 @@ PlaybackFFmpegWrapper::PlaybackFFmpegWrapper(const Json::Value &streamInfo,
 	fastForwardFactor = streamInfo.get("playbackSpeed", 1.0).asFloat();
 }
 
-ProcessedPacket PlaybackFFmpegWrapper::processPacket(AVPacket &packet, int64_t firstDts, int64_t frameCount)
+vector<uint8_t> PlaybackFFmpegWrapper::processPacket(AVPacket &packet, int64_t frameCount)
 {
-	int64_t position = round((this->inputFormatCtx->streams[videoStream]->cur_dts - firstDts) * this->inputFormatCtx->streams[videoStream]->time_base.num / this->inputFormatCtx->streams[videoStream]->time_base.den);
-
 	if (frameCount == 1)
 	{
 		videoDuration = getVideoDuration(url);
@@ -65,7 +63,7 @@ ProcessedPacket PlaybackFFmpegWrapper::processPacket(AVPacket &packet, int64_t f
 		}
 	}
 
-	return {vector<uint8_t>(packet.data, packet.data + packet.size), position};
+	return vector<uint8_t>(packet.data, packet.data + packet.size);
 }
 
 // todovineet extra code is written

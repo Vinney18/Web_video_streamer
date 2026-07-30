@@ -8,14 +8,14 @@ LiveFFmpegWrapper::LiveFFmpegWrapper(const Json::Value& streamInfo,
 	interruptTimeoutMs = 3000.0;  // 3s timeout for live streams
 }
 
-ProcessedPacket LiveFFmpegWrapper::processPacket(AVPacket& packet, int64_t /*firstDts*/, int64_t frameCount)
+vector<uint8_t> LiveFFmpegWrapper::processPacket(AVPacket& packet, int64_t frameCount)
 {
 	if (frameCount == 1)
 	{
 		SendVideoStartedEvent();
 	}
 
-	return {vector<uint8_t>(packet.data, packet.data + packet.size), -2};
+	return vector<uint8_t>(packet.data, packet.data + packet.size);
 }
 
 void LiveFFmpegWrapper::onReadLoopFinished()

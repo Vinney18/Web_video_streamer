@@ -37,7 +37,7 @@ using namespace std;
 
 typedef std::string webConnHdl;
 typedef std::set<webConnHdl> con_list;
-typedef std::function<void(webConnHdl& con_hndl, vector<uint8_t>& data, int64_t timestamp)> WebsocketDataCallback;
+typedef std::function<void(webConnHdl& con_hndl, vector<uint8_t>& data)> WebsocketDataCallback;
 typedef std::function<void(webConnHdl& con_hndl, string sdata)> WebsocketSDataCallback;
 
 struct InterruptParams {
@@ -50,10 +50,6 @@ enum OutputType {
 	rgba
 };
 
-struct ProcessedPacket {
-	vector<uint8_t> mp4Data;
-	int64_t position;
-};
 
 class FFmpegWrapper : public virtual Thread
 {
@@ -114,7 +110,7 @@ protected:
 	int run() override;
 
 	// Virtual hooks — subclasses implement mode-specific behavior
-	virtual ProcessedPacket processPacket(AVPacket& packet, int64_t firstDts, int64_t frameCount) = 0;
+	virtual vector<uint8_t> processPacket(AVPacket& packet, int64_t frameCount) = 0;
 	virtual void onReadLoopFinished() = 0;
 	virtual void onBeforeReadInput() {}
 

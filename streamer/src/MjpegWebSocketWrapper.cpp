@@ -28,7 +28,7 @@ void MjpegWebSocketWrapper::setSignalingTransport(SignalingTransport transport)
     signalingTransport_ = std::move(transport);
 }
 
-void MjpegWebSocketWrapper::SendData(webConnHdl &clientId, std::vector<uint8_t> &jpeg, int64_t /*timestamp*/)
+void MjpegWebSocketWrapper::SendData(webConnHdl &clientId, std::vector<uint8_t> &jpeg)
 {
     // Drop frames when the WS outgoing queue grows past this threshold.
     // MJPEG is I-frame-only, so dropping is safe — the next frame is fully decodable.
@@ -102,11 +102,11 @@ void MjpegWebSocketWrapper::startStream(const std::string &clientId, const std::
         signalingTransport_.sendMessage(clientId, Json::writeString(w, status));
 
         auto bindSendData = std::bind(&MjpegWebSocketWrapper::SendData, this,
-                                      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+                                      std::placeholders::_1, std::placeholders::_2);
         auto bindSendStringData = std::bind(&MjpegWebSocketWrapper::SendStringData, this,
                                             std::placeholders::_1, std::placeholders::_2);
 
-        std::function<void(webConnHdl &, std::vector<uint8_t> &, int64_t)> sendDataFunc = bindSendData;
+        std::function<void(webConnHdl &, std::vector<uint8_t> &)> sendDataFunc = bindSendData;
         std::function<void(webConnHdl &, std::string)> sendStringDataFunc = bindSendStringData;
 
         Json::Value enrichedInfo = streamInfo;

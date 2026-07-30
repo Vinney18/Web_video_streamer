@@ -41,7 +41,7 @@ public:
 	void handleClientCommand(const std::string& jsonMessage) override;
 
 protected:
-	ProcessedPacket processPacket(AVPacket& packet, int64_t firstDts, int64_t frameCount) override;
+	vector<uint8_t> processPacket(AVPacket& packet, int64_t frameCount) override;
 	void onReadLoopFinished() override;
 	void onBeforeReadInput() override;
 };

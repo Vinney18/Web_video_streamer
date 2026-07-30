@@ -71,7 +71,7 @@ public:
                            const std::string& sdpMid, int sdpMLineIndex);
 
     // Callbacks for FFmpegWrapper
-    void SendData(webConnHdl& clientId, std::vector<uint8_t>& data, int64_t timestamp);
+    void SendData(webConnHdl& clientId, std::vector<uint8_t>& data);
     void SendStringData(webConnHdl& clientId, std::string sdata);
 
     // Close peer connection (triggers onStateChange → removeConnection)

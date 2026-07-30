@@ -621,7 +621,7 @@ void WebRTCWrapper::handleDataChannelMessage(const std::string &clientId, std::v
     }
 }
 
-void WebRTCWrapper::SendData(webConnHdl &clientId, std::vector<uint8_t> &data, int64_t timestamp)
+void WebRTCWrapper::SendData(webConnHdl &clientId, std::vector<uint8_t> &data)
 {
     try
     {
@@ -794,11 +794,11 @@ void WebRTCWrapper::processRequest(const std::string &clientId)
         streamInfo["connectionMode"] = query.get("connectionMode", "tcp").asString();
 
         auto bindSendData = std::bind(&WebRTCWrapper::SendData, this,
-                                      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+                                      std::placeholders::_1, std::placeholders::_2);
         auto bindSendStringData = std::bind(&WebRTCWrapper::SendStringData, this,
                                             std::placeholders::_1, std::placeholders::_2);
 
-        std::function<void(webConnHdl &, std::vector<uint8_t> &, int64_t)> sendDataFunc = bindSendData;
+        std::function<void(webConnHdl &, std::vector<uint8_t> &)> sendDataFunc = bindSendData;
         std::function<void(webConnHdl &, std::string)> sendStringDataFunc = bindSendStringData;
 
         webConnHdl handle = clientId;

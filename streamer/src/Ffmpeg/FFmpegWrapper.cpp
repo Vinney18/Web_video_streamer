@@ -79,7 +79,6 @@ void FFmpegWrapper::readInput()
 	try
 	{
 		this->params.lastStopped = GetTickCount();
-		int64_t firstDts = this->inputFormatCtx->streams[videoStream]->first_dts;
 		int64_t frameCount = 0;
 		int readResult;
 		while ((readResult = av_read_frame(this->inputFormatCtx, &packet)) >= 0 && !mStop)
@@ -95,13 +94,13 @@ void FFmpegWrapper::readInput()
 			{
 				frameCount++;
 
-				ProcessedPacket processed = processPacket(packet, firstDts, frameCount);
+				vector<uint8_t> processed = processPacket(packet, frameCount);
 
 				{
 					std::lock_guard<std::mutex> lock(connectionsMutex);
 					for (webConnHdl hndl : connections)
 					{
-						websocketCallback(hndl, processed.mp4Data, processed.position);
+						websocketCallback(hndl, processed);
 					}
 				}
 			}
@@ -141,50 +140,29 @@ void FFmpegWrapper::readInput()
 
 bool FFmpegWrapper::openInput()
 {
-	this->inputFormatCtx = avformat_alloc_context();
-	this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
-	this->inputFormatCtx->interrupt_callback.opaque = this;
 	const char *fileName = this->url.c_str();
-	AVDictionary *options1 = nullptr;
-	try
-	{
-		if (connectionmode == "udp")
-		{
-			av_dict_set(&options1, "rtsp_transport", "udp", 0);
-		}
-		else
-		{
-			av_dict_set(&options1, "rtsp_transport", "tcp", 0);
-		}
-		av_dict_set(&options1, "max_delay", "500000000", 0);		// 0.5 sec
-		av_dict_set(&options1, "stimeout", "1500000000", 0);		// Timeout in microseconds
-		av_dict_set(&options1, "analyzeduration", "1000000000", 0); // 20 seconds
-		av_dict_set(&options1, "probesize", "1000000000", 0);		// 10 MB
-	}
-	catch (boost::bad_lexical_cast)
-	{
-		std::cout << "Invalid connection mode: " << connectionmode << ". Defaulting to TCP." << std::endl;
-	}
 
-	this->params.lastStopped = GetTickCount();
-
-	if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
+	// Almost all cameras stream over TCP, so try TCP first and fall back to UDP.
+	auto tryOpen = [&](const char *transport) -> bool
 	{
-		if (connectionmode == "")
-		{
-			av_dict_set(&options1, "rtsp_transport", "udp", 0);
-			if (avformat_open_input(&this->inputFormatCtx, fileName, NULL, &options1) != 0)
-			{
-				return false;
-			}
-		}
-		else
-		{
-			return false;
-		}
-	}
+		this->inputFormatCtx = avformat_alloc_context();
+		this->inputFormatCtx->interrupt_callback.callback = interrupt_cb;
+		this->inputFormatCtx->interrupt_callback.opaque = this;
 
-	return true;
+		AVDictionary *inputOptions = nullptr;
+		av_dict_set(&inputOptions, "rtsp_transport", transport, 0);
+		av_dict_set(&inputOptions, "max_delay", "500000000", 0);	   // 0.5 sec
+		av_dict_set(&inputOptions, "stimeout", "1500000000", 0);	   // Timeout in microseconds
+		av_dict_set(&inputOptions, "analyzeduration", "1000000000", 0);
+		av_dict_set(&inputOptions, "probesize", "1000000000", 0);
+
+		this->params.lastStopped = GetTickCount();
+		int ret = avformat_open_input(&this->inputFormatCtx, fileName, NULL, &inputOptions);
+		av_dict_free(&inputOptions);
+		return ret == 0;
+	};
+
+	return tryOpen("tcp") || tryOpen("udp");
 }
 
 bool FFmpegWrapper::GetInputCodecInfo()

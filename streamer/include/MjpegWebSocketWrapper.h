@@ -29,7 +29,7 @@ public:
 
 private:
     // FFmpeg send callbacks
-    void SendData(webConnHdl& clientId, std::vector<uint8_t>& jpeg, int64_t timestamp);
+    void SendData(webConnHdl& clientId, std::vector<uint8_t>& jpeg);
     void SendStringData(webConnHdl& clientId, std::string sdata);
 
     std::shared_ptr<spdlog::logger> mainLogger;
