@@ -29,52 +29,43 @@ int FFmpegWrapper::run()
 		if (opened)
 		{
 			params.isRunning = true;
-			GetInputCodecInfo();
-			createRgbaOutput();
 
-			if (!tempConnections.empty())
+			if (!GetInputCodecInfo())
 			{
-				if (logger)
-				{
-					logger->debug("[CameraID: {}] FFmpegWrapper::run() - Processing {} temp connections", cameraId, tempConnections.size());
-				}
-
-				for (auto &el : tempConnections)
-				{
-					if (inputCodecID == AV_CODEC_ID_NONE)
-					{
-						// close websocket if not able to play
-						websocketSCallback(el.first, "unable_to_play");
-					}
-					else
-					{
-						addConnection(el.first);
-					}
-				}
-				tempConnections.clear();
+				closeInput();
 			}
-			if (inputCodecID == AV_CODEC_ID_NONE)
+			else if (!createRgbaOutput())
 			{
-				if (logger)
-				{
-					logger->debug("[CameraID: {}] FFmpegWrapper::run() - No valid codec found, stopping", cameraId);
-				}
-				mStop = true;
 				closeInput();
 			}
 			else
 			{
-				if (logger)
-				{
-					logger->debug("[CameraID: {}] FFmpegWrapper::run() - Starting readInput()", cameraId);
+				if (!tempConnections.empty()) {
+					for (auto& el : tempConnections)
+					{
+						if (inputCodecID == AV_CODEC_ID_NONE)
+						{
+							websocketSCallback(el.first, "unable_to_play");
+						}
+						else
+						{
+							addConnection(el.first);
+						}
+					}
+					tempConnections.clear();
 				}
-				readInput();
-				if (logger)
+
+				if (inputCodecID == AV_CODEC_ID_NONE)
 				{
-					logger->debug("[CameraID: {}] FFmpegWrapper::run() - Finished readInput(), cleaning up", cameraId);
+					mStop = true;
+					closeInput();
 				}
-				freeRgbaOutMemory();
-				closeInput();
+				else
+				{
+					readInput();
+					freeRgbaOutMemory();
+					closeInput();
+				}
 			}
 		}
 
@@ -369,7 +360,6 @@ void FFmpegWrapper::readInput()
 			}
 			mStop = true;
 		}
-		mStop = true;
 	}
 	catch (const exception &ex)
 	{
@@ -532,6 +522,7 @@ bool FFmpegWrapper::createRgbaOutput()
 
 void FFmpegWrapper::freeRgbaOutMemory()
 {
+	if (logger) { logger->error("----------In freeRgbaOutMemory on cameraId: {}", cameraId); }
 	// Free the YUV frame
 	av_frame_free(&pFrame);
 
@@ -542,11 +533,7 @@ void FFmpegWrapper::freeRgbaOutMemory()
 
 	// Close the codecs
 	avcodec_close(decoderCodecContext);
-
-	if (logger)
-	{
-		logger->debug("In freeRgbaOutMemory");
-	}
+	if (logger) { logger->error("----------out freeRgbaOutMemory on cameraId: {}", cameraId); }
 }
 
 void FFmpegWrapper::closeInput()
@@ -572,7 +559,7 @@ void FFmpegWrapper::closeInput()
 
 void FFmpegWrapper::addConnection(webConnHdl connHdl)
 {
-	if (inputCodecID == AV_CODEC_ID_NONE)
+	if (inputCodecID == AV_CODEC_ID_NONE || pFrame == nullptr)
 	{
 		tempConnections.push_back(std::make_pair(connHdl, false));
 	}

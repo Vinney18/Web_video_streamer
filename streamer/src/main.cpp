@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
 	CLI::App app{ "i2V streamer" };
 	av_register_all();
 
-	bool show_logs_on_console = false;
+	bool show_logs_on_console = true;
 	app.add_option("-s,--show_log", show_logs_on_console, "Show logs on console");
 	CLI11_PARSE(app, argc, argv)
 		spdlog::init_thread_pool(8192, 1);

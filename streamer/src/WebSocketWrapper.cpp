@@ -24,18 +24,11 @@ WebSocketWrapper::WebSocketWrapper(int port, const std::string &playerIp, int pl
 	: websocket_server_port(port), playerServerIp(playerIp), playerServerPort(playerPort), mainLogger(logger), isVMS(isVMS), vmsStreamUserName(vmsUser), vmsStreamPassword(vmsPassword) {}
 std::string addCredentialsToUrl(const std::string &url, const std::string &username, const std::string &password);
 
-void WebSocketWrapper::run()
-{
-	try
-	{
-		if (mainLogger)
-		{
-			mainLogger->info("Starting websocket server on port: {}", websocket_server_port);
-		}
-		if (mainLogger)
-		{
-			mainLogger->info("Player server IP is: {} and port is: {}", playerServerIp, playerServerPort);
-		}
+void WebSocketWrapper::run() {
+	std::cout << "###############new patch" << std::endl;
+    try {
+        if (mainLogger) { mainLogger->info("Starting websocket server on port: {}", websocket_server_port); }
+        if (mainLogger) { mainLogger->info("Player server IP is: {} and port is: {}", playerServerIp, playerServerPort); }
 
 		websocket_server.clear_access_channels(websocketpp::log::alevel::all);
 		websocket_server.init_asio();
@@ -76,23 +69,40 @@ void WebSocketWrapper::on_open(connection_hdl hdl)
 {
 	std::thread t([this, hdl]()
 				  {
-		if (mainLogger) { mainLogger->debug("on_open websocket connection opened"); }
-        std::stringstream ss;
-        ss <<"ThreadId :: "<< std::this_thread::get_id();
-        std::cout <<ss.str()<<std::endl;
-        auto start = std::chrono::system_clock::now();
-        std::time_t end_time = std::chrono::system_clock::to_time_t(start);
-        std::cout << "Connection open at " << std::ctime(&end_time);
+		// Backstop: this worker runs in a detached thread. An uncaught exception
+		// here (e.g. std::stoi on a non-numeric query field like startTime=NaN)
+		// would call std::terminate() and kill the entire process. Catch everything
+		// so one malformed request can never take down the server.
+		try
+		{
+			if (mainLogger) { mainLogger->debug("on_open websocket connection opened"); }
+			std::stringstream ss;
+			ss <<"ThreadId :: "<< std::this_thread::get_id();
+			std::cout <<ss.str()<<std::endl;
+			auto start = std::chrono::system_clock::now();
+			std::time_t end_time = std::chrono::system_clock::to_time_t(start);
+			std::cout << "Connection open at " << std::ctime(&end_time);
 
-        websocketpp::server<websocketpp::config::asio>::connection_ptr con = websocket_server.get_con_from_hdl(hdl);
-        std::string query = con->get_uri()->get_query();
+			websocketpp::server<websocketpp::config::asio>::connection_ptr con = websocket_server.get_con_from_hdl(hdl);
+			std::string query = con->get_uri()->get_query();
 
-        if (mainLogger) { mainLogger->debug("on_open - Query -> {}", query); }
-        if (!query.empty()) {
-            process_request(hdl, query);
-        } else {
-            std::cout << "Query is Empty" << std::endl;
-        } });
+			if (mainLogger) { mainLogger->debug("on_open - Query -> {}", query); }
+			if (!query.empty()) {
+				process_request(hdl, query);
+			} else {
+				std::cout << "Query is Empty" << std::endl;
+			}
+		}
+		catch (const std::exception &ex)
+		{
+			if (mainLogger) { mainLogger->error("on_open - Unhandled exception while processing request: {}", ex.what()); }
+			else { std::cout << "on_open - Unhandled exception while processing request: " << ex.what() << std::endl; }
+		}
+		catch (...)
+		{
+			if (mainLogger) { mainLogger->error("on_open - Unhandled non-standard exception while processing request"); }
+			else { std::cout << "on_open - Unhandled non-standard exception while processing request" << std::endl; }
+		} });
 
 	t.detach();
 }
