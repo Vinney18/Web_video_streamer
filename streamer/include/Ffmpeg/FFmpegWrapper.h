@@ -28,6 +28,7 @@ extern "C"
 #include <spdlog/spdlog.h>
 #include <json/json.h>
 #include "AppConfig.h"
+#include "Transcoder/CodecTranscoder.h"
 
 #ifndef FFMPEGWRAPPER_H
 #define FFMPEGWRAPPER_H
@@ -74,6 +75,12 @@ protected:
 	InterruptParams params;
 	double interruptTimeoutMs = 20000.0;  // default 20s, overridden by subclasses
 
+	// Optional server-side transcode. When transcodeToMjpeg_ is set and the
+	// source is H.265, packets are decoded and re-encoded to MJPEG before being
+	// handed to websocketCallback. Built lazily once the input codec is known.
+	bool transcodeToMjpeg_ = false;
+	std::unique_ptr<CodecTranscoder> transcoder_;
+
 	std::shared_ptr<spdlog::logger> logger;
 
 public:
@@ -83,6 +90,7 @@ public:
 		url = streamInfo.get("url", "").asString();
 		cameraId = streamInfo.get("cameraId", "").asString();
 		connectionmode = streamInfo.get("connectionMode", "tcp").asString();
+		transcodeToMjpeg_ = (streamInfo.get("transcodeTo", "").asString() == "mjpeg");
 		websocketCallback = _websocketCallback;
 		websocketSCallback = _websocketSCallback;
 	}

@@ -238,6 +238,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
             if (mainLogger) {
                 mainLogger->debug("Sending ICE candidate to client {}", clientId);
             }
+            
 
             Json::Value msg;
             msg["type"] = "candidate";

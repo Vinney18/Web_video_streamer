@@ -125,6 +125,27 @@ export class I2vWebRtcPlayer {
     ],
   };
 
+  // Detect whether this browser's WebRTC stack will negotiate H.265/HEVC.
+  // The receiver capabilities are authoritative for the RTP video path this
+  // player uses; if H265 isn't listed, SDP will never carry it and the server
+  // should transcode to MJPEG instead.
+  private static detectH265WebRTC(): boolean {
+    try {
+      if (window.RTCRtpReceiver && RTCRtpReceiver.getCapabilities) {
+        const caps = RTCRtpReceiver.getCapabilities('video');
+        return !!(
+          caps &&
+          caps.codecs &&
+          caps.codecs.some(c => /h265|hevc|hev1|hvc1/i.test(c.mimeType))
+        );
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  private static readonly H265_SUPPORTED: boolean =
+    I2vWebRtcPlayer.detectH265WebRTC();
+
   constructor(
     elId: any,
     serverConfig: ServerConfig,
@@ -178,6 +199,7 @@ export class I2vWebRtcPlayer {
       playerServerIp: this.serverConfig.playerServerIp,
       playerServerPort: this.serverConfig.playerServerPort,
       clVersion: this.clVersion,
+      h265Supported: I2vWebRtcPlayer.H265_SUPPORTED,
     };
   }
 

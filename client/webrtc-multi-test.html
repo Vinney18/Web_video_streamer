@@ -196,7 +196,7 @@
         const grid = document.getElementById('videoGrid');
         grid.innerHTML = '';
 
-        log(`Starting ${count} streams to ${serverUrl} (sync: ${syncEnabled})...`, 'info');
+        log(`Starting ${count} streams to ${serverUrl} (sync: ${syncEnabled}, H265: ${H265_SUPPORTED})...`, 'info');
         if (syncEnabled) {
             log(`Sync group ID: ${sharedGroupId}`, 'info');
         }
@@ -253,13 +253,30 @@
         label.textContent = state.charAt(0).toUpperCase() + state.slice(1);
     }
 
+    // Detect whether this browser's WebRTC stack will negotiate H.265/HEVC.
+    // The receiver capabilities are authoritative for the RTP video path this
+    // page uses; if H265 isn't listed, SDP will never carry it.
+    function detectH265WebRTC() {
+        try {
+            if (window.RTCRtpReceiver && RTCRtpReceiver.getCapabilities) {
+                const caps = RTCRtpReceiver.getCapabilities('video');
+                return !!(caps && caps.codecs &&
+                    caps.codecs.some(c => /h265|hevc|hev1|hvc1/i.test(c.mimeType)));
+            }
+        } catch (_) {}
+        return false;
+    }
+
+    const H265_SUPPORTED = detectH265WebRTC();
+
     function sendRequest(s) {
         const mode = document.getElementById('streamMode').value;
         const query = {
             cameraId: 'cam1',
             mode: mode,
             streamType: 0,
-            startTime: 0
+            startTime: 0,
+            h265Supported: H265_SUPPORTED
         };
         if (s.syncGroupId) {
             query.syncGroup = s.syncGroupId;

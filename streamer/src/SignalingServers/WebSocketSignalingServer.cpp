@@ -362,28 +362,44 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
                 return;
             }
 
+            // When the source is H.265 but the client can't decode HEVC, serve
+            // it as MJPEG (decoded + re-encoded server-side) over the WebSocket
+            // relay. Default true preserves the existing WebRTC path for clients
+            // that don't report the capability.
+            bool clientH265 = query.get("h265Supported", false).asBool();
+            bool transcodeH265ToMjpeg = (probe.codecId == AV_CODEC_ID_H265 && !clientH265);
+
             // Announce the codec to the client so it can construct the right
             // media element (img for MJPEG, video for H.264/H.265) before any
-            // SDP offer or JPEG frame arrives.
+            // SDP offer or JPEG frame arrives. Transcoded H.265 is announced as
+            // MJPEG so the client builds an <img>.
             {
                 Json::Value codecMsg;
                 codecMsg["type"] = "codec";
-                codecMsg["codec"] = avcodec_get_name(probe.codecId);
+                codecMsg["codec"] = transcodeH265ToMjpeg ? "mjpeg" : avcodec_get_name(probe.codecId);
                 Json::StreamWriterBuilder w;
                 sendMessage(clientId, Json::writeString(w, codecMsg));
             }
 
-            if (probe.codecId == AV_CODEC_ID_H264 || probe.codecId == AV_CODEC_ID_H265)
+            if (!transcodeH265ToMjpeg &&
+                (probe.codecId == AV_CODEC_ID_H264 || probe.codecId == AV_CODEC_ID_H265))
             {
                 sendMessage(clientId, buildJsonMessage("status", "creating peer connection"));
                 rtcWrapper_->startStream(clientId, url, probe.codecId, streamInfo);
             }
-            else // AV_CODEC_ID_MJPEG
+            else // native MJPEG source, or H.265 transcoded to MJPEG
             {
                 sendMessage(clientId, buildJsonMessage("status", "starting MJPEG stream"));
                 Json::Value enriched = streamInfo;
                 enriched["cameraId"] = query.get("cameraId", "").asString();
                 enriched["connectionMode"] = query.get("connectionMode", "tcp").asString();
+                enriched["mode"] = query.get("mode", "Live").asString();
+                if (transcodeH265ToMjpeg)
+                {
+                    enriched["transcodeTo"] = "mjpeg";
+                    enriched["startTime"] = query.get("startTime", 0).asInt();
+                    enriched["playbackSpeed"] = query.get("playbackSpeed", 1.0).asFloat();
+                }
                 mjpegWsWrapper_->startStream(clientId, url, enriched);
             }
         }

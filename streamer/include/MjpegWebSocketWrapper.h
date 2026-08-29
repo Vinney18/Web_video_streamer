@@ -35,11 +35,18 @@ private:
     std::shared_ptr<spdlog::logger> mainLogger;
     SignalingTransport signalingTransport_;
 
-    // url -> shared FFmpeg wrapper (one upstream per source URL)
+    // Live mode: url -> shared FFmpeg wrapper (one upstream per source URL,
+    // fanned out to all subscribers on that URL).
     std::map<std::string, std::shared_ptr<FFmpegWrapper>> liveStreams_;
     std::mutex liveStreamsMutex_;
 
-    // clientId -> url (for fast cleanup on removeClient)
+    // Playback mode: clientId -> per-client FFmpeg wrapper. Playback has
+    // independent seek/pacing per client, so these are never shared.
+    std::map<std::string, std::shared_ptr<FFmpegWrapper>> playbackStreams_;
+    std::mutex playbackStreamsMutex_;
+
+    // clientId -> url (for fast cleanup on removeClient). Empty url marks a
+    // playback client (torn down via playbackStreams_ instead of liveStreams_).
     std::map<std::string, std::string> clientToUrl_;
     std::mutex clientMapMutex_;
 };

@@ -1,6 +1,7 @@
 #include "MjpegWebSocketWrapper.h"
 #include "AppConfig.h"
 #include "Ffmpeg/LiveFFmpegWrapper.h"
+#include "Ffmpeg/PlaybackFFmpegWrapper.h"
 
 #include <json/json.h>
 
@@ -15,8 +16,14 @@ MjpegWebSocketWrapper::MjpegWebSocketWrapper()
 
 MjpegWebSocketWrapper::~MjpegWebSocketWrapper()
 {
-    std::lock_guard<std::mutex> lock(liveStreamsMutex_);
-    liveStreams_.clear();
+    {
+        std::lock_guard<std::mutex> lock(liveStreamsMutex_);
+        liveStreams_.clear();
+    }
+    {
+        std::lock_guard<std::mutex> lock(playbackStreamsMutex_);
+        playbackStreams_.clear();
+    }
     if (mainLogger)
     {
         mainLogger->info("MjpegWebSocketWrapper destroyed");
@@ -116,32 +123,59 @@ void MjpegWebSocketWrapper::startStream(const std::string &clientId, const std::
         if (!enrichedInfo.isMember("connectionMode"))
             enrichedInfo["connectionMode"] = streamInfo.get("connectionMode", "tcp").asString();
 
-        std::shared_ptr<FFmpegWrapper> ffmpeg;
+        const std::string mode = streamInfo.get("mode", "Live").asString();
+        webConnHdl handle = clientId;
+
+        if (mode == "PlayBack")
         {
-            std::lock_guard<std::mutex> lock(liveStreamsMutex_);
-            auto it = liveStreams_.find(url);
-            if (it == liveStreams_.end())
+            // Playback needs independent seek/pacing per client, so each client
+            // gets its own wrapper (never shared/deduplicated).
+            auto ffmpeg = std::make_shared<PlaybackFFmpegWrapper>(enrichedInfo, sendDataFunc, sendStringDataFunc);
+            ffmpeg->addConnToList(handle);
             {
-                ffmpeg = std::make_shared<LiveFFmpegWrapper>(enrichedInfo, sendDataFunc, sendStringDataFunc);
-                liveStreams_[url] = ffmpeg;
-                ffmpeg->startThread();
-                if (mainLogger)
-                {
-                    mainLogger->info("MJPEG: started upstream FFmpeg for {}", url);
-                }
+                std::lock_guard<std::mutex> lock(playbackStreamsMutex_);
+                playbackStreams_[clientId] = ffmpeg;
             }
-            else
+            ffmpeg->startThread();
             {
-                ffmpeg = it->second;
+                // Empty url marks this client as a playback subscriber.
+                std::lock_guard<std::mutex> lock(clientMapMutex_);
+                clientToUrl_[clientId] = "";
+            }
+            if (mainLogger)
+            {
+                mainLogger->info("MJPEG: started playback FFmpeg for client {} url={}", clientId, url);
             }
         }
-
-        webConnHdl handle = clientId;
-        ffmpeg->addConnToList(handle);
-
+        else
         {
-            std::lock_guard<std::mutex> lock(clientMapMutex_);
-            clientToUrl_[clientId] = url;
+            // Live: one shared upstream per URL, fanned out to all subscribers.
+            std::shared_ptr<FFmpegWrapper> ffmpeg;
+            {
+                std::lock_guard<std::mutex> lock(liveStreamsMutex_);
+                auto it = liveStreams_.find(url);
+                if (it == liveStreams_.end())
+                {
+                    ffmpeg = std::make_shared<LiveFFmpegWrapper>(enrichedInfo, sendDataFunc, sendStringDataFunc);
+                    liveStreams_[url] = ffmpeg;
+                    ffmpeg->startThread();
+                    if (mainLogger)
+                    {
+                        mainLogger->info("MJPEG: started upstream FFmpeg for {}", url);
+                    }
+                }
+                else
+                {
+                    ffmpeg = it->second;
+                }
+            }
+
+            ffmpeg->addConnToList(handle);
+
+            {
+                std::lock_guard<std::mutex> lock(clientMapMutex_);
+                clientToUrl_[clientId] = url;
+            }
         }
     }
     catch (const std::exception &ex)
@@ -171,6 +205,28 @@ void MjpegWebSocketWrapper::removeClient(const std::string &clientId)
         }
         url = it->second;
         clientToUrl_.erase(it);
+    }
+
+    // Empty url marks a playback client: its wrapper is per-client, so tear it
+    // down directly rather than ref-counting a shared live upstream.
+    if (url.empty())
+    {
+        std::shared_ptr<FFmpegWrapper> ffmpeg;
+        {
+            std::lock_guard<std::mutex> lock(playbackStreamsMutex_);
+            auto it = playbackStreams_.find(clientId);
+            if (it == playbackStreams_.end()) {
+                return;
+            }
+            ffmpeg = it->second;
+            playbackStreams_.erase(it);
+        }
+        ffmpeg->stopThread();
+        if (mainLogger)
+        {
+            mainLogger->info("MJPEG: torn down playback FFmpeg for client {}", clientId);
+        }
+        return;
     }
 
     std::shared_ptr<FFmpegWrapper> ffmpeg;

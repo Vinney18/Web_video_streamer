@@ -29,6 +29,22 @@ int FFmpegWrapper::run()
 			}
 			else
 			{
+				// Build the H.265 -> MJPEG transcoder now that the input codec
+				// and stream parameters are known. Only for H.265 sources when
+				// transcoding was requested (client can't decode HEVC).
+				if (transcodeToMjpeg_ && inputCodecID == AV_CODEC_ID_H265 && !transcoder_)
+				{
+					auto t = CodecTranscoder::create(AV_CODEC_ID_H265, AV_CODEC_ID_MJPEG);
+					if (t && t->init(inputFormatCtx->streams[videoStream]->codecpar))
+					{
+						transcoder_ = std::move(t);
+					}
+					else if (logger)
+					{
+						logger->error("[{}] Failed to init H265->MJPEG transcoder", cameraId);
+					}
+				}
+
 				onBeforeReadInput();
 				if (mStop) { closeInput(); continue; }
 
@@ -94,8 +110,23 @@ void FFmpegWrapper::readInput()
 			{
 				frameCount++;
 
+				// Always run processPacket for its side effects (Playback PTS
+				// pacing / seek). Its raw-byte result is only used on the
+				// pass-through path; when transcoding, we emit MJPEG instead.
 				vector<uint8_t> processedPacket = processPacket(packet, frameCount);
 
+				if (transcoder_)
+				{
+					transcoder_->transcode(packet, [&](std::vector<uint8_t>& jpeg)
+					{
+						std::lock_guard<std::mutex> lock(connectionsMutex);
+						for (webConnHdl hndl : connections)
+						{
+							websocketCallback(hndl, jpeg);
+						}
+					});
+				}
+				else
 				{
 					std::lock_guard<std::mutex> lock(connectionsMutex);
 					for (webConnHdl hndl : connections)
@@ -211,6 +242,9 @@ void FFmpegWrapper::closeInput()
 {
 	try
 	{
+		// Tear down the transcoder before the format context — the run loop
+		// rebuilds it after the next openInput()/GetInputCodecInfo().
+		transcoder_.reset();
 		// avcodec_close(inputCodecCtx);
 		inputCodecCtx = NULL;
 		// Close the video file
