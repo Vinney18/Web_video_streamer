@@ -9,7 +9,7 @@ namespace nmetics {
     static const std::string VERSION = "7.2.1";
 
     static const std::string LOG_FOLDER_NAME = "logs";
-    static const std::string CONFIG_FILE_NAME = "mainConf.json";
+    static const std::string CONFIG_FILE_NAME = "settings.json";
     static const std::string MAIN_LOGGER_NAME = "main_logger";
 
     static const unsigned int WEBSOCKET_SERVER_PORT = 8181;
