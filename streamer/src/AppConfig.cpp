@@ -17,9 +17,6 @@ void AppConfig::load(const std::string& configFilePath) {
         config_["websocket_server_port"] = std::to_string(configoptions.get<int>("websocket_server_port", static_cast<int>(i2v::WEBSOCKET_SERVER_PORT)));
         config_["playerServerIp"] = configoptions.get<std::string>("playerServerIp", i2v::PLAYER_SERVER_IP);
         config_["playerServerPort"] = std::to_string(configoptions.get<int>("playerServerPort", static_cast<int>(i2v::PLAYER_SERVER_PORT)));
-        config_["isVMS"] = configoptions.get<bool>("isVMS", false) ? "true" : "false";
-        config_["vmsStreamUserName"] = configoptions.get<std::string>("vmsStreamUserName", i2v::VMS_STREAM_USERNAME);
-        config_["vmsStreamPassword"] = configoptions.get<std::string>("vmsStreamPassword", i2v::VMS_STREAM_PASSWORD);
 
         config_["enableTls"] = configoptions.get<bool>("enableTls", false) ? "true" : "false";
         config_["tlsCertPath"] = configoptions.get<std::string>("tlsCertPath", "");
@@ -41,9 +38,6 @@ void AppConfig::load(const std::string& configFilePath) {
         config_["playerServerIp"] = i2v::PLAYER_SERVER_IP;
         config_["playerServerPort"] = std::to_string(i2v::PLAYER_SERVER_PORT);
         config_["logLevel"] = std::to_string(static_cast<int>(spdlog::level::info));
-        config_["isVMS"] = "false";
-        config_["vmsStreamUserName"] = i2v::VMS_STREAM_USERNAME;
-        config_["vmsStreamPassword"] = i2v::VMS_STREAM_PASSWORD;
         config_["enableTls"] = "false";
         config_["tlsCertPath"] = "";
         config_["tlsKeyPath"] = "";
@@ -56,9 +50,6 @@ void AppConfig::load(const std::string& configFilePath) {
         configoptions.add("playerServerIp", i2v::PLAYER_SERVER_IP);
         configoptions.add("playerServerPort", static_cast<int>(i2v::PLAYER_SERVER_PORT));
         configoptions.add("logLevel", static_cast<int>(spdlog::level::info));
-        configoptions.add("isVMS", false);
-        configoptions.add("vmsStreamUserName", i2v::VMS_STREAM_USERNAME);
-        configoptions.add("vmsStreamPassword", i2v::VMS_STREAM_PASSWORD);
         configoptions.add("enableTls", false);
         configoptions.add("tlsCertPath", std::string(""));
         configoptions.add("tlsKeyPath", std::string(""));

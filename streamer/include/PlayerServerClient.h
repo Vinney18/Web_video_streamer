@@ -19,15 +19,8 @@ public:
     static std::string GetPlayBackUrl(const std::string& cameraId, int startTime, int endTime);
 
 private:
-    static std::string addCredentialsToUrl(const std::string& url,
-                                           const std::string& username,
-                                           const std::string& password);
-
     static std::string serverIp_;
     static int serverPort_;
     static std::shared_ptr<spdlog::logger> logger_;
-    static bool isVMS_;
     static int count;
-    static std::string vmsUser_;
-    static std::string vmsPassword_;
 };

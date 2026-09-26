@@ -65,7 +65,6 @@ All phases have been implemented successfully:
    - Get_PlayBackUrl() - Fetch playback URL
    - generateAndCheckRandomNumber() - Utility
    - HTTP handlers (OfferHandler, IceHandler)
-   - addCredentialsToUrl() - VMS support
 
 3. **streamer/vcpkg.json** (14 lines)
    - Dependency manifest for vcpkg

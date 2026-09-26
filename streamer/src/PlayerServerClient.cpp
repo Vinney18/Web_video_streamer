@@ -5,7 +5,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/regex.hpp>
 #include <boost/regex.hpp>
-#include <regex>
 #include <algorithm>
 #include <vector>
 #include <iostream>
@@ -16,10 +15,7 @@ using std::string;
 std::string PlayerServerClient::serverIp_;
 int PlayerServerClient::serverPort_ = 0;
 std::shared_ptr<spdlog::logger> PlayerServerClient::logger_;
-bool PlayerServerClient::isVMS_ = false;
 int PlayerServerClient::count = 0;
-std::string PlayerServerClient::vmsUser_;
-std::string PlayerServerClient::vmsPassword_;
 
 void PlayerServerClient::init()
 {
@@ -27,9 +23,6 @@ void PlayerServerClient::init()
     serverIp_ = cfg.get("playerServerIp");
     serverPort_ = cfg.getInt("playerServerPort");
     logger_ = cfg.logger();
-    isVMS_ = cfg.getBool("isVMS");
-    vmsUser_ = cfg.get("vmsStreamUserName");
-    vmsPassword_ = cfg.get("vmsStreamPassword");
 }
 
 Json::Value PlayerServerClient::resolveStreamUrl(const Json::Value &query)
@@ -133,10 +126,6 @@ std::string PlayerServerClient::GetLiveUrl(const std::string &cameraId, int stre
             string command = res.text;
             command.erase(std::remove(command.begin(), command.end(), '\"'), command.end());
             command.erase(std::remove(command.begin(), command.end(), '\\'), command.end());
-            if (isVMS_)
-            {
-                command = addCredentialsToUrl(command, vmsUser_, vmsPassword_);
-            }
             response = command;
         }
         else if (res.status_code == 403)
@@ -305,28 +294,4 @@ std::string PlayerServerClient::GetPlayBackUrl(const std::string &cameraId, int 
         response = "";
     }
     return response;
-}
-
-std::string PlayerServerClient::addCredentialsToUrl(const std::string &url, const std::string &username, const std::string &password)
-{
-    std::regex credentialsRegex(R"([^:]+:[^@]+@)");
-
-    if (std::regex_search(url, credentialsRegex))
-    {
-        return url;
-    }
-    else
-    {
-        size_t prefixPos = url.find("://");
-        if (prefixPos != std::string::npos)
-        {
-            std::string credentials = username + ":" + password + "@";
-            std::string newUrl = url.substr(0, prefixPos + 3) + credentials + url.substr(prefixPos + 3);
-            return newUrl;
-        }
-        else
-        {
-            throw std::invalid_argument("Invalid/Unexpected URL: " + url);
-        }
-    }
 }
