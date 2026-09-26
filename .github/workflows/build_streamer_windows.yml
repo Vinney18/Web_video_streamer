@@ -31,7 +31,7 @@ jobs:
         mkdir build
         set COMPOSE_CONVERT_WINDOWS_PATHS="true"
         docker run --rm -v ${pwd}:/app/code -w /app/code/streamer/build i2vdocker/vcpkg-windows:1.0 cmake .. -G "Visual Studio 17 2022" -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake
-        docker run --rm -v ${pwd}:/app/code -w /app/code/streamer/build i2vdocker/vcpkg-windows:1.0 cmake --build . --config Release --target streamer
+        docker run --rm -v ${pwd}:/app/code -w /app/code/streamer/build i2vdocker/vcpkg-windows:1.0 cmake --build . --config Release --target videorelay
 
     # - name: Build streamer C++ app
     #   run: |
@@ -41,7 +41,7 @@ jobs:
     #     set PATH="C:\Program Files\CMake\bin\";%PATH% 
     #     cd build
     #     cmake .. -G "Visual Studio 17 2022" -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake
-    #     cmake --build . --config Release --target streamer
+    #     cmake --build . --config Release --target videorelay
 
     - name: Copy external libs
       run: |

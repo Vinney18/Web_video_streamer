@@ -45,7 +45,11 @@ std::string RestServiceClient::localDateTime(int epochSeconds)
 {
     std::time_t t = epochSeconds;
     std::tm tm{};
+#ifdef _WIN32
+    localtime_s(&tm, &t);
+#else
     localtime_r(&t, &tm);
+#endif
     char buf[32];
     std::strftime(buf, sizeof(buf), "%m/%d/%Y, %I:%M:%S %p", &tm);
     return buf;

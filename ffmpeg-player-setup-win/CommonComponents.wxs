@@ -65,7 +65,7 @@
 				<File Id="filC70267F3780E0B5E4AC3329B7C53C4E5" KeyPath="yes" Source="../streamer/build/Release/spdlog.dll" />
 			</Component>
 			<Component Id="cmp015EE0DEE91CF143B43AC761ECC26D02" Guid="*">
-				<File Id="filEBE90D3BFE9E70F4876678079FB7CD26" KeyPath="yes" Source="../streamer/build/Release/streamer.exe" />
+				<File Id="filEBE90D3BFE9E70F4876678079FB7CD26" KeyPath="yes" Source="../streamer/build/Release/videorelay.exe" />
 			</Component>
 			<Component Id="cmp4A4264F70BA9A09830A598968FFDA985" Guid="*">
 				<File Id="fil3CF5AF4BB353DC6F382280F59F58945B" KeyPath="yes" Source="../streamer/build/Release/swresample-3.dll" />

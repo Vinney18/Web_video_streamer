@@ -14,7 +14,7 @@ namespace nmetics {
 
     static const unsigned int WEBSOCKET_SERVER_PORT = 8181;
     static const std::string REST_SERVER_IP = "127.0.0.1";
-    static const unsigned int REST_SERVER_PORT = 8800;
+    static const unsigned int REST_SERVER_PORT = 2908;
 
 }
 

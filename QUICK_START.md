@@ -17,7 +17,7 @@ make -j$(nproc)
 
 ### 3. Run Server
 ```bash
-./streamer
+./videorelay
 ```
 
 ### 4. Open Client
@@ -45,7 +45,7 @@ cmake .. -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake && make 
 
 ### Run
 ```bash
-./streamer
+./videorelay
 ```
 
 ### Test
@@ -90,7 +90,7 @@ cd /vcpkg
 ### Connection fails
 ```bash
 # Check server is running
-ps aux | grep streamer
+ps aux | grep videorelay
 
 # Check port is listening
 netstat -tlnp | grep 8181

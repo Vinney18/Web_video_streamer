@@ -59,14 +59,14 @@ Expected output:
 -- Configuring done
 -- Generating done
 -- Build files written to: /home/vineet/vineet/i2v_projects/web-video-streamer/streamer/build
-[ 50%] Building CXX object CMakeFiles/streamer.dir/src/WebRTCWrapper.cpp.o
-[100%] Linking CXX executable streamer
+[ 50%] Building CXX object CMakeFiles/videorelay.dir/src/WebRTCWrapper.cpp.o
+[100%] Linking CXX executable videorelay
 ```
 
 ### Step 3: Verify Build
 
 ```bash
-./streamer --help
+./videorelay --help
 ```
 
 You should see the help output with version information.
@@ -77,7 +77,7 @@ You should see the help output with version information.
 
 ```bash
 cd /home/vineet/vineet/i2v_projects/web-video-streamer/streamer/build
-./streamer
+./videorelay
 ```
 
 Expected logs:
@@ -85,7 +85,7 @@ Expected logs:
 [info] Logger created Successfully
 [info] WebRTCWrapper initialized on port: 8181
 [info] Starting WebRTC signaling server on port: 8181
-[info] Rest server IP is: 127.0.0.1 and port is: 8800
+[info] Rest server IP is: 127.0.0.1 and port is: 2908
 [info] WebRTC signaling server started successfully
 ```
 
@@ -213,7 +213,7 @@ target_link_libraries(... LibDataChannel::LibDataChannel)
 ### Connection Errors
 
 **Browser shows "Failed to connect"**
-- Check server is running: `ps aux | grep streamer`
+- Check server is running: `ps aux | grep videorelay`
 - Check port 8181 is listening: `netstat -tlnp | grep 8181`
 - Check firewall allows port 8181
 

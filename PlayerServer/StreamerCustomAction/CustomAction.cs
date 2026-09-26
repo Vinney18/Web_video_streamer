@@ -56,7 +56,7 @@ namespace StreamerCustomAction
             process.StartInfo.UseShellExecute = false;
             process.StartInfo.CreateNoWindow = true;
             process.StartInfo.FileName = $"{InstalledPath}/nssm.exe";
-            process.StartInfo.Arguments = $"install {ServiceName} \"{InstalledPath}/streamer.exe\"";
+            process.StartInfo.Arguments = $"install {ServiceName} \"{InstalledPath}/videorelay.exe\"";
             process.Start();
             process.WaitForExit();
             SetServiceAutomaticAndFailureConfiguration(ServiceName);

@@ -5,4 +5,4 @@ COPY . /app/
 WORKDIR /app
 
 EXPOSE 8181
-CMD ./streamer -s1
+CMD ./videorelay -s1

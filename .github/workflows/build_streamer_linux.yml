@@ -36,9 +36,9 @@ jobs:
         cd /app/code/streamer/build
         mkdir Release
         mkdir Release/lib
-        cp streamer ./Release
+        cp videorelay ./Release
         cd Release
-        ldd ./streamer | grep "=>" | awk '{print $3}' | xargs -I '{}' cp -v '{}' ./lib
+        ldd ./videorelay | grep "=>" | awk '{print $3}' | xargs -I '{}' cp -v '{}' ./lib
 
     - name: Display build output And add release notes
       run: |

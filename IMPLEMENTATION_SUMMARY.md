@@ -268,7 +268,7 @@ dc->onMessage([this, clientId](auto data) {
    cd /home/vineet/vineet/i2v_projects/web-video-streamer/streamer/build
    cmake .. -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake
    make -j$(nproc)
-   ./streamer
+   ./videorelay
    ```
 
 2. **Test Client**

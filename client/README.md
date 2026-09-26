@@ -46,7 +46,7 @@ First, ensure your C++ WebRTC server is running:
 
 ```bash
 cd /home/vineet/vineet/i2v_projects/web-video-streamer
-./build/streamer/streamer
+./build/streamer/videorelay
 ```
 
 The server should be listening on port 8181 (or your configured port).

@@ -14,8 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libavformat58 libavcodec58 libswresample3 libswscale5 libavutil56 libavdevice58 libavfilter7 libpostproc55 \
     && rm -rf /var/lib/apt/lists/*
 RUN mkdir /home/app 
-COPY --from=compile /app/build/streamer/streamer /app/
+COPY --from=compile /app/build/streamer/videorelay /app/
 WORKDIR /app
 
 EXPOSE 8181
-CMD ["./streamer", "-s", "1"]
+CMD ["./videorelay", "-s", "1"]

@@ -25,7 +25,7 @@ namespace PlayerServer
                 ServerDetails.AttachedServerIp = Convert.ToString(configObject["ServerIp"]);
                 ServerDetails.port = Convert.ToInt32(configObject["port"]);
                 ServerDetails.token = Convert.ToString(configObject["token"]);
-            }, new Dictionary<string, object> { { "ServerIp", "127.0.0.1" }, { "port", 8800 }, { "token", "" } });
+            }, new Dictionary<string, object> { { "ServerIp", "127.0.0.1" }, { "port", 2908 }, { "token", "" } });
 
             LoadConfig("networkSetting.json", (configObject) =>
             {

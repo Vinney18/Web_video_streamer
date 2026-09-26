@@ -94,19 +94,19 @@ fi
 # Step 6: Verify binary
 echo ""
 echo "Step 6: Verifying binary..."
-if [ -f "./streamer" ]; then
-    print_status "Binary created: ./streamer"
+if [ -f "./videorelay" ]; then
+    print_status "Binary created: ./videorelay"
 
     # Get file size
-    FILE_SIZE=$(du -h ./streamer | cut -f1)
+    FILE_SIZE=$(du -h ./videorelay | cut -f1)
     echo "   Size: $FILE_SIZE"
 
     # Check if executable
-    if [ -x "./streamer" ]; then
+    if [ -x "./videorelay" ]; then
         print_status "Binary is executable"
     else
         print_warning "Binary is not executable, setting permissions..."
-        chmod +x ./streamer
+        chmod +x ./videorelay
     fi
 else
     print_error "Binary not found!"
@@ -121,13 +121,13 @@ echo "========================================="
 print_status "All steps completed successfully!"
 echo ""
 echo "Build artifacts:"
-echo "  Binary: $PROJECT_DIR/build/streamer"
+echo "  Binary: $PROJECT_DIR/build/videorelay"
 echo "  Size: $FILE_SIZE"
 echo ""
 echo "Next steps:"
 echo "  1. Run the server:"
 echo "     cd $PROJECT_DIR/build"
-echo "     ./streamer"
+echo "     ./videorelay"
 echo ""
 echo "  2. Serve the client (in new terminal):"
 echo "     cd /home/vineet/vineet/i2v_projects/web-video-streamer/client"

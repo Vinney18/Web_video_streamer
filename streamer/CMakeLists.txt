@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.18)
 project(streamer)
 
-set(EXE_NAME "${PROJECT_NAME}")
+set(EXE_NAME "videorelay")
 
 message("--> Project: " ${PROJECT_NAME})
 
