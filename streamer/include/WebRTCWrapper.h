@@ -10,7 +10,7 @@
 #include <functional>
 #include <spdlog/spdlog.h>
 #include "Ffmpeg/FFmpegWrapper.h"
-#include "PlayerServerClient.h"
+#include "RestServiceClient.h"
 #include "SyncHandler.h"
 #include "common.h"
 

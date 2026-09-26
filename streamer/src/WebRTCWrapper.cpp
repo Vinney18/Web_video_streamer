@@ -4,7 +4,7 @@
 #include "json/json.h"
 #include <json/value.h>
 #include "Options.h"
-#include "PlayerServerClient.h"
+#include "RestServiceClient.h"
 #include "Ffmpeg/LiveFFmpegWrapper.h"
 #include "Ffmpeg/PlaybackFFmpegWrapper.h"
 
@@ -30,11 +30,11 @@ WebRTCWrapper::WebRTCWrapper()
     rtc::InitLogger(rtc::LogLevel::Warning);
     rtc::SetThreadPoolSize(2);
 
-    PlayerServerClient::init();
+    RestServiceClient::init();
 
     if (mainLogger)
     {
-        mainLogger->info("WebRTCWrapper initialized");
+        mainLogger->info("[WebRTC] Wrapper initialized");
     }
 }
 
@@ -47,7 +47,7 @@ WebRTCWrapper::~WebRTCWrapper()
 
     if (mainLogger)
     {
-        mainLogger->info("WebRTCWrapper destroyed");
+        mainLogger->info("[WebRTC] Wrapper destroyed");
     }
 }
 
@@ -73,27 +73,27 @@ void WebRTCWrapper::logStats()
         std::lock_guard<std::mutex> lock2(liveStreamsMutex);
         liveCount = liveStreams.size();
     }
-    std::cout << "[Stats] WebRTC connections: " << connections.size()
-              << ", Live FFmpeg streams: " << liveCount << std::endl;
+    std::cout << "[Stats] WebRTC: connections=" << connections.size()
+              << ", liveFFmpegStreams=" << liveCount << std::endl;
     for (const auto &[id, conn] : connections)
     {
         if (conn->packetsSent == 0)
         {
-            std::cout << "  " << id << " | packets: " << conn->packetsSent << std::endl;
+            std::cout << "[Stats] WebRTC: client=" << id << ", packetsSent=" << conn->packetsSent << std::endl;
         }
     }
 
     // Log sync groups
     {
         std::lock_guard<std::mutex> sgLock(syncHandler_.groupsMutex_);
-        std::cout << "[Stats] Sync groups: " << syncHandler_.groups_.size() << std::endl;
+        std::cout << "[Stats] Sync: groups=" << syncHandler_.groups_.size() << std::endl;
         for (const auto &[groupId, info] : syncHandler_.groups_)
         {
             std::lock_guard<std::mutex> infoLock(info->mutex);
-            std::cout << "  group=" << groupId
-                      << " | clients=" << info->clientIds.size()
-                      << " | ffmpegRefs=" << info->ffmpegRefs.size()
-                      << " | released=" << (info->released ? "yes" : "no") << std::endl;
+            std::cout << "[Stats] Sync: group=" << groupId
+                      << ", clients=" << info->clientIds.size()
+                      << ", ffmpegRefs=" << info->ffmpegRefs.size()
+                      << ", released=" << (info->released ? "yes" : "no") << std::endl;
         }
     }
 }
@@ -119,7 +119,7 @@ void WebRTCWrapper::setupVideoTrack(std::shared_ptr<rtc::PeerConnection> pc,
 
     if (mainLogger)
     {
-        mainLogger->info("Video track added: codec={}, separator={}, client={}",
+        mainLogger->info("[WebRTC] Video track added: codec={}, separator={}, client={}",
                          avcodec_get_name(codecId),
                          isAvccFormat ? "AVCC/Length" : "AnnexB/StartSequence",
                          connInfo->clientId);
@@ -134,7 +134,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
     {
         if (mainLogger)
         {
-            mainLogger->info("Creating peer connection for client: {}", clientId);
+            mainLogger->info("[WebRTC] Creating peer connection: client={}", clientId);
         }
 
         // WebRTC configuration with STUN servers
@@ -143,23 +143,23 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
         config.iceServers.emplace_back("stun:stun1.l.google.com:19302");
 
         auto &appCfg = AppConfig::instance();
-        if (appCfg.getBool("enableTurn"))
+        if (appCfg.getBool("turnServer.enabled"))
         {
-            const std::string turnUrl = appCfg.get("turnUrl");
+            const std::string turnUrl = appCfg.get("turnServer.url");
             if (!turnUrl.empty())
             {
                 rtc::IceServer turn(turnUrl);
-                turn.username = appCfg.get("turnUsername");
-                turn.password = appCfg.get("turnPassword");
+                turn.username = appCfg.get("turnServer.username");
+                turn.password = appCfg.get("turnServer.password");
                 config.iceServers.push_back(std::move(turn));
                 if (mainLogger)
                 {
-                    mainLogger->info("TURN enabled: {}", turnUrl);
+                    mainLogger->info("[WebRTC] TURN enabled: url={}", turnUrl);
                 }
             }
             else if (mainLogger)
             {
-                mainLogger->warn("enableTurn=true but turnUrl is empty; skipping TURN");
+                mainLogger->warn("[WebRTC] TURN is enabled but turnServer.url is empty, skipping TURN");
             }
         }
 
@@ -176,7 +176,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
         pc->onStateChange([this, clientId](rtc::PeerConnection::State state)
                           {
             if (mainLogger) {
-                mainLogger->info("Client {} peer connection state: {}", clientId, (int)state);
+                mainLogger->info("[WebRTC] Peer connection state changed: client={}, state={}", clientId, (int)state);
             }
 
             if (state == rtc::PeerConnection::State::Connected) {
@@ -206,7 +206,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
             else if (state == rtc::PeerConnection::State::Disconnected
                 ) {
                 if (mainLogger) {
-                    mainLogger->info("Client {} disconnected, cleaning up", clientId);
+                    mainLogger->info("[WebRTC] Client disconnected, cleaning up: client={}", clientId);
                 }
                 
             } 
@@ -220,7 +220,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
             // Logging only. Streaming starts on PeerConnection::State::Connected;
             // ICE Completed is not required (and may never arrive over a relay).
             if (mainLogger) {
-                mainLogger->info("Client {} ICE connection state: {}", clientId, (int)state);
+                mainLogger->info("[WebRTC] ICE connection state changed: client={}, state={}", clientId, (int)state);
             } });
 
         pc->onGatheringStateChange([this, clientId](rtc::PeerConnection::GatheringState state)
@@ -229,14 +229,14 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
             // is not a prerequisite for sending media (we trickle ICE), so it does not gate
             // the stream start.
             if (mainLogger) {
-                mainLogger->debug("Client {} ICE gathering state: {}", clientId, (int)state);
+                mainLogger->debug("[WebRTC] ICE gathering state changed: client={}, state={}", clientId, (int)state);
             } });
 
         // Trickle ICE: Send candidates as they are discovered
         pc->onLocalCandidate([this, clientId](rtc::Candidate candidate)
                              {
             if (mainLogger) {
-                mainLogger->debug("Sending ICE candidate to client {}", clientId);
+                mainLogger->debug("[WebRTC] Sending ICE candidate: client={}", clientId);
             }
             
 
@@ -252,7 +252,7 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
         pc->onLocalDescription([this, clientId](rtc::Description description)
                                {
             if (mainLogger) {
-                mainLogger->info("Sending SDP offer to client: {}", clientId);
+                mainLogger->info("[WebRTC] Sending SDP offer: client={}", clientId);
             }
 
             Json::Value offerMsg;
@@ -267,13 +267,13 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
             iceServers.append(stun2);
 
             auto &appCfg = AppConfig::instance();
-            if (appCfg.getBool("enableTurn")) {
-                const std::string turnUrl = appCfg.get("turnUrl");
+            if (appCfg.getBool("turnServer.enabled")) {
+                const std::string turnUrl = appCfg.get("turnServer.url");
                 if (!turnUrl.empty()) {
                     Json::Value turn;
                     turn["urls"] = turnUrl;
-                    turn["username"] = appCfg.get("turnUsername");
-                    turn["credential"] = appCfg.get("turnPassword");
+                    turn["username"] = appCfg.get("turnServer.username");
+                    turn["credential"] = appCfg.get("turnServer.password");
                     iceServers.append(turn);
                 }
             }
@@ -318,13 +318,13 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
         dc->onOpen([this, clientId]()
                    {
             if (mainLogger) {
-                mainLogger->info("Data channel opened for client {}", clientId);
+                mainLogger->info("[WebRTC] Data channel opened: client={}", clientId);
             } });
 
         dc->onClosed([this, clientId]()
                      {
             if (mainLogger) {
-                mainLogger->info("Data channel closed for client {}", clientId);
+                mainLogger->info("[WebRTC] Data channel closed: client={}", clientId);
             } });
 
         dc->onMessage([this, clientId](std::variant<rtc::binary, std::string> data)
@@ -350,14 +350,14 @@ void WebRTCWrapper::createPeerConnection(const std::string &clientId,
         }
         if (mainLogger)
         {
-            mainLogger->info("Peer connection created and offer sent for client: {}", clientId);
+            mainLogger->info("[WebRTC] Peer connection created and offer sent: client={}", clientId);
         }
     }
     catch (const std::exception &ex)
     {
         if (mainLogger)
         {
-            mainLogger->error("Error creating peer connection for client {}: {}", clientId, ex.what());
+            mainLogger->error("[WebRTC] Failed to create peer connection: client={}, error={}", clientId, ex.what());
         }
         throw;
     }
@@ -370,7 +370,7 @@ void WebRTCWrapper::startStream(const std::string &clientId, const std::string &
     {
         if (mainLogger)
         {
-            mainLogger->info("Starting WebRTC stream for client: {} url={} codec={}",
+            mainLogger->info("[WebRTC] Starting stream: client={}, url={}, codec={}",
                              clientId, url, avcodec_get_name(codecId));
         }
 
@@ -380,7 +380,7 @@ void WebRTCWrapper::startStream(const std::string &clientId, const std::string &
     {
         if (mainLogger)
         {
-            mainLogger->error("Error starting stream for client {}: {}", clientId, ex.what());
+            mainLogger->error("[WebRTC] Failed to start stream: client={}, error={}", clientId, ex.what());
         }
         signalingTransport_.sendMessage(clientId, buildJsonMessage("error", ex.what()));
     }
@@ -392,7 +392,7 @@ void WebRTCWrapper::handleAnswer(const std::string &clientId, const std::string 
     {
         if (mainLogger)
         {
-            mainLogger->info("Handling answer from client: {}", clientId);
+            mainLogger->info("[WebRTC] Handling SDP answer: client={}", clientId);
         }
 
         std::shared_ptr<WebRTCConnectionInfo> connInfo;
@@ -403,7 +403,7 @@ void WebRTCWrapper::handleAnswer(const std::string &clientId, const std::string 
             {
                 if (mainLogger)
                 {
-                    mainLogger->warn("Answer for unknown client: {}", clientId);
+                    mainLogger->warn("[WebRTC] SDP answer received for unknown client: client={}", clientId);
                 }
                 return;
             }
@@ -416,14 +416,14 @@ void WebRTCWrapper::handleAnswer(const std::string &clientId, const std::string 
 
         if (mainLogger)
         {
-            mainLogger->info("Remote description (answer) set for client: {}", clientId);
+            mainLogger->info("[WebRTC] Remote description (answer) set: client={}", clientId);
         }
     }
     catch (const std::exception &ex)
     {
         if (mainLogger)
         {
-            mainLogger->error("Error handling answer from client {}: {}", clientId, ex.what());
+            mainLogger->error("[WebRTC] Failed to handle SDP answer: client={}, error={}", clientId, ex.what());
         }
     }
 }
@@ -441,7 +441,7 @@ void WebRTCWrapper::handleIceCandidate(const std::string &clientId, const std::s
             {
                 if (mainLogger)
                 {
-                    mainLogger->warn("ICE candidate for unknown client: {}", clientId);
+                    mainLogger->warn("[WebRTC] ICE candidate received for unknown client: client={}", clientId);
                 }
                 return;
             }
@@ -452,14 +452,14 @@ void WebRTCWrapper::handleIceCandidate(const std::string &clientId, const std::s
 
         if (mainLogger)
         {
-            mainLogger->debug("Added ICE candidate for client: {}", clientId);
+            mainLogger->debug("[WebRTC] ICE candidate added: client={}", clientId);
         }
     }
     catch (const std::exception &ex)
     {
         if (mainLogger)
         {
-            mainLogger->error("Error adding ICE candidate for client {}: {}", clientId, ex.what());
+            mainLogger->error("[WebRTC] Failed to add ICE candidate: client={}, error={}", clientId, ex.what());
         }
     }
 }
@@ -504,7 +504,7 @@ void WebRTCWrapper::removeConnection(const std::string &clientId)
 
                 if (mainLogger)
                 {
-                    mainLogger->info("Stopped FFmpeg instance for client: {}", clientId);
+                    mainLogger->info("[WebRTC] FFmpeg instance stopped: client={}", clientId);
                 }
             }
         }
@@ -512,20 +512,20 @@ void WebRTCWrapper::removeConnection(const std::string &clientId)
         {
             if (mainLogger)
             {
-                mainLogger->error("No FFmpeg wrapper to remove connection from for client:  {}", clientId);
+                mainLogger->error("[WebRTC] No FFmpeg wrapper found to detach connection from: client={}", clientId);
             }
         }
 
         if (mainLogger)
         {
-            mainLogger->info("Removed connection for client: {}", clientId);
+            mainLogger->info("[WebRTC] Connection removed: client={}", clientId);
         }
     }
     catch (const std::exception &ex)
     {
         if (mainLogger)
         {
-            mainLogger->error("Error removing connection for client {}: {}", clientId, ex.what());
+            mainLogger->error("[WebRTC] Failed to remove connection: client={}, error={}", clientId, ex.what());
         }
     }
 }
@@ -549,7 +549,7 @@ void WebRTCWrapper::handleDataChannelMessage(const std::string &clientId, std::v
 
         if (mainLogger)
         {
-            mainLogger->info("Client {} sent message: {}", clientId, message);
+            mainLogger->info("[WebRTC] Data channel message received: client={}, message={}", clientId, message);
         }
 
         // Find FFmpeg instance for this client
@@ -561,7 +561,7 @@ void WebRTCWrapper::handleDataChannelMessage(const std::string &clientId, std::v
             {
                 if (mainLogger)
                 {
-                    mainLogger->warn("No FFmpeg instance for client {}", clientId);
+                    mainLogger->warn("[WebRTC] No FFmpeg instance found: client={}", clientId);
                 }
                 return;
             }
@@ -572,7 +572,7 @@ void WebRTCWrapper::handleDataChannelMessage(const std::string &clientId, std::v
         if (message == "Version")
         {
             webConnHdl id = clientId;
-            SendStringData(id, "--version " + i2v::VERSION);
+            SendStringData(id, "--version " + nmetics::VERSION);
         }
         else if (message == "Server Status")
         {
@@ -602,7 +602,7 @@ void WebRTCWrapper::handleDataChannelMessage(const std::string &clientId, std::v
     {
         if (mainLogger)
         {
-            mainLogger->error("Error handling data channel message from client {}: {}", clientId, ex.what());
+            mainLogger->error("[WebRTC] Failed to handle data channel message: client={}, error={}", clientId, ex.what());
         }
     }
 }
@@ -630,7 +630,7 @@ void WebRTCWrapper::SendData(webConnHdl &clientId, std::vector<uint8_t> &data)
                 static bool loggedOnce = false;
                 if (!loggedOnce)
                 {
-                    std::cout << "SendData: videoTrack is NULL - onTrack callback never fired" << std::endl;
+                    std::cout << "[WebRTC] Cannot send video: video track is null (onTrack callback never fired)" << std::endl;
                     loggedOnce = true;
                 }
                 return;
@@ -641,7 +641,7 @@ void WebRTCWrapper::SendData(webConnHdl &clientId, std::vector<uint8_t> &data)
                 static bool loggedOnce2 = false;
                 if (!loggedOnce2)
                 {
-                    std::cout << "SendData: isConnected=false, peer connection not connected yet" << std::endl;
+                    std::cout << "[WebRTC] Cannot send video: peer connection is not connected yet" << std::endl;
                     loggedOnce2 = true;
                 }
                 return;
@@ -685,7 +685,7 @@ void WebRTCWrapper::SendData(webConnHdl &clientId, std::vector<uint8_t> &data)
     {
         if (mainLogger)
         {
-            mainLogger->error("Error sending video data: {}", ex.what());
+            mainLogger->error("[WebRTC] Failed to send video data: {}", ex.what());
         }
     }
 }
@@ -713,7 +713,7 @@ void WebRTCWrapper::SendStringData(webConnHdl &clientId, std::string sdata)
     {
         if (mainLogger)
         {
-            mainLogger->error("Error sending string data: {}", ex.what());
+            mainLogger->error("[WebRTC] Failed to send string data: {}", ex.what());
         }
     }
 }
@@ -856,7 +856,7 @@ void WebRTCWrapper::processRequest(const std::string &clientId)
 
                 if (mainLogger)
                 {
-                    mainLogger->info("Stopped FFmpeg instance for client: {}", clientId);
+                    mainLogger->info("[WebRTC] FFmpeg instance stopped: client={}", clientId);
                 }
             }
             return;
@@ -864,14 +864,14 @@ void WebRTCWrapper::processRequest(const std::string &clientId)
 
         if (mainLogger)
         {
-            mainLogger->info("Created FFmpeg wrapper for client {} in {} mode", clientId, mode);
+            mainLogger->info("[WebRTC] FFmpeg wrapper created: client={}, mode={}", clientId, mode);
         }
     }
     catch (const std::exception &ex)
     {
         if (mainLogger)
         {
-            mainLogger->error("Error processing request for client {}: {}", clientId, ex.what());
+            mainLogger->error("[WebRTC] Failed to process stream request: client={}, error={}", clientId, ex.what());
         }
     }
 }

@@ -165,7 +165,7 @@ The client expects these HTTP endpoints on the server:
 - `Stopped` - Video stopped
 - `retrying` - Server retrying connection
 - `{"event":"Playback_Finished","cameraId":"...","nextTime":...}` - Playback segment finished
-- `Player_Server_Not_Connected` - Player server unavailable
+- `Player_Server_Not_Connected` - Legacy, no longer sent by the streamer
 - `URL_Server_Not_Connected` - URL server unavailable
 
 ## Statistics Panel

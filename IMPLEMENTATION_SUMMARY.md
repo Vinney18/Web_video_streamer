@@ -216,7 +216,7 @@ dc->onMessage([this, clientId](auto data) {
 - **Poco::Net**: HTTP server for signaling
 - **jsoncpp**: JSON parsing (SDP, ICE)
 - **spdlog**: Logging
-- **cpr**: HTTP client (player server)
+- **cpr**: HTTP client (RestService)
 - **FFmpeg**: Video encoding/decoding
 
 ## Testing Checklist

@@ -32,7 +32,7 @@ void SyncHandler::incrementExpectedCount(const std::string& groupId, const std::
 
 		if (logger_)
 		{
-			logger_->info("SyncHandler: created group '{}', client '{}', expected count = 1", groupId, clientId);
+			logger_->info("[Sync] Group created: group={}, client={}, expectedCount=1", groupId, clientId);
 		}
 	}
 	else
@@ -41,7 +41,7 @@ void SyncHandler::incrementExpectedCount(const std::string& groupId, const std::
 
 		if (logger_)
 		{
-			logger_->info("SyncHandler: group '{}' client '{}' added, expected count = {}",
+			logger_->info("[Sync] Client added to group: group={}, client={}, expectedCount={}",
 						  groupId, clientId, it->second->clientIds.size());
 		}
 	}
@@ -72,7 +72,7 @@ void SyncHandler::waitForReady(const std::string& groupId, FFmpegWrapper* ffmpeg
 
 		if (logger_)
 		{
-			logger_->info("SyncHandler: group '{}' — {}/{} FFmpeg instances ready",
+			logger_->info("[Sync] FFmpeg instances ready: group={}, ready={}/{}",
 						  groupId, info->ffmpegRefs.size(), info->clientIds.size());
 		}
 
@@ -93,7 +93,7 @@ void SyncHandler::waitForReady(const std::string& groupId, FFmpegWrapper* ffmpeg
 
 		if (logger_)
 		{
-			logger_->info("SyncHandler: group '{}' — all {} members ready, starting playback",
+			logger_->info("[Sync] All members ready, starting playback: group={}, members={}",
 						  groupId, info->clientIds.size());
 		}
 		return;
@@ -111,7 +111,7 @@ void SyncHandler::waitForReady(const std::string& groupId, FFmpegWrapper* ffmpeg
 		{
 			if (logger_)
 			{
-				logger_->warn("SyncHandler: group '{}' — timeout after {}s, starting with {}/{} members",
+				logger_->warn("[Sync] Ready timeout, starting with partial group: group={}, timeoutSeconds={}, ready={}/{}",
 							  groupId, TIMEOUT_SECONDS,
 							  info->ffmpegRefs.size(), info->clientIds.size());
 			}
@@ -154,7 +154,7 @@ void SyncHandler::removeMember(const std::string& groupId, const std::string& cl
 
 		if (logger_)
 		{
-			logger_->info("SyncHandler: group '{}' — client '{}' removed, {}/{} remaining",
+			logger_->info("[Sync] Client removed from group: group={}, client={}, remaining={}/{}",
 						  groupId, clientId, info->ffmpegRefs.size(), info->clientIds.size());
 		}
 

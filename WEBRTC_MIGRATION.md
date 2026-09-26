@@ -85,7 +85,7 @@ Expected logs:
 [info] Logger created Successfully
 [info] WebRTCWrapper initialized on port: 8181
 [info] Starting WebRTC signaling server on port: 8181
-[info] Player server IP is: 127.0.0.1 and port is: 8890
+[info] Rest server IP is: 127.0.0.1 and port is: 8800
 [info] WebRTC signaling server started successfully
 ```
 
@@ -225,7 +225,7 @@ target_link_libraries(... LibDataChannel::LibDataChannel)
 **Video not playing**
 - Check FFmpegWrapper logs for codec errors
 - Verify camera ID is correct
-- Check player server is accessible
+- Check RestService (restServer.ip:restServer.port) is accessible
 
 ### No Video/Audio
 
@@ -369,7 +369,7 @@ For issues:
 - Check server logs in `~/.i2v_streamer/logs/`
 - Check browser console (F12)
 - Verify ffmpeg dependencies
-- Verify player server is running
+- Verify RestService is running
 
 ## Files Modified
 

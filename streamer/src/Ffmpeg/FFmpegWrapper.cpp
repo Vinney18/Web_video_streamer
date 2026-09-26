@@ -41,7 +41,7 @@ int FFmpegWrapper::run()
 					}
 					else if (logger)
 					{
-						logger->error("[{}] Failed to init H265->MJPEG transcoder", cameraId);
+						logger->error("[FFmpeg] Failed to initialize H265->MJPEG transcoder: camera={}", cameraId);
 					}
 				}
 
@@ -143,14 +143,14 @@ void FFmpegWrapper::readInput()
 		// Log why we exited the read loop
 		if (mStop)
 		{
-			std::cout << "[" << cameraId << "] Read loop exited: mStop was set (frameCount=" << frameCount << ")" << std::endl;
+			std::cout << "[FFmpeg] Read loop exited, stop requested: camera=" << cameraId << ", frameCount=" << frameCount << std::endl;
 		}
 		else
 		{
 			char errbuf[AV_ERROR_MAX_STRING_SIZE];
 			av_strerror(readResult, errbuf, sizeof(errbuf));
-			std::cout << "[" << cameraId << "] Read loop exited: av_read_frame returned " << readResult
-					  << " (" << errbuf << "), frameCount= " << frameCount << std::endl;
+			std::cout << "[FFmpeg] Read loop exited, av_read_frame failed: camera=" << cameraId << ", code=" << readResult
+					  << ", error=" << errbuf << ", frameCount=" << frameCount << std::endl;
 		}
 
 		// Check if we're stopping - don't send finish message if stopped
@@ -254,7 +254,7 @@ void FFmpegWrapper::closeInput()
 	}
 	catch (const std::exception &ex)
 	{
-		std::cout << ex.what() << std::endl;
+		std::cout << "[FFmpeg] Failed to close input: " << ex.what() << std::endl;
 	}
 }
 

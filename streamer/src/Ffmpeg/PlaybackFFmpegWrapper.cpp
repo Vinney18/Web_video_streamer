@@ -43,7 +43,7 @@ vector<uint8_t> PlaybackFFmpegWrapper::processPacket(AVPacket &packet, int64_t f
 		else
 		{
 			currentPTS = (frameCount - 1) / inputFPS;
-			std::cout << "----------Warning: No PTS/DTS available, using frame count for timing" << std::endl;
+			std::cout << "[Playback] No PTS/DTS available, using frame count for timing" << std::endl;
 		}
 
 		if (playbackStartPTS < 0)
@@ -81,13 +81,13 @@ void PlaybackFFmpegWrapper::onReadLoopFinished()
 		originalRequestTime = originalRequestTime + difference + 1;
 		initial_seek_time = initial_seek_time + difference + 1;
 		videoDuration = currentVideoDuration;
-		logger->error("##########Warning: HTTP duration {} differs from stream duration {} orignal request time {}", existingVideoDuration, currentVideoDuration, originalRequestTime);
+		logger->error("[Playback] Server-reported duration differs from stream duration: serverDuration={}, streamDuration={}, originalRequestTime={}", existingVideoDuration, currentVideoDuration, originalRequestTime);
 		// std::cout << "##########Warning: HTTP duration " << existingVideoDuration << " differs from stream duration " << currentVideoDuration << std::endl;
 		return;
 	}
 	else
 	{
-		logger->error("##########Duration from HTTP matches stream duration: {} seconds", existingVideoDuration);
+		logger->error("[Playback] Server-reported duration matches stream duration: durationSeconds={}", existingVideoDuration);
 	}
 
 	playbackStartPTS = -1.0;
@@ -145,11 +145,11 @@ void PlaybackFFmpegWrapper::seek_video(int time_toSeek_insec)
 			fileseekingstarted = false;
 			if (logger)
 			{
-				logger->error("Exception in seek video: {}", ex.what());
+				logger->error("[Playback] Seek failed: {}", ex.what());
 			}
 			else
 			{
-				std::cout << "Exception in seek video: " << ex.what() << std::endl;
+				std::cout << "[Playback] Seek failed: " << ex.what() << std::endl;
 			}
 		}
 	}
@@ -179,7 +179,7 @@ int PlaybackFFmpegWrapper::getNextPlaybackTime()
 	}
 	int nextTime = originalRequestTime + difference + 1;
 
-	std::cout << "Calculated next playback time: original=" << originalRequestTime
+	std::cout << "[Playback] Next playback time calculated: original=" << originalRequestTime
 			  << ", segmentDuration=" << segmentDuration
 			  << ", seekTime=" << initial_seek_time
 			  << ", next=" << nextTime << std::endl;
@@ -194,7 +194,7 @@ void PlaybackFFmpegWrapper::handleClientCommand(const std::string &jsonMessage)
 	{
 		if (logger)
 		{
-			logger->warn("Invalid JSON command: {}", jsonMessage);
+			logger->warn("[Playback] Invalid JSON command: {}", jsonMessage);
 		}
 		return;
 	}

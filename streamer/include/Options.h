@@ -18,7 +18,7 @@
 // for convenience
 using json = nlohmann::json;
 
-#if I2V_DEBUG
+#if NMETICS_DEBUG
 #define OPTIONS_DEBUG 0
 #else
 #define OPTIONS_DEBUG 0

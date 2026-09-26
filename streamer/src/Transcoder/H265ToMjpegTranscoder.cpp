@@ -29,7 +29,7 @@ bool H265ToMjpegTranscoder::init(const AVCodecParameters* inputPar)
 {
 	if (!inputPar || inputPar->width <= 0 || inputPar->height <= 0)
 	{
-		if (logger_) logger_->error("H265ToMjpeg: invalid input parameters");
+		if (logger_) logger_->error("[H265ToMjpeg] Invalid input parameters");
 		return false;
 	}
 
@@ -37,7 +37,7 @@ bool H265ToMjpegTranscoder::init(const AVCodecParameters* inputPar)
 	const AVCodec* dec = avcodec_find_decoder(AV_CODEC_ID_HEVC);
 	if (!dec)
 	{
-		if (logger_) logger_->error("H265ToMjpeg: HEVC decoder not found");
+		if (logger_) logger_->error("[H265ToMjpeg] HEVC decoder not found");
 		return false;
 	}
 	decoderCtx_ = avcodec_alloc_context3(dec);
@@ -45,12 +45,12 @@ bool H265ToMjpegTranscoder::init(const AVCodecParameters* inputPar)
 		return false;
 	if (avcodec_parameters_to_context(decoderCtx_, inputPar) < 0)
 	{
-		if (logger_) logger_->error("H265ToMjpeg: failed to copy decoder parameters");
+		if (logger_) logger_->error("[H265ToMjpeg] Failed to copy decoder parameters");
 		return false;
 	}
 	if (avcodec_open2(decoderCtx_, dec, nullptr) < 0)
 	{
-		if (logger_) logger_->error("H265ToMjpeg: failed to open HEVC decoder");
+		if (logger_) logger_->error("[H265ToMjpeg] Failed to open HEVC decoder");
 		return false;
 	}
 
@@ -58,7 +58,7 @@ bool H265ToMjpegTranscoder::init(const AVCodecParameters* inputPar)
 	const AVCodec* enc = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
 	if (!enc)
 	{
-		if (logger_) logger_->error("H265ToMjpeg: MJPEG encoder not found");
+		if (logger_) logger_->error("[H265ToMjpeg] MJPEG encoder not found");
 		return false;
 	}
 	encoderCtx_ = avcodec_alloc_context3(enc);
@@ -76,7 +76,7 @@ bool H265ToMjpegTranscoder::init(const AVCodecParameters* inputPar)
 	encoderCtx_->global_quality = FF_QP2LAMBDA * kJpegQScale;
 	if (avcodec_open2(encoderCtx_, enc, nullptr) < 0)
 	{
-		if (logger_) logger_->error("H265ToMjpeg: failed to open MJPEG encoder");
+		if (logger_) logger_->error("[H265ToMjpeg] Failed to open MJPEG encoder");
 		return false;
 	}
 
@@ -87,7 +87,7 @@ bool H265ToMjpegTranscoder::init(const AVCodecParameters* inputPar)
 		return false;
 
 	if (logger_)
-		logger_->info("H265ToMjpeg: initialized {}x{}", inputPar->width, inputPar->height);
+		logger_->info("[H265ToMjpeg] Initialized: resolution={}x{}", inputPar->width, inputPar->height);
 	return true;
 }
 
@@ -107,7 +107,7 @@ bool H265ToMjpegTranscoder::ensureScaler(int width, int height, int srcFormat)
 							 SWS_BILINEAR, nullptr, nullptr, nullptr);
 	if (!swsCtx_)
 	{
-		if (logger_) logger_->error("H265ToMjpeg: failed to create scaler");
+		if (logger_) logger_->error("[H265ToMjpeg] Failed to create scaler");
 		return false;
 	}
 
@@ -118,7 +118,7 @@ bool H265ToMjpegTranscoder::ensureScaler(int width, int height, int srcFormat)
 	scaledFrame_->height = height;
 	if (av_frame_get_buffer(scaledFrame_, 32) < 0)
 	{
-		if (logger_) logger_->error("H265ToMjpeg: failed to allocate scaled frame buffer");
+		if (logger_) logger_->error("[H265ToMjpeg] Failed to allocate scaled frame buffer");
 		sws_freeContext(swsCtx_);
 		swsCtx_ = nullptr;
 		return false;
@@ -136,7 +136,7 @@ void H265ToMjpegTranscoder::transcode(const AVPacket& packet,
 	int ret = avcodec_send_packet(decoderCtx_, &packet);
 	if (ret < 0)
 	{
-		if (logger_) logger_->warn("H265ToMjpeg: avcodec_send_packet failed ({})", ret);
+		if (logger_) logger_->warn("[H265ToMjpeg] avcodec_send_packet failed: code={}", ret);
 		return;
 	}
 
@@ -147,7 +147,7 @@ void H265ToMjpegTranscoder::transcode(const AVPacket& packet,
 			break;
 		if (ret < 0)
 		{
-			if (logger_) logger_->warn("H265ToMjpeg: avcodec_receive_frame failed ({})", ret);
+			if (logger_) logger_->warn("[H265ToMjpeg] avcodec_receive_frame failed: code={}", ret);
 			break;
 		}
 
@@ -174,7 +174,7 @@ void H265ToMjpegTranscoder::encodeFrame(AVFrame* frame,
 	int ret = avcodec_send_frame(encoderCtx_, frame);
 	if (ret < 0)
 	{
-		if (logger_) logger_->warn("H265ToMjpeg: avcodec_send_frame failed ({})", ret);
+		if (logger_) logger_->warn("[H265ToMjpeg] avcodec_send_frame failed: code={}", ret);
 		return;
 	}
 
@@ -185,7 +185,7 @@ void H265ToMjpegTranscoder::encodeFrame(AVFrame* frame,
 			break;
 		if (ret < 0)
 		{
-			if (logger_) logger_->warn("H265ToMjpeg: avcodec_receive_packet failed ({})", ret);
+			if (logger_) logger_->warn("[H265ToMjpeg] avcodec_receive_packet failed: code={}", ret);
 			break;
 		}
 

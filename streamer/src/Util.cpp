@@ -23,7 +23,7 @@
 #include <spdlog/async.h>
 
 namespace fs = boost::filesystem;
-using namespace i2v;
+using namespace nmetics;
 
 std::string Util::executablePath()
 {
@@ -32,14 +32,14 @@ std::string Util::executablePath()
 
 std::string Util::getLogsFolderPath()
 {
-    static const std::string logsFolder =  fmt::format("{0}/data/{1}", Util::executablePath(), i2v::LOG_FOLDER_NAME);
+    static const std::string logsFolder =  fmt::format("{0}/{1}", Util::executablePath(), nmetics::LOG_FOLDER_NAME);
     return logsFolder;
 }
 
-std::string Util::getConfigFolderPath()
+std::string Util::getConfigFilePath()
 {
-    static const std::string mainConfigFolder = fmt::format("{0}/data/{1}", executablePath(), i2v::CONFIG_FOLDER_NAME);
-    return mainConfigFolder;
+    static const std::string mainConfigFile = fmt::format("{0}/{1}", executablePath(), nmetics::CONFIG_FILE_NAME);
+    return mainConfigFile;
 }
 
 
@@ -73,7 +73,7 @@ std::shared_ptr<spdlog::logger> Util::createAsyncLoggerAndRegister(const std::st
     }
     catch (std::exception& ex)
     {
-        std::cout << "Exception while Initializing Logger { " << mLoggerName <<" }, Error: " << ex.what() << std::endl;
+        std::cout << "[Logger] Failed to initialize logger: name=" << mLoggerName << ", error=" << ex.what() << std::endl;
     }
     return nullptr;
 }

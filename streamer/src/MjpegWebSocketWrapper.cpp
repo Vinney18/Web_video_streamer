@@ -10,7 +10,7 @@ MjpegWebSocketWrapper::MjpegWebSocketWrapper()
 {
     if (mainLogger)
     {
-        mainLogger->info("MjpegWebSocketWrapper initialized");
+        mainLogger->info("[MJPEG] Wrapper initialized");
     }
 }
 
@@ -26,7 +26,7 @@ MjpegWebSocketWrapper::~MjpegWebSocketWrapper()
     }
     if (mainLogger)
     {
-        mainLogger->info("MjpegWebSocketWrapper destroyed");
+        mainLogger->info("[MJPEG] Wrapper destroyed");
     }
 }
 
@@ -53,7 +53,7 @@ void MjpegWebSocketWrapper::SendData(webConnHdl &clientId, std::vector<uint8_t> 
         {
             if (mainLogger)
             {
-                mainLogger->warn("MJPEG: data not sent for {} due to buffer overflow (buffered={} bytes, limit={} bytes, frame={} bytes)",
+                mainLogger->warn("[MJPEG] Frame dropped due to send buffer overflow: client={}, bufferedBytes={}, limitBytes={}, frameBytes={}",
                                  clientId, buffered, kBackpressureLimitBytes, jpeg.size());
             }
             return;
@@ -65,7 +65,7 @@ void MjpegWebSocketWrapper::SendData(webConnHdl &clientId, std::vector<uint8_t> 
     {
         if (mainLogger)
         {
-            mainLogger->error("MjpegWebSocketWrapper::SendData error for {}: {}", clientId, ex.what());
+            mainLogger->error("[MJPEG] Failed to send frame: client={}, error={}", clientId, ex.what());
         }
     }
 }
@@ -85,7 +85,7 @@ void MjpegWebSocketWrapper::SendStringData(webConnHdl &clientId, std::string sda
     {
         if (mainLogger)
         {
-            mainLogger->error("MjpegWebSocketWrapper::SendStringData error for {}: {}", clientId, ex.what());
+            mainLogger->error("[MJPEG] Failed to send text message: client={}, error={}", clientId, ex.what());
         }
     }
 }
@@ -97,7 +97,7 @@ void MjpegWebSocketWrapper::startStream(const std::string &clientId, const std::
     {
         if (mainLogger)
         {
-            mainLogger->info("Starting MJPEG stream for client: {} url={}", clientId, url);
+            mainLogger->info("[MJPEG] Starting stream: client={}, url={}", clientId, url);
         }
 
         // Tell the client to switch to MJPEG mode BEFORE attaching to FFmpeg.
@@ -144,7 +144,7 @@ void MjpegWebSocketWrapper::startStream(const std::string &clientId, const std::
             }
             if (mainLogger)
             {
-                mainLogger->info("MJPEG: started playback FFmpeg for client {} url={}", clientId, url);
+                mainLogger->info("[MJPEG] Playback FFmpeg started: client={}, url={}", clientId, url);
             }
         }
         else
@@ -161,7 +161,7 @@ void MjpegWebSocketWrapper::startStream(const std::string &clientId, const std::
                     ffmpeg->startThread();
                     if (mainLogger)
                     {
-                        mainLogger->info("MJPEG: started upstream FFmpeg for {}", url);
+                        mainLogger->info("[MJPEG] Live upstream FFmpeg started: url={}", url);
                     }
                 }
                 else
@@ -182,7 +182,7 @@ void MjpegWebSocketWrapper::startStream(const std::string &clientId, const std::
     {
         if (mainLogger)
         {
-            mainLogger->error("MJPEG startStream error for {}: {}", clientId, ex.what());
+            mainLogger->error("[MJPEG] Failed to start stream: client={}, error={}", clientId, ex.what());
         }
         Json::Value err;
         err["type"] = "error";
@@ -224,7 +224,7 @@ void MjpegWebSocketWrapper::removeClient(const std::string &clientId)
         ffmpeg->stopThread();
         if (mainLogger)
         {
-            mainLogger->info("MJPEG: torn down playback FFmpeg for client {}", clientId);
+            mainLogger->info("[MJPEG] Playback FFmpeg stopped: client={}", clientId);
         }
         return;
     }
@@ -250,20 +250,20 @@ void MjpegWebSocketWrapper::removeClient(const std::string &clientId)
         }
         if (mainLogger)
         {
-            mainLogger->info("MJPEG: torn down upstream FFmpeg for {}", url);
+            mainLogger->info("[MJPEG] Live upstream FFmpeg stopped: url={}", url);
         }
     }
     else
     {
         if (mainLogger)
         {
-            mainLogger->info("MJPEG: client {} unsubscribed from {} (other subs remain)", clientId, url);
+            mainLogger->info("[MJPEG] Client unsubscribed, other subscribers remain: client={}, url={}", clientId, url);
         }
     }
     }
     catch(const std::exception& e)
     {
-        std::cout << e.what() << '\n';
+        std::cout << "[MJPEG] Failed to remove client: " << e.what() << std::endl;
     }
     
     

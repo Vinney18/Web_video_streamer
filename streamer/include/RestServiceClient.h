@@ -2,10 +2,12 @@
 
 #include <string>
 #include <memory>
+#include <atomic>
 #include <json/json.h>
+#include <cpr/cpr.h>
 #include <spdlog/spdlog.h>
 
-class PlayerServerClient {
+class RestServiceClient {
 public:
     static void init();
 
@@ -19,8 +21,12 @@ public:
     static std::string GetPlayBackUrl(const std::string& cameraId, int startTime, int endTime);
 
 private:
+    static std::string get(const std::string& path, const cpr::Parameters& params, long& status);
+    static std::string localDateTime(int epochSeconds);
+    static std::string replaceLoopbackHost(std::string url);
+
     static std::string serverIp_;
     static int serverPort_;
     static std::shared_ptr<spdlog::logger> logger_;
-    static int count;
+    static std::atomic<int> count;
 };

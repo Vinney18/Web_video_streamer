@@ -9,13 +9,13 @@
 using namespace std;
 using json = nlohmann::json;
 
-namespace i2v {
+namespace nmetics {
 
     class Util {
     public:
         static std::string executablePath();
         static std::string getLogsFolderPath();
-        static std::string getConfigFolderPath();
+        static std::string getConfigFilePath();
         static std::shared_ptr<spdlog::logger> createAsyncLoggerAndRegister(const std::string& mLoggerName, const std::string& logDirPath,
                 const std::string& logFilePrefix, bool createConsoleSink=false, spdlog::level::level_enum log_level = spdlog::level::level_enum::info);
         static bool createDirectories(const std::string& path);

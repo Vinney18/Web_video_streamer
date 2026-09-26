@@ -2,7 +2,7 @@
 #include "WebRTCWrapper.h"
 #include "MjpegWebSocketWrapper.h"
 #include "AppConfig.h"
-#include "PlayerServerClient.h"
+#include "RestServiceClient.h"
 #include "Ffmpeg/FFmpegWrapper.h"
 #include "json/json.h"
 #include <boost/algorithm/string/predicate.hpp>
@@ -53,7 +53,7 @@ void WebSocketSignalingServer::run()
     {
         if (logger_)
         {
-            logger_->info("Starting WebSocket signaling server on port: {}", port_);
+            logger_->info("[Signaling] Starting WebSocket server: port={}", port_);
         }
 
         running_ = true;
@@ -65,10 +65,10 @@ void WebSocketSignalingServer::run()
         config.maxMessageSize = 16 * 1024 * 1024;
         auto& appCfg = AppConfig::instance();
         // config.enableTls = false;
-        config.enableTls = appCfg.getBool("enableTls");
+        config.enableTls = appCfg.getBool("tls.enabled");
         if (config.enableTls) {
-            config.certificatePemFile = appCfg.get("tlsCertPath");
-            config.keyPemFile = appCfg.get("tlsKeyPath");
+            config.certificatePemFile = appCfg.get("tls.certPath");
+            config.keyPemFile = appCfg.get("tls.keyPath");
         }
 
         server_ = std::make_shared<rtc::WebSocketServer>(config);
@@ -79,7 +79,7 @@ void WebSocketSignalingServer::run()
 
         if (logger_)
         {
-            logger_->info("WebSocket signaling server started on port {}", port_);
+            logger_->info("[Signaling] WebSocket server started: port={}", port_);
         }
 
         int statsCounter = 0;
@@ -95,10 +95,10 @@ void WebSocketSignalingServer::run()
                     std::lock_guard<std::mutex> lock(connectionsMutex_);
                     wsCount = connections_.size();
                 }
-                std::cout << "[Stats] WebSocket connections: " << wsCount << std::endl;
+                std::cout << "[Stats] WebSocket: connections=" << wsCount << std::endl;
                 if (logger_)
                 {
-                    logger_->info("[Stats] WebSocket connections: {}", wsCount);
+                    logger_->info("[Stats] WebSocket: connections={}", wsCount);
                 }
                 rtcWrapper_->logStats();
                 mjpegWsWrapper_->logStats();
@@ -111,11 +111,11 @@ void WebSocketSignalingServer::run()
     {
         if (logger_)
         {
-            logger_->error("Error in signaling server: {}", ex.what());
+            logger_->error("[Signaling] Server loop failed: {}", ex.what());
         }
         else
         {
-            std::cout << "Error in signaling server: " << ex.what() << std::endl;
+            std::cout << "[Signaling] Server loop failed: " << ex.what() << std::endl;
         }
     }
 }
@@ -165,7 +165,7 @@ void WebSocketSignalingServer::sendMessage(const std::string &clientId, const st
     {
         if (logger_)
         {
-            logger_->error("Error sending signaling message to {}: {}", clientId, ex.what());
+            logger_->error("[Signaling] Failed to send text message: client={}, error={}", clientId, ex.what());
         }
     }
 }
@@ -195,7 +195,7 @@ void WebSocketSignalingServer::sendBinary(const std::string &clientId, const uin
     {
         if (logger_)
         {
-            logger_->error("Error sending binary to {}: {}", clientId, ex.what());
+            logger_->error("[Signaling] Failed to send binary message: client={}, error={}", clientId, ex.what());
         }
     }
 }
@@ -242,7 +242,7 @@ void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket>
 
     if (logger_)
     {
-        logger_->info("TCP connection accepted, awaiting WS handshake: {}", clientId);
+        logger_->info("[Signaling] TCP connection accepted, awaiting WebSocket handshake: client={}", clientId);
     }
 
     // Insert into connections_ only after the WS handshake completes.
@@ -254,7 +254,7 @@ void WebSocketSignalingServer::onClientConnected(std::shared_ptr<rtc::WebSocket>
             connections_[clientId] = {ws, {}};
         }
         if (logger_) {
-            logger_->info("WebSocket fully opened for: {}", clientId);
+            logger_->info("[Signaling] WebSocket opened: client={}", clientId);
         } });
 
     ws->onClosed([this, clientId]()
@@ -281,7 +281,7 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
     {
         if (logger_)
         {
-            logger_->debug("Received WebSocket message from {}: {}", clientId, message);
+            logger_->debug("[Signaling] Message received: client={}, message={}", clientId, message);
         }
 
         Json::Value root;
@@ -293,7 +293,7 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
         {
             if (logger_)
             {
-                logger_->error("Invalid JSON from client {}: {}", clientId, errs);
+                logger_->error("[Signaling] Invalid JSON received: client={}, error={}", clientId, errs);
             }
             return;
         }
@@ -312,15 +312,15 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
                 }
             }
 
-            sendMessage(clientId, buildJsonMessage("status", "Connecting Player Server"));
-            Json::Value streamInfo = PlayerServerClient::resolveStreamUrl(query);
+            sendMessage(clientId, buildJsonMessage("status", "Resolving stream URL"));
+            Json::Value streamInfo = RestServiceClient::resolveStreamUrl(query);
             std::string url = streamInfo.get("url", "").asString();
 
             if (url.empty() ||
                 boost::starts_with(url, "Player_Server_Not_Connected") ||
                 boost::starts_with(url, "URL_Server_Not_Connected"))
             {
-                if (logger_) logger_->error("Failed to get URL for client {}: {}", clientId, url);
+                if (logger_) logger_->error("[Signaling] Failed to resolve stream URL: client={}, result={}", clientId, url);
                 sendMessage(clientId, buildJsonMessage("error",
                     url.empty() ? "Failed to resolve stream URL" : url));
                 return;
@@ -331,20 +331,20 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
 
             if (!probe.opened)
             {
-                if (logger_) logger_->error("Unable to locate video for client {}: {}", clientId, url);
+                if (logger_) logger_->error("[Signaling] Video not found: client={}, url={}", clientId, url);
                 sendMessage(clientId, buildJsonMessage("error", "Unable to locate video: " + url));
                 return;
             }
             if (probe.codecId == AV_CODEC_ID_NONE)
             {
-                if (logger_) logger_->error("Unable to fetch codec for client {}: {}", clientId, url);
+                if (logger_) logger_->error("[Signaling] Failed to probe codec: client={}, url={}", clientId, url);
                 sendMessage(clientId, buildJsonMessage("error", "Unable to fetch codec from video: " + url));
                 return;
             }
 
             if (logger_)
             {
-                logger_->info("Probed codec for client {}: {}", clientId, avcodec_get_name(probe.codecId));
+                logger_->info("[Signaling] Codec probed: client={}, codec={}", clientId, avcodec_get_name(probe.codecId));
             }
 
             // Reject unsupported codecs first so we don't announce a codec we can't actually serve.
@@ -354,7 +354,7 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
             {
                 if (logger_)
                 {
-                    logger_->error("Unsupported codec for client {}: {}",
+                    logger_->error("[Signaling] Unsupported codec: client={}, codec={}",
                                    clientId, avcodec_get_name(probe.codecId));
                 }
                 sendMessage(clientId, buildJsonMessage("error",
@@ -419,7 +419,7 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
         {
             if (logger_)
             {
-                logger_->warn("Unknown message type from client {}: {}", clientId, type);
+                logger_->warn("[Signaling] Unknown message type: client={}, type={}", clientId, type);
             }
         }
     }
@@ -427,7 +427,7 @@ void WebSocketSignalingServer::onMessage(const std::string &clientId, const std:
     {
         if (logger_)
         {
-            logger_->error("Error processing WebSocket message from {}: {}", clientId, ex.what());
+            logger_->error("[Signaling] Failed to process message: client={}, error={}", clientId, ex.what());
         }
     }
 }
@@ -436,7 +436,7 @@ void WebSocketSignalingServer::onClosed(const std::string &clientId)
 {
     if (logger_)
     {
-        logger_->info("WebSocket closed for client: {}", clientId);
+        logger_->info("[Signaling] WebSocket closed: client={}", clientId);
     }
 
     {
@@ -452,7 +452,7 @@ void WebSocketSignalingServer::onError(const std::string &clientId, const std::s
 {
     if (logger_)
     {
-        logger_->error("WebSocket error for client {}: {}", clientId, error);
+        logger_->error("[Signaling] WebSocket error: client={}, error={}", clientId, error);
     }
 }
 

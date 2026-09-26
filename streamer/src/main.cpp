@@ -9,12 +9,12 @@
 extern "C" {
 #include <libavformat/avformat.h>
 }
-using namespace i2v;
+using namespace nmetics;
 
 
 int main(int argc, char* argv[])
 {
-	CLI::App app{ "i2V streamer" };
+	CLI::App app{ "nmetics streamer" };
 	av_register_all();
 	bool show_logs_on_console = true;
 	app.add_option("-s,--show_log", show_logs_on_console, "Show logs on console");
@@ -22,64 +22,60 @@ int main(int argc, char* argv[])
 	CLI11_PARSE(app, argc, argv)
 		spdlog::init_thread_pool(8192, 1);
 
-	std::string config_dir_path = i2v::Util::getConfigFolderPath();
-	i2v::Util::createDirectories(config_dir_path); // config directory
+	AppConfig::instance().load(nmetics::Util::getConfigFilePath());
 
-	std::string mainConfigFile = config_dir_path + "/mainConf.json";
-	AppConfig::instance().load(mainConfigFile);
-
-	std::string mainLogFolder = i2v::Util::getLogsFolderPath();
-	i2v::Util::createDirectories(mainLogFolder); // log directory
+	std::string mainLogFolder = nmetics::Util::getLogsFolderPath();
+	nmetics::Util::createDirectories(mainLogFolder); // log directory
 
 	// create logger
 	std::string logFilePrefix = "log_";
 	auto logLevel = static_cast<spdlog::level::level_enum>(AppConfig::instance().getInt("logLevel"));
-	auto mainLogger = i2v::Util::createAsyncLoggerAndRegister(i2v::MAIN_LOGGER_NAME, mainLogFolder, logFilePrefix, show_logs_on_console, logLevel);
-	if (not mainLogger) { std::cout << "Unable to create logger !!!" << std::endl; }
+	auto mainLogger = nmetics::Util::createAsyncLoggerAndRegister(nmetics::MAIN_LOGGER_NAME, mainLogFolder, logFilePrefix, show_logs_on_console, logLevel);
+	if (not mainLogger) { std::cout << "[Main] Failed to create logger" << std::endl; }
 	else {
 		AppConfig::instance().setLogger(mainLogger);
-		mainLogger->info("Logger created Successfully");
+		mainLogger->info("[Main] Logger created");
 	}
 
 	// Create a WebRTC server endpoint
 	try {
 		auto& cfg = AppConfig::instance();
-		if (cfg.logger()) { cfg.logger()->info("Starting signaling server on port: {}", cfg.getInt("websocket_server_port")); }
-		if (cfg.logger()) { cfg.logger()->info("Player server IP is: {0} and port is: {1}", cfg.get("playerServerIp"), cfg.getInt("playerServerPort")); }
+		if (cfg.logger()) { cfg.logger()->info("[Main] Starting signaling server: port={}", cfg.getInt("websocketServer.port")); }
+		if (cfg.logger()) { cfg.logger()->info("[Main] REST server configured: ip={}, port={}", cfg.get("restServer.ip"), cfg.getInt("restServer.port")); }
 
 		// Validate TLS configuration
-		if (cfg.getBool("enableTls")) {
-			std::string certPath = cfg.get("tlsCertPath");
-			std::string keyPath = cfg.get("tlsKeyPath");
+		if (cfg.getBool("tls.enabled")) {
+			std::string certPath = cfg.get("tls.certPath");
+			std::string keyPath = cfg.get("tls.keyPath");
 			if (certPath.empty() || keyPath.empty()) {
-				std::string msg = "enableTls is true but tlsCertPath or tlsKeyPath is not provided in config";
+				std::string msg = "[Main] TLS is enabled but tls.certPath or tls.keyPath is missing in config";
 				if (cfg.logger()) { cfg.logger()->error(msg); }
 				else { std::cout << msg << std::endl; }
 				return 1;
 			}
 			if (!boost::filesystem::exists(certPath)) {
-				std::string msg = "TLS certificate file not found: " + certPath;
+				std::string msg = "[Main] TLS certificate file not found: path=" + certPath;
 				if (cfg.logger()) { cfg.logger()->error(msg); }
 				else { std::cout << msg << std::endl; }
 				return 1;
 			}
 			if (!boost::filesystem::exists(keyPath)) {
-				std::string msg = "TLS key file not found: " + keyPath;
+				std::string msg = "[Main] TLS key file not found: path=" + keyPath;
 				if (cfg.logger()) { cfg.logger()->error(msg); }
 				else { std::cout << msg << std::endl; }
 				return 1;
 			}
-			if (cfg.logger()) { cfg.logger()->info("TLS enabled — cert: {}, key: {}", certPath, keyPath); }
+			if (cfg.logger()) { cfg.logger()->info("[Main] TLS enabled: cert={}, key={}", certPath, keyPath); }
 		}
 
-		WebSocketSignalingServer server(cfg.getInt("websocket_server_port"), cfg.logger());
+		WebSocketSignalingServer server(cfg.getInt("websocketServer.port"), cfg.logger());
 		server.run();
 
 	}
 	catch (const std::exception& ex) {
 		auto logger = AppConfig::instance().logger();
-		if (logger) { logger->error("main Error in WebRTC server: {}", ex.what()); }
-		else { std::cout << ex.what() << std::endl; }
+		if (logger) { logger->error("[Main] Signaling server terminated with error: {}", ex.what()); }
+		else { std::cout << "[Main] Signaling server terminated with error: " << ex.what() << std::endl; }
 	}}
 // cd /webwork/build && cmake .. && make -j$(nproc)
 // cd /webwork/build && make -j$(nproc)
