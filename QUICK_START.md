@@ -26,7 +26,7 @@ make -j$(nproc)
 cd /home/vineet/vineet/i2v_projects/web-video-streamer/client
 python3 -m http.server 8080
 
-# Open browser to: http://localhost:8080/webrtc-player.html
+# Open browser to: http://localhost:8080/testingclient.html
 ```
 
 ### 5. Connect
@@ -53,7 +53,7 @@ cmake .. -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake && make 
 # Serve client
 python3 -m http.server 8080 -d client
 
-# Open: http://localhost:8080/webrtc-player.html
+# Open: http://localhost:8080/testingclient.html
 ```
 
 ### Logs
@@ -69,8 +69,8 @@ tail -f ~/.i2v_streamer/logs/log_*.log
 | `streamer/src/WebRTCWrapper.cpp` | WebRTC implementation |
 | `streamer/include/FFmpegWrapper.h` | Video processing (typedef changed) |
 | `streamer/src/main.cpp` | Entry point (uses WebRTCWrapper) |
-| `client/webrtc-player.html` | Browser client UI |
-| `client/webrtc-client.js` | WebRTC client logic |
+| `client/testingclient.html` | Browser client UI |
+| `client/testingclient.js` | WebRTC client logic |
 
 ## Ports
 

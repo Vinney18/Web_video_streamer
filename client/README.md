@@ -34,8 +34,8 @@ A modern, browser-based client for streaming video using WebRTC from the C++ vid
 
 ## Files
 
-- `webrtc-player.html` - Main HTML page with UI
-- `webrtc-client.js` - WebRTC client implementation
+- `testingclient.html` - Main HTML page with UI
+- `testingclient.js` - WebRTC client implementation
 - `README.md` - This file
 
 ## Usage
@@ -75,7 +75,7 @@ php -S localhost:8080
 
 Navigate to:
 ```
-http://localhost:8080/webrtc-player.html
+http://localhost:8080/testingclient.html
 ```
 
 ### 4. Configure Connection
@@ -233,8 +233,8 @@ Open browser developer tools (F12) to see:
 ### Customization
 
 You can customize:
-- **UI styling**: Edit the `<style>` section in `webrtc-player.html`
-- **WebRTC config**: Modify `rtcConfig` in `webrtc-client.js`
+- **UI styling**: Edit the `<style>` section in `testingclient.html`
+- **WebRTC config**: Modify `rtcConfig` in `testingclient.js`
 - **STUN/TURN servers**: Add to `iceServers` array
 - **Control messages**: Add handlers in `sendDataChannelMessage()`
 

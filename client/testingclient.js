@@ -36,6 +36,24 @@ const MAX_RETRIES = 5;
 const CONNECT_TIMEOUT_MS = 10000;
 const RETRY_DELAY_MS = 2000;
 
+/**
+ * Detect whether this browser's WebRTC stack will negotiate H.265/HEVC.
+ * The receiver capabilities are authoritative for the RTP video path;
+ * if H265 isn't listed, SDP will never carry it.
+ */
+function detectH265WebRTC() {
+    try {
+        if (window.RTCRtpReceiver && RTCRtpReceiver.getCapabilities) {
+            const caps = RTCRtpReceiver.getCapabilities('video');
+            return !!(caps && caps.codecs &&
+                caps.codecs.some(c => /h265|hevc|hev1|hvc1/i.test(c.mimeType)));
+        }
+    } catch (_) {}
+    return false;
+}
+
+const H265_SUPPORTED = detectH265WebRTC();
+
 // Default WebRTC configuration - overridden if server supplies iceServers in the offer
 const rtcConfig = {
     iceServers: [
@@ -133,7 +151,8 @@ function buildQuery() {
     const query = {
         cameraId: cameraId,
         mode: mode,
-        streamType: Number(streamType)
+        streamType: Number(streamType),
+        h265Supported: H265_SUPPORTED
     };
 
     if (mode === 'PlayBack' && startTime) {
@@ -804,6 +823,8 @@ document.getElementById('streamMode').addEventListener('change', (e) => {
  */
 window.addEventListener('load', () => {
     log('WebRTC Video Streamer Client initialized (Server-as-Offerer + Trickle ICE)', 'success');
+    log(`H.265 WebRTC support: ${H265_SUPPORTED}`, 'info');
+    updateStats('H265', H265_SUPPORTED ? 'yes' : 'no');
     log('Configure connection settings and click Connect', 'info');
     updateUIState();
 });

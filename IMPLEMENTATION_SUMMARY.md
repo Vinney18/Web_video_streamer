@@ -70,7 +70,7 @@ All phases have been implemented successfully:
    - Dependency manifest for vcpkg
 
 ### Browser Client
-1. **client/webrtc-player.html** (483 lines)
+1. **client/testingclient.html** (483 lines)
    - Modern UI with gradient styling
    - Connection panel
    - Video player
@@ -78,7 +78,7 @@ All phases have been implemented successfully:
    - Statistics dashboard
    - Console logging
 
-2. **client/webrtc-client.js** (483 lines)
+2. **client/testingclient.js** (483 lines)
    - RTCPeerConnection management
    - SDP offer/answer exchange
    - ICE candidate handling
@@ -126,8 +126,8 @@ All phases have been implemented successfully:
 ### Lines of Code
 - **WebRTCWrapper.h**: 145 lines
 - **WebRTCWrapper.cpp**: 1,051 lines
-- **webrtc-player.html**: 483 lines
-- **webrtc-client.js**: 483 lines
+- **testingclient.html**: 483 lines
+- **testingclient.js**: 483 lines
 - **Total New Code**: ~2,162 lines
 
 ### Lines Modified
@@ -274,7 +274,7 @@ dc->onMessage([this, clientId](auto data) {
 2. **Test Client**
    ```bash
    cd ../client && python3 -m http.server 8080
-   # Open: http://localhost:8080/webrtc-player.html
+   # Open: http://localhost:8080/testingclient.html
    ```
 
 3. **Production Setup**

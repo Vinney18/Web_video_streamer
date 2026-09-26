@@ -95,13 +95,13 @@ void WebSocketSignalingServer::run()
                     std::lock_guard<std::mutex> lock(connectionsMutex_);
                     wsCount = connections_.size();
                 }
-                std::cout << "[Stats] WebSocket: connections=" << wsCount << std::endl;
+                //std::cout << "[Stats] WebSocket: connections=" << wsCount << std::endl;
                 if (logger_)
                 {
-                    logger_->info("[Stats] WebSocket: connections={}", wsCount);
+                    //logger_->info("[Stats] WebSocket: connections={}", wsCount);
                 }
-                rtcWrapper_->logStats();
-                mjpegWsWrapper_->logStats();
+                //rtcWrapper_->logStats();
+                //mjpegWsWrapper_->logStats();
             }
         }
 

@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VideoRelay Console</title>
+    <style>
+        :root {
+            --bg: #0e1116;
+            --panel: #161b22;
+            --panel-2: #1c232d;
+            --border: #2a323d;
+            --text: #d6dde6;
+            --muted: #8592a3;
+            --accent: #2dd4bf;
+            --accent-dim: rgba(45, 212, 191, 0.14);
+            --danger: #f87171;
+            --warn: #fbbf24;
+            --ok: #34d399;
+            --radius: 6px;
+            --mono: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: system-ui, -apple-system, 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            font-size: 13px;
+        }
+
+        /* ---------- Top bar ---------- */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--panel);
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            letter-spacing: 0.4px;
+            font-size: 15px;
+        }
+        .brand-mark {
+            width: 22px;
+            height: 22px;
+            border-radius: 4px;
+            border: 2px solid var(--accent);
+            position: relative;
+        }
+        .brand-mark::after {
+            content: '';
+            position: absolute;
+            left: 6px; top: 4px;
+            border-left: 8px solid var(--accent);
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+        }
+        .brand small {
+            font-weight: 400;
+            color: var(--muted);
+            font-size: 12px;
+            margin-left: 4px;
+        }
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 12px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--panel-2);
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .status-pill b { color: var(--text); font-weight: 600; }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+            background: var(--muted);
+        }
+        .status-indicator.connected { background: var(--ok); }
+        .status-indicator.disconnected { background: var(--danger); }
+        .status-indicator.connecting { background: var(--warn); animation: blink 0.9s steps(2) infinite; }
+        @keyframes blink { 50% { opacity: 0.2; } }
+
+        /* ---------- Layout ---------- */
+        .layout {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 16px;
+            padding: 16px 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        @media (max-width: 900px) {
+            .layout { grid-template-columns: 1fr; padding: 12px; }
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+        .card + .card { margin-top: 16px; }
+        .card-title {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: var(--muted);
+            font-weight: 600;
+        }
+        .card-body { padding: 14px; }
+
+        /* ---------- Form ---------- */
+        .field { margin-bottom: 12px; }
+        .field label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .field input,
+        .field select {
+            width: 100%;
+            padding: 8px 10px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-size: 13px;
+            font-family: inherit;
+        }
+        .field input:focus,
+        .field select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-dim);
+        }
+        .field-pair {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 9px 14px;
+            border-radius: 4px;
+            border: 1px solid var(--accent);
+            background: var(--accent);
+            color: #04211d;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            letter-spacing: 0.3px;
+        }
+        .btn:hover { filter: brightness(1.1); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
+        .btn.disconnect {
+            background: transparent;
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+        .btn.disconnect:hover { background: rgba(248, 113, 113, 0.1); }
+        .btn-inline { width: auto; }
+
+        /* ---------- Transport controls ---------- */
+        .control-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 6px;
+        }
+        @media (max-width: 600px) {
+            .control-row { grid-template-columns: repeat(3, 1fr); }
+        }
+        .control-button {
+            padding: 7px 4px;
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .control-button:hover:not(:disabled) {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .control-button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        .seek-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            align-items: flex-end;
+        }
+        .seek-row .field { flex: 1; margin-bottom: 0; }
+
+        /* ---------- Viewer ---------- */
+        .viewer {
+            position: relative;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            aspect-ratio: 16 / 9;
+        }
+        .viewer video,
+        .viewer img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: contain;
+            background: #000;
+        }
+        .video-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 12px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                0deg, rgba(255,255,255,0.02) 0 2px, transparent 2px 4px);
+        }
+        .video-overlay.hidden { display: none; }
+        .no-signal {
+            border: 1px dashed var(--border);
+            padding: 10px 18px;
+            border-radius: 4px;
+        }
+
+        /* ---------- Telemetry ---------- */
+        .telemetry {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            border-top: 1px solid var(--border);
+        }
+        .metric {
+            padding: 10px 14px;
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+        .metric-key {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--muted);
+            margin-bottom: 3px;
+        }
+        .metric-val {
+            font-family: var(--mono);
+            font-size: 13px;
+            color: var(--accent);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* ---------- Event log ---------- */
+        .log {
+            background: var(--bg);
+            font-family: var(--mono);
+            font-size: 11.5px;
+            padding: 10px 14px;
+            height: 220px;
+            overflow-y: auto;
+            color: var(--muted);
+        }
+        .log-entry {
+            padding: 2px 0 2px 8px;
+            border-left: 2px solid transparent;
+            word-wrap: break-word;
+        }
+        .log-entry.info { color: #93a4b8; border-left-color: #3b4a5c; }
+        .log-entry.success { color: var(--ok); border-left-color: var(--ok); }
+        .log-entry.error { color: var(--danger); border-left-color: var(--danger); }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <span class="brand-mark"></span>
+            VideoRelay <small>viewer console</small>
+        </div>
+        <div class="status-pill">
+            <span class="status-indicator" id="statusIndicator"></span>
+            Link: <b id="connectionStatus">Disconnected</b>
+        </div>
+    </header>
+
+    <main class="layout">
+        <!-- Left column: session setup + transport -->
+        <aside>
+            <section class="card">
+                <div class="card-title">Session</div>
+                <div class="card-body">
+                    <div class="field">
+                        <label for="serverUrl">Signaling endpoint</label>
+                        <input type="text" id="serverUrl" value="wss://localhost:8181" placeholder="wss://host:port">
+                    </div>
+                    <div class="field">
+                        <label for="cameraId">Source ID</label>
+                        <input type="text" id="cameraId" value="cam1" placeholder="cam1">
+                    </div>
+                    <div class="field-pair">
+                        <div class="field">
+                            <label for="streamMode">Mode</label>
+                            <select id="streamMode">
+                                <option value="Live">Live</option>
+                                <option value="PlayBack">Playback</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="streamType">Quality</label>
+                            <select id="streamType">
+                                <option value="0">Main</option>
+                                <option value="1">Sub</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="field" id="playbackTimeGroup" style="display: none;">
+                        <label for="startTime">Start at (epoch seconds)</label>
+                        <input type="number" id="startTime" value="0" placeholder="Unix timestamp">
+                    </div>
+                    <div class="field">
+                        <label for="syncGroup">Sync group (optional)</label>
+                        <input type="text" id="syncGroup" value="" placeholder="shared ID to lock viewers together">
+                    </div>
+
+                    <button class="btn" id="connectBtn" onclick="connect()">Start session</button>
+                    <div style="display: none;" id="disconnectBtnGroup">
+                        <button class="btn disconnect" id="disconnectBtn" onclick="disconnect()">End session</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">Transport</div>
+                <div class="card-body">
+                    <div class="control-row">
+                        <button class="control-button" onclick="pauseVideo()" id="pauseBtn" disabled title="Pause">&#10074;&#10074;</button>
+                        <button class="control-button" onclick="resumeVideo()" id="resumeBtn" disabled title="Resume">&#9654;</button>
+                        <button class="control-button" onclick="setSpeed(0.5)" disabled>&times;0.5</button>
+                        <button class="control-button" onclick="setSpeed(1.0)" disabled>&times;1</button>
+                        <button class="control-button" onclick="setSpeed(2.0)" disabled>&times;2</button>
+                        <button class="control-button" onclick="setSpeed(4.0)" disabled>&times;4</button>
+                    </div>
+                    <div class="seek-row">
+                        <div class="field">
+                            <label for="seekTime">Jump to (s)</label>
+                            <input type="number" id="seekTime" value="0" min="0" placeholder="seconds">
+                        </div>
+                        <button class="btn btn-inline" onclick="seekVideo()" id="seekBtn" disabled>Go</button>
+                    </div>
+                </div>
+            </section>
+        </aside>
+
+        <!-- Right column: viewer, telemetry, events -->
+        <div>
+            <section class="card">
+                <div class="card-title">Output</div>
+                <div class="card-body">
+                    <div class="viewer">
+                        <video id="videoPlayer" autoplay playsinline controls></video>
+                        <img id="mjpegImage" style="display:none;" alt="" />
+                        <div class="video-overlay" id="videoOverlay">
+                            <div class="no-signal">No signal</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="telemetry">
+                    <div class="metric">
+                        <div class="metric-key">Peer</div>
+                        <div class="metric-val" id="statConnectionState">new</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-key">ICE</div>
+                        <div class="metric-val" id="statIceState">new</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-key">Channel</div>
+                        <div class="metric-val" id="statDataChannelState">-</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-key">Format</div>
+                        <div class="metric-val" id="statVideoFormat">-</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-key">Codec</div>
+                        <div class="metric-val" id="statCodec">-</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-key">Frames / Bytes</div>
+                        <div class="metric-val" id="statFrames">-</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-key">HEVC capable</div>
+                        <div class="metric-val" id="statH265">-</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-key">Msgs out</div>
+                        <div class="metric-val" id="statMessagesSent">0</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-key">Msgs in</div>
+                        <div class="metric-val" id="statMessagesReceived">0</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-title">Events</div>
+                <div class="log" id="logConsole">
+                    <div class="log-entry info">Ready. Configure a session and press Start.</div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="testingclient.js"></script>
+</body>
+</html>

@@ -108,7 +108,7 @@ python3 -m http.server 8080
 
 Navigate to:
 ```
-http://localhost:8080/webrtc-player.html
+http://localhost:8080/testingclient.html
 ```
 
 ### Step 3: Configure Connection
@@ -244,7 +244,7 @@ target_link_libraries(... LibDataChannel::LibDataChannel)
 ### Data Flow
 
 ```
-Browser (webrtc-player.html)
+Browser (testingclient.html)
     ↓ HTTP POST /offer (SDP)
 WebRTCWrapper (C++ - Poco HTTP Server)
     ↓ Creates rtc::PeerConnection
@@ -377,8 +377,8 @@ For issues:
 - `streamer/include/WebRTCWrapper.h`
 - `streamer/src/WebRTCWrapper.cpp`
 - `streamer/vcpkg.json`
-- `client/webrtc-player.html`
-- `client/webrtc-client.js`
+- `client/testingclient.html`
+- `client/testingclient.js`
 - `client/README.md`
 
 ### Modified
